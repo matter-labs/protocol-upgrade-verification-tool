@@ -1,12 +1,12 @@
 use alloy::primitives::Address;
 use std::cmp::Ordering;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
-use std::ops::Add;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Action {
     Add,
+    #[allow(dead_code)]
     Replace,
     Remove,
 }
