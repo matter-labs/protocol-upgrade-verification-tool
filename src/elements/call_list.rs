@@ -1,5 +1,5 @@
-use alloy::{hex, sol, sol_types::SolValue};
 use crate::{utils::compute_selector, verifiers::Verifiers};
+use alloy::{hex, sol, sol_types::SolValue};
 use std::collections::VecDeque;
 
 sol! {
@@ -24,7 +24,7 @@ impl CallList {
 
     /// Verifies that the `target` of each call corresponds to the 0th item in each of
     /// the `list_of_calls` tuple.
-    /// Also, double checks that the selector of each call corresponds to the function 
+    /// Also, double checks that the selector of each call corresponds to the function
     /// signature in the 1th item in each of the tuple.
     pub fn verify(
         &self,
@@ -44,7 +44,7 @@ impl CallList {
                 }
             }
         }
-        
+
         if !elems.is_empty() {
             errors += 1;
             result.report_error(&format!(
@@ -53,7 +53,7 @@ impl CallList {
                 list_of_calls.len() + elems.len()
             ));
         }
-        
+
         if errors > 0 {
             anyhow::bail!("{} errors", errors)
         }
@@ -67,9 +67,12 @@ fn expect_simple_call(
     target: &str,
     method_name: &str,
 ) -> Result<String, String> {
-    let call = call.ok_or_else(|| format!(
-        "Expected call to: {} with data: {} not found", target, method_name
-    ))?;
+    let call = call.ok_or_else(|| {
+        format!(
+            "Expected call to: {} with data: {} not found",
+            target, method_name
+        )
+    })?;
 
     let address_from_call = verifiers
         .address_verifier
@@ -95,8 +98,7 @@ fn expect_simple_call(
     if actual_selector != method_selector {
         return Err(format!(
             "Expected call to: {} not found - instead the call selector was {}.",
-            method_name,
-            actual_selector
+            method_name, actual_selector
         ));
     }
 

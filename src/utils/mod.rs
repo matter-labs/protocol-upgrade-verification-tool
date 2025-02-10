@@ -1,14 +1,19 @@
 use std::{
-    fs::{self, File}, io::Write, path::Path
+    fs::{self, File},
+    io::Write,
+    path::Path,
 };
 
-use alloy::{hex, primitives::{keccak256, Address, Bytes, FixedBytes, Keccak256, U160}};
+use alloy::{
+    hex,
+    primitives::{keccak256, Address, Bytes, FixedBytes, Keccak256, U160},
+};
 
 pub mod address_verifier;
 pub mod bytecode_verifier;
+pub mod facet_cut_set;
 pub mod fee_param_verifier;
 pub mod network_verifier;
-pub mod facet_cut_set;
 
 pub async fn get_contents_from_github(commit: &str, repo: &str, file_path: &str) -> String {
     let url = format!(
@@ -78,10 +83,7 @@ pub fn compute_create2_address_evm(
     Address::from_slice(&keccak256(address_payload).0[12..])
 }
 
-pub fn compute_hash_with_arguments(
-    input: &Bytes,
-    num_arguments: usize,
-) -> Option<FixedBytes<32>> {
+pub fn compute_hash_with_arguments(input: &Bytes, num_arguments: usize) -> Option<FixedBytes<32>> {
     if input.len() < (num_arguments + 2) * 32 {
         None
     } else {
@@ -92,7 +94,7 @@ pub fn compute_hash_with_arguments(
 pub fn apply_l2_to_l1_alias(addr: Address) -> Address {
     let offset = U160::from_str_radix("1111000000000000000000000000000000001111", 16).unwrap();
 
-    let addr_as_u256 = U160::from_be_bytes(addr.0.0);
+    let addr_as_u256 = U160::from_be_bytes(addr.0 .0);
 
     let result = offset + addr_as_u256;
 

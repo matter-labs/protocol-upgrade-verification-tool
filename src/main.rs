@@ -4,15 +4,17 @@ use alloy::{
 };
 use serde::Deserialize;
 use std::{fmt::Debug, fs, str::FromStr};
-use verifiers::{VerificationResult, Verifiers};
 use utils::{address_verifier::AddressVerifier, apply_l2_to_l1_alias};
+use verifiers::{VerificationResult, Verifiers};
 
 mod elements;
-mod verifiers;
 mod utils;
+mod verifiers;
 use clap::Parser;
 use elements::{
-    call_list::CallList, deployed_addresses::DeployedAddresses, governance_stage1_calls::GovernanceStage1Calls, governance_stage2_calls::GovernanceStage2Calls, post_upgrade_calldata::compute_expected_address_for_file, protocol_version::ProtocolVersion
+    call_list::CallList, deployed_addresses::DeployedAddresses,
+    governance_stage1_calls::GovernanceStage1Calls, governance_stage2_calls::GovernanceStage2Calls,
+    post_upgrade_calldata::compute_expected_address_for_file, protocol_version::ProtocolVersion,
 };
 
 const DEFAULT_CONTRACTS_COMMIT: &str = "6badcb8a9b6114c6dd10d3b172a96812250604b0";
@@ -77,8 +79,13 @@ impl UpgradeOutput {
         }
 
         // Check that addresses actually contain correct bytecodes.
-        self.deployed_addresses.verify(&self, verifiers, result).await?;
-        let (facets_to_remove, facets_to_add) = self.deployed_addresses.get_expected_facet_cuts(verifiers).await?;
+        self.deployed_addresses
+            .verify(&self, verifiers, result)
+            .await?;
+        let (facets_to_remove, facets_to_add) = self
+            .deployed_addresses
+            .get_expected_facet_cuts(verifiers)
+            .await?;
 
         result
             .expect_deployed_bytecode(verifiers, &self.create2_factory_addr, "Create2Factory")
@@ -88,7 +95,14 @@ impl UpgradeOutput {
             calls: CallList::parse(&self.governance_stage1_calls),
         };
 
-        stage1.verify(&self.deployed_addresses, verifiers, result, facets_to_remove.merge(facets_to_add.clone())).await?;
+        stage1
+            .verify(
+                &self.deployed_addresses,
+                verifiers,
+                result,
+                facets_to_remove.merge(facets_to_add.clone()),
+            )
+            .await?;
 
         let stage2 = GovernanceStage2Calls {
             calls: CallList::parse(&self.governance_stage2_calls),
@@ -102,9 +116,8 @@ impl UpgradeOutput {
 #[derive(Debug, Deserialize)]
 struct ContractsConfig {
     expected_rollup_l2_da_validator: Address,
-
-    // TODO: double check the correctness of the rest of the fields. 
-    // These do not impact the correctness of the upgrade, but could assist to ensure no errors 
+    // TODO: double check the correctness of the rest of the fields.
+    // These do not impact the correctness of the upgrade, but could assist to ensure no errors
     // for chain operations.
 }
 
@@ -145,7 +158,6 @@ struct Args {
     // fixme: can it be an address rightaway?
     #[clap(long)]
     bridgehub_address: String,
-
 }
 
 #[tokio::main]
@@ -162,13 +174,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // fixme: idiomatically all initialization should happen in `new` function, not in `main`
     let mut verifiers = Verifiers::new(
-        args.testnet_contracts, 
+        args.testnet_contracts,
         args.bridgehub_address.clone(),
         &args.era_commit,
         &args.contracts_commit,
         args.l1_rpc,
-        args.era_chain_id
-    ).await;
+        args.era_chain_id,
+    )
+    .await;
 
     println!(
         "Adding {} transactions from create2",
@@ -182,8 +195,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &transaction,
                 &config.create2_factory_addr,
                 &config.create2_factory_salt,
-                &verifiers
-                .bytecode_verifier
+                &verifiers.bytecode_verifier,
             )
             .await
         {
@@ -196,7 +208,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 });
 
             verifiers
-                .network_verifier.create2_known_bytecodes.insert(address, contract.clone())
+                .network_verifier
+                .create2_known_bytecodes
+                .insert(address, contract.clone())
                 .map(|_| {
                     panic!("Duplicate deployment for {:#?}", address);
                 });
@@ -204,54 +218,72 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // some constants -- TODO: verify
-    verifiers.bytecode_verifier.insert_evm_deployed_bytecode_hash(
-        FixedBytes::<32>::from_hex(
-            "0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989",
-        )
-        .unwrap(),
-        "Create2Factory".to_string(),
-    );
+    verifiers
+        .bytecode_verifier
+        .insert_evm_deployed_bytecode_hash(
+            FixedBytes::<32>::from_hex(
+                "0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989",
+            )
+            .unwrap(),
+            "Create2Factory".to_string(),
+        );
 
-    verifiers.bytecode_verifier.insert_evm_deployed_bytecode_hash(
-        FixedBytes::<32>::from_hex(
-            "0x1d8a3e7186b2285da5ef3ccf4c63a672e91873f2ffdec522a241f72bfcab11c5",
-        )
-        .unwrap(),
-        "TransparentProxyAdmin".to_string(),
-    );
+    verifiers
+        .bytecode_verifier
+        .insert_evm_deployed_bytecode_hash(
+            FixedBytes::<32>::from_hex(
+                "0x1d8a3e7186b2285da5ef3ccf4c63a672e91873f2ffdec522a241f72bfcab11c5",
+            )
+            .unwrap(),
+            "TransparentProxyAdmin".to_string(),
+        );
 
     // Hash of the proxy admin used for stage proofs
     // https://sepolia.etherscan.io/address/0x93AEeE8d98fB0873F8fF595fDd534A1f288786D2
-    verifiers.bytecode_verifier.insert_evm_deployed_bytecode_hash(
-        FixedBytes::<32>::from_hex(
-            "1e651120773914ac75c42598ceac4da0dc3e21709d438937f742ecf916ac30ae",
-        )
-        .unwrap(),
-        "TransparentProxyAdmin".to_string(),
-    );
+    verifiers
+        .bytecode_verifier
+        .insert_evm_deployed_bytecode_hash(
+            FixedBytes::<32>::from_hex(
+                "1e651120773914ac75c42598ceac4da0dc3e21709d438937f742ecf916ac30ae",
+            )
+            .unwrap(),
+            "TransparentProxyAdmin".to_string(),
+        );
 
     // let protocol_upgrade_handler_proxy_address = Address::from_str(&config.protocol_upgrade_handler_proxy_address).unwrap();
 
     let mut result = VerificationResult::default();
 
-    verifiers.address_verifier.add_address(config.protocol_upgrade_handler_impl_address, "new_protocol_upgrade_handler_impl");
-    verifiers.address_verifier.add_address(config.protocol_upgrade_handler_proxy_address, "protocol_upgrade_handler_proxy");
-    verifiers.address_verifier.add_address(apply_l2_to_l1_alias(config.protocol_upgrade_handler_proxy_address), "aliased_protocol_upgrade_handler_proxy");
-    verifiers.address_verifier.add_address(compute_expected_address_for_file(
-        &verifiers,
-        "l1-contracts/L2SharedBridgeLegacy",
-    ),"l2_shared_bridge_legacy_impl");
-    verifiers.address_verifier.add_address(compute_expected_address_for_file(
-        &verifiers,
-        "l1-contracts/BridgedStandardERC20",
-    ),"erc20_bridged_standard");
+    verifiers.address_verifier.add_address(
+        config.protocol_upgrade_handler_impl_address,
+        "new_protocol_upgrade_handler_impl",
+    );
+    verifiers.address_verifier.add_address(
+        config.protocol_upgrade_handler_proxy_address,
+        "protocol_upgrade_handler_proxy",
+    );
+    verifiers.address_verifier.add_address(
+        apply_l2_to_l1_alias(config.protocol_upgrade_handler_proxy_address),
+        "aliased_protocol_upgrade_handler_proxy",
+    );
+    verifiers.address_verifier.add_address(
+        compute_expected_address_for_file(&verifiers, "l1-contracts/L2SharedBridgeLegacy"),
+        "l2_shared_bridge_legacy_impl",
+    );
+    verifiers.address_verifier.add_address(
+        compute_expected_address_for_file(&verifiers, "l1-contracts/BridgedStandardERC20"),
+        "erc20_bridged_standard",
+    );
 
     config.add_to_verifier(&mut verifiers.address_verifier);
-    verifiers.address_verifier.add_address(verifiers.network_verifier.get_proxy_admin(config.protocol_upgrade_handler_proxy_address).await, "protocol_upgrade_handler_transparent_proxy_admin");
-    verifiers
-        .append_addresses()
-        .await
-        .unwrap();
+    verifiers.address_verifier.add_address(
+        verifiers
+            .network_verifier
+            .get_proxy_admin(config.protocol_upgrade_handler_proxy_address)
+            .await,
+        "protocol_upgrade_handler_transparent_proxy_admin",
+    );
+    verifiers.append_addresses().await.unwrap();
 
     let r = config.verify(&verifiers, &mut result).await;
 

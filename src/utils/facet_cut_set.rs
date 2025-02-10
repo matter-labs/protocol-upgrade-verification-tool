@@ -1,8 +1,8 @@
 use alloy::primitives::Address;
-use std::collections::{BTreeSet, HashMap, HashSet};
 use std::cmp::Ordering;
-use std::ops::Add;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
+use std::ops::Add;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Action {
@@ -55,9 +55,7 @@ impl FacetCutSet {
     }
 
     pub fn add_facet(&mut self, facet: FacetInfo) {
-        self.facets.insert(
-            facet
-        );
+        self.facets.insert(facet);
     }
 
     pub fn merge(mut self, another_set: FacetCutSet) -> Self {

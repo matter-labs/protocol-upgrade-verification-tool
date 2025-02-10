@@ -73,8 +73,7 @@ impl InitializeDataNewChain {
         if self.feeParams != verifiers.fee_param_verifier.fee_params {
             result.report_error(&format!(
                 "Incorrect fee params. Expected: {:#?}\nReceived: {:#?}",
-                verifiers.fee_param_verifier.fee_params,
-                self.feeParams 
+                verifiers.fee_param_verifier.fee_params, self.feeParams
             ));
         } else {
             result.report_ok("Fee params are correct");

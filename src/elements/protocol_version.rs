@@ -1,5 +1,5 @@
-use std::{fmt, str::FromStr};
 use alloy::primitives::U256;
+use std::{fmt, str::FromStr};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct ProtocolVersion {
@@ -24,16 +24,29 @@ impl FromStr for ProtocolVersion {
 
     fn from_str(version: &str) -> Result<Self, Self::Err> {
         let mut parts = version.split('.').map(str::parse::<u64>);
-        
-        let major = parts.next().ok_or(InvalidProtocolVersionError)?.map_err(|_| InvalidProtocolVersionError)?;
-        let minor = parts.next().ok_or(InvalidProtocolVersionError)?.map_err(|_| InvalidProtocolVersionError)?;
-        let patch = parts.next().ok_or(InvalidProtocolVersionError)?.map_err(|_| InvalidProtocolVersionError)?;
-        
+
+        let major = parts
+            .next()
+            .ok_or(InvalidProtocolVersionError)?
+            .map_err(|_| InvalidProtocolVersionError)?;
+        let minor = parts
+            .next()
+            .ok_or(InvalidProtocolVersionError)?
+            .map_err(|_| InvalidProtocolVersionError)?;
+        let patch = parts
+            .next()
+            .ok_or(InvalidProtocolVersionError)?
+            .map_err(|_| InvalidProtocolVersionError)?;
+
         if parts.next().is_some() {
             return Err(InvalidProtocolVersionError);
         }
 
-        Ok(Self { major, minor, patch })
+        Ok(Self {
+            major,
+            minor,
+            patch,
+        })
     }
 }
 

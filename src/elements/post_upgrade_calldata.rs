@@ -5,8 +5,8 @@ use alloy::{
     sol,
 };
 
-use crate::utils::compute_create2_address_zk;
 use super::{fixed_force_deployment::FixedForceDeploymentsData, force_deployment::ForceDeployment};
+use crate::utils::compute_create2_address_zk;
 
 sol! {
     #[derive(Debug)]
@@ -50,7 +50,7 @@ fn verify_force_deployments(
                 contract, expected_address, force_deployment.newAddress
             ));
             continue;
-        } 
+        }
 
         // Address is as expected, so check the bytecode and constructor.
         result.expect_zk_bytecode(verifiers, &force_deployment.bytecodeHash, contract);
@@ -82,8 +82,7 @@ fn verify_force_deployments(
 /// Converts a short hex string to an [Address] by left-padding it to 40 hex digits.
 fn address_from_short_hex(hex: &str) -> Address {
     let padded_hex = format!("{:0>40}", hex);
-    Address::from_hex(&format!("0x{}", padded_hex))
-        .expect("Invalid hex address provided")
+    Address::from_hex(&format!("0x{}", padded_hex)).expect("Invalid hex address provided")
 }
 
 /// Computes the expected address for the file by reading its code hash and computing the create2 address.
@@ -126,59 +125,163 @@ impl PostUpgradeCalldata {
         verify_force_deployments(
             &self.gateway_upgrade_encoded_input.forceDeployments,
             &[
-                ("system-contracts/EmptyContract", address_from_short_hex("0"), false),
+                (
+                    "system-contracts/EmptyContract",
+                    address_from_short_hex("0"),
+                    false,
+                ),
                 ("Ecrecover.yul", address_from_short_hex("1"), false),
                 ("SHA256.yul", address_from_short_hex("2"), false),
                 ("EcAdd.yul", address_from_short_hex("6"), false),
                 ("EcMul.yul", address_from_short_hex("7"), false),
                 ("EcPairing.yul", address_from_short_hex("8"), false),
                 // Note: deploy `EmptyContract` into the bootloader address.
-                ("system-contracts/EmptyContract", address_from_short_hex("8001"), false),
-                ("system-contracts/AccountCodeStorage", address_from_short_hex("8002"), false),
-                ("system-contracts/NonceHolder", address_from_short_hex("8003"), false),
-                ("system-contracts/KnownCodesStorage", address_from_short_hex("8004"), false),
-                ("system-contracts/ImmutableSimulator", address_from_short_hex("8005"), false),
-                ("system-contracts/ContractDeployer", address_from_short_hex("8006"), false),
+                (
+                    "system-contracts/EmptyContract",
+                    address_from_short_hex("8001"),
+                    false,
+                ),
+                (
+                    "system-contracts/AccountCodeStorage",
+                    address_from_short_hex("8002"),
+                    false,
+                ),
+                (
+                    "system-contracts/NonceHolder",
+                    address_from_short_hex("8003"),
+                    false,
+                ),
+                (
+                    "system-contracts/KnownCodesStorage",
+                    address_from_short_hex("8004"),
+                    false,
+                ),
+                (
+                    "system-contracts/ImmutableSimulator",
+                    address_from_short_hex("8005"),
+                    false,
+                ),
+                (
+                    "system-contracts/ContractDeployer",
+                    address_from_short_hex("8006"),
+                    false,
+                ),
                 // We deploy nothing to the 8007 address.
-                ("system-contracts/L1Messenger", address_from_short_hex("8008"), false),
-                ("system-contracts/MsgValueSimulator", address_from_short_hex("8009"), false),
-                ("system-contracts/L2BaseToken", address_from_short_hex("800a"), false),
-                ("system-contracts/SystemContext", address_from_short_hex("800b"), false),
-                ("system-contracts/BootloaderUtilities", address_from_short_hex("800c"), false),
+                (
+                    "system-contracts/L1Messenger",
+                    address_from_short_hex("8008"),
+                    false,
+                ),
+                (
+                    "system-contracts/MsgValueSimulator",
+                    address_from_short_hex("8009"),
+                    false,
+                ),
+                (
+                    "system-contracts/L2BaseToken",
+                    address_from_short_hex("800a"),
+                    false,
+                ),
+                (
+                    "system-contracts/SystemContext",
+                    address_from_short_hex("800b"),
+                    false,
+                ),
+                (
+                    "system-contracts/BootloaderUtilities",
+                    address_from_short_hex("800c"),
+                    false,
+                ),
                 ("EventWriter.yul", address_from_short_hex("800d"), false),
-                ("system-contracts/Compressor", address_from_short_hex("800e"), false),
-                ("system-contracts/ComplexUpgrader", address_from_short_hex("800f"), false),
+                (
+                    "system-contracts/Compressor",
+                    address_from_short_hex("800e"),
+                    false,
+                ),
+                (
+                    "system-contracts/ComplexUpgrader",
+                    address_from_short_hex("800f"),
+                    false,
+                ),
                 ("Keccak256.yul", address_from_short_hex("8010"), false),
                 ("CodeOracle.yul", address_from_short_hex("8012"), false),
                 ("P256Verify.yul", address_from_short_hex("100"), false),
-                ("system-contracts/PubdataChunkPublisher", address_from_short_hex("8011"), false),
-                ("system-contracts/Create2Factory", address_from_short_hex("10000"), false),
-                ("system-contracts/L2GenesisUpgrade", address_from_short_hex("10001"), false),
-                ("system-contracts/SloadContract", address_from_short_hex("10006"), false),
-                ("l1-contracts/Bridgehub", address_from_short_hex("10002"), false),
-                ("l1-contracts/L2AssetRouter", address_from_short_hex("10003"), false),
-                ("l1-contracts/L2NativeTokenVault", address_from_short_hex("10004"), false),
-                ("l1-contracts/MessageRoot", address_from_short_hex("10005"), false),
-                ("l1-contracts/L2WrappedBaseToken", address_from_short_hex("10007"), false),
+                (
+                    "system-contracts/PubdataChunkPublisher",
+                    address_from_short_hex("8011"),
+                    false,
+                ),
+                (
+                    "system-contracts/Create2Factory",
+                    address_from_short_hex("10000"),
+                    false,
+                ),
+                (
+                    "system-contracts/L2GenesisUpgrade",
+                    address_from_short_hex("10001"),
+                    false,
+                ),
+                (
+                    "system-contracts/SloadContract",
+                    address_from_short_hex("10006"),
+                    false,
+                ),
+                (
+                    "l1-contracts/Bridgehub",
+                    address_from_short_hex("10002"),
+                    false,
+                ),
+                (
+                    "l1-contracts/L2AssetRouter",
+                    address_from_short_hex("10003"),
+                    false,
+                ),
+                (
+                    "l1-contracts/L2NativeTokenVault",
+                    address_from_short_hex("10004"),
+                    false,
+                ),
+                (
+                    "l1-contracts/MessageRoot",
+                    address_from_short_hex("10005"),
+                    false,
+                ),
+                (
+                    "l1-contracts/L2WrappedBaseToken",
+                    address_from_short_hex("10007"),
+                    false,
+                ),
                 // Force deployments specific to this upgrade.
                 (
                     "l1-contracts/L2SharedBridgeLegacy",
-                    compute_expected_address_for_file(verifiers, "l1-contracts/L2SharedBridgeLegacy"),
+                    compute_expected_address_for_file(
+                        verifiers,
+                        "l1-contracts/L2SharedBridgeLegacy",
+                    ),
                     true,
                 ),
                 (
                     "l1-contracts/BridgedStandardERC20",
-                    compute_expected_address_for_file(verifiers, "l1-contracts/BridgedStandardERC20"),
+                    compute_expected_address_for_file(
+                        verifiers,
+                        "l1-contracts/BridgedStandardERC20",
+                    ),
                     true,
                 ),
                 (
                     "l2-contracts/RollupL2DAValidator", // Rollup DA validator.
-                    compute_expected_address_for_file(verifiers, "l2-contracts/RollupL2DAValidator"),
+                    compute_expected_address_for_file(
+                        verifiers,
+                        "l2-contracts/RollupL2DAValidator",
+                    ),
                     true,
                 ),
                 (
                     "l2-contracts/ValidiumL2DAValidator", // Validium DA validator.
-                    compute_expected_address_for_file(verifiers, "l2-contracts/ValidiumL2DAValidator"),
+                    compute_expected_address_for_file(
+                        verifiers,
+                        "l2-contracts/ValidiumL2DAValidator",
+                    ),
                     true,
                 ),
                 // Deploy the gateway upgrader, run its constructor, then re-deploy the complex upgrader.
@@ -217,14 +320,11 @@ impl PostUpgradeCalldata {
             &self.gateway_upgrade_encoded_input.fixedForceDeploymentsData,
             true,
         )
-        .map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to decode FixedForceDeploymentsData: {:?}",
-                e
-            )
-        })?;
+        .map_err(|e| anyhow::anyhow!("Failed to decode FixedForceDeploymentsData: {:?}", e))?;
 
-        fixed_force_deployments_data.verify(verifiers, result).await?;
+        fixed_force_deployments_data
+            .verify(verifiers, result)
+            .await?;
 
         Ok(())
     }

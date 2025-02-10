@@ -10,10 +10,8 @@ use std::fmt::{self, Display};
 use std::panic::Location;
 
 use crate::utils::{
-    address_verifier::AddressVerifier,
-    bytecode_verifier::BytecodeVerifier,
-    fee_param_verifier::FeeParamVerifier,
-    get_contents_from_github,
+    address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier,
+    fee_param_verifier::FeeParamVerifier, get_contents_from_github,
     network_verifier::NetworkVerifier,
 };
 
@@ -48,25 +46,35 @@ impl Verifiers {
             panic!("Testnet contracts are not expected to be deployed on L1 mainnet - you passed --testnet-contracts flag.");
         }
 
-        let bridgehub_address = Address::from_hex(bridgehub_address.as_ref()).expect("Bridgehub address");
-        let fee_param_verifier =  FeeParamVerifier::safe_init(&bridgehub_address, &network_verifier, contracts_commit).await;
+        let bridgehub_address =
+            Address::from_hex(bridgehub_address.as_ref()).expect("Bridgehub address");
+        let fee_param_verifier =
+            FeeParamVerifier::safe_init(&bridgehub_address, &network_verifier, contracts_commit)
+                .await;
         Self {
             testnet_contracts,
             bridgehub_address,
             address_verifier: Default::default(),
             bytecode_verifier: BytecodeVerifier::init_from_github(contracts_commit).await,
             network_verifier,
-            genesis_config: GenesisConfig::init_from_github(era_commit).await.expect("Failed to init"),
-            fee_param_verifier
+            genesis_config: GenesisConfig::init_from_github(era_commit)
+                .await
+                .expect("Failed to init"),
+            fee_param_verifier,
         }
     }
 
     /// Fetches extra addresses from the network and appends them to the internal verifier.
     pub async fn append_addresses(&mut self) -> anyhow::Result<()> {
-        let info = self.network_verifier.get_bridgehub_info(self.bridgehub_address).await;
+        let info = self
+            .network_verifier
+            .get_bridgehub_info(self.bridgehub_address)
+            .await;
 
-        self.address_verifier.add_address(self.bridgehub_address, "bridgehub_proxy");
-        self.address_verifier.add_address(info.stm_address, "state_transition_manager");
+        self.address_verifier
+            .add_address(self.bridgehub_address, "bridgehub_proxy");
+        self.address_verifier
+            .add_address(info.stm_address, "state_transition_manager");
         self.address_verifier
             .add_address(info.transparent_proxy_admin, "transparent_proxy_admin");
         self.address_verifier
@@ -153,7 +161,10 @@ impl VerificationResult {
         bytecode_hash: &FixedBytes<32>,
         expected: &str,
     ) {
-        match verifiers.bytecode_verifier.zk_bytecode_hash_to_file(bytecode_hash) {
+        match verifiers
+            .bytecode_verifier
+            .zk_bytecode_hash_to_file(bytecode_hash)
+        {
             Some(file_name) if file_name == expected => {
                 // All good.
             }
@@ -183,7 +194,10 @@ impl VerificationResult {
         address: &Address,
         expected_file: &str,
     ) {
-        let deployed_bytecode = verifiers.network_verifier.get_bytecode_hash_at(address).await;
+        let deployed_bytecode = verifiers
+            .network_verifier
+            .get_bytecode_hash_at(address)
+            .await;
         let deployed_file = verifiers
             .bytecode_verifier
             .evm_deployed_bytecode_hash_to_file(&deployed_bytecode);
@@ -233,7 +247,11 @@ impl VerificationResult {
         expected_file: &str,
         report_ok: bool,
     ) -> bool {
-        let deployed_file = match verifiers.network_verifier.create2_known_bytecodes.get(address) {
+        let deployed_file = match verifiers
+            .network_verifier
+            .create2_known_bytecodes
+            .get(address)
+        {
             Some(file) => file,
             None => {
                 self.report_error(&format!(

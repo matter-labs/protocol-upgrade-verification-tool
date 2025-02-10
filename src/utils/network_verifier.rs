@@ -5,9 +5,9 @@ use alloy::hex::FromHex;
 use alloy::primitives::map::HashMap;
 use alloy::primitives::{keccak256, Address, FixedBytes, TxHash, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
-use alloy::transports::http::Http;
 use alloy::sol;
 use alloy::sol_types::SolCall;
+use alloy::transports::http::Http;
 use reqwest::Client;
 
 use super::bytecode_verifier::BytecodeVerifier;
@@ -28,7 +28,7 @@ sol! {
         function legacyBridge() public returns (address);
         function L1_WETH_TOKEN() public returns (address);
     }
-    
+
     #[sol(rpc)]
     contract ChainTypeManager {
         function getHyperchain(uint256 _chainId) public view returns (address);
@@ -37,7 +37,8 @@ sol! {
     function create2AndTransferParams(bytes memory bytecode, bytes32 salt, address owner);
 }
 
-const EIP1967_PROXY_ADMIN_SLOT: &str = "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103";
+const EIP1967_PROXY_ADMIN_SLOT: &str =
+    "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103";
 
 #[derive(Debug)]
 pub struct BridgehubInfo {
@@ -48,7 +49,7 @@ pub struct BridgehubInfo {
     pub l1_weth_token_address: Address,
     pub ecosystem_admin: Address,
     pub bridgehub_addr: Address,
-    pub era_address: Address
+    pub era_address: Address,
 }
 
 pub struct NetworkVerifier {
@@ -66,7 +67,7 @@ impl NetworkVerifier {
             l1_rpc,
             l2_chain_id,
             create2_constructor_params: Default::default(),
-            create2_known_bytecodes: Default::default()
+            create2_known_bytecodes: Default::default(),
         }
     }
 
@@ -94,20 +95,18 @@ impl NetworkVerifier {
     pub async fn get_chain_diamond_proxy(&self, stm_addr: Address, era_chain_id: u64) -> Address {
         let provider = self.get_l1_provider();
 
-        let ctm = ChainTypeManager::new(
-            stm_addr,
-            provider
-        );
-        let address = ctm.getHyperchain(U256::from(era_chain_id)).call().await.unwrap()._0;
+        let ctm = ChainTypeManager::new(stm_addr, provider);
+        let address = ctm
+            .getHyperchain(U256::from(era_chain_id))
+            .call()
+            .await
+            .unwrap()
+            ._0;
 
         address
-    }   
+    }
 
-    pub async fn storage_at(
-        &self,
-        address: &Address,
-        key: &FixedBytes<32>,
-    ) -> FixedBytes<32> {
+    pub async fn storage_at(&self, address: &Address, key: &FixedBytes<32>) -> FixedBytes<32> {
         let provider = ProviderBuilder::new().on_http(self.l1_rpc.parse().unwrap());
 
         let storage = provider
@@ -134,7 +133,12 @@ impl NetworkVerifier {
     }
 
     pub async fn get_proxy_admin(&self, addr: Address) -> Address {
-        let addr_as_bytes = self.storage_at(&addr, &FixedBytes::<32>::from_hex(EIP1967_PROXY_ADMIN_SLOT).unwrap()).await;
+        let addr_as_bytes = self
+            .storage_at(
+                &addr,
+                &FixedBytes::<32>::from_hex(EIP1967_PROXY_ADMIN_SLOT).unwrap(),
+            )
+            .await;
         Address::from_slice(&addr_as_bytes[12..])
     }
 
@@ -149,15 +153,19 @@ impl NetworkVerifier {
 
         let era_chain_id = self.get_era_chain_id().await;
 
-        let stm_address = 
-                bridgehub
-                    .stateTransitionManager(era_chain_id.try_into().unwrap())
-                    .call()
-                    .await
-                    .unwrap()
-                    ._0;
+        let stm_address = bridgehub
+            .stateTransitionManager(era_chain_id.try_into().unwrap())
+            .call()
+            .await
+            .unwrap()
+            ._0;
         let chain_type_manager = ChainTypeManager::new(stm_address, provider.clone());
-        let era_address = chain_type_manager.getHyperchain(U256::from(era_chain_id)).call().await.unwrap()._0;
+        let era_address = chain_type_manager
+            .getHyperchain(U256::from(era_chain_id))
+            .call()
+            .await
+            .unwrap()
+            ._0;
 
         let ecosystem_admin = bridgehub.admin().call().await.unwrap().admin;
 
@@ -174,11 +182,11 @@ impl NetworkVerifier {
             l1_weth_token_address,
             ecosystem_admin,
             bridgehub_addr,
-            era_address
+            era_address,
         }
     }
 
-    /// Fetches the `transaction` and tries to parse it as a CREATE2 deployment 
+    /// Fetches the `transaction` and tries to parse it as a CREATE2 deployment
     /// transaction.
     /// If successful, it returns a tuple of three items: the address of the deployed contract,
     /// the path to the contract and its constructor params.
@@ -187,7 +195,7 @@ impl NetworkVerifier {
         transaction: &str,
         expected_create2_address: &Address,
         expected_create2_salt: &FixedBytes<32>,
-        bytecode_verifier: &BytecodeVerifier
+        bytecode_verifier: &BytecodeVerifier,
     ) -> Option<(Address, String, Vec<u8>)> {
         let tx_hash: TxHash = transaction.parse().unwrap();
         let provider = ProviderBuilder::new().on_http(self.l1_rpc.parse().unwrap());
@@ -213,32 +221,43 @@ impl NetworkVerifier {
             return None;
         }
 
-        
         if let Some((name, params)) = bytecode_verifier.try_parse_bytecode(&tx.input()[32..]) {
-            let addr= compute_create2_address_evm(tx.to().unwrap(), FixedBytes::<32>::from_slice(salt), keccak256(&tx.input()[32..]));
+            let addr = compute_create2_address_evm(
+                tx.to().unwrap(),
+                FixedBytes::<32>::from_slice(salt),
+                keccak256(&tx.input()[32..]),
+            );
             return Some((addr, name, params));
         };
 
         let bytecode_input = &tx.input()[32..];
 
         // Okay, this may be the `Create2AndTransfer` method.
-        if let Some(create2_and_transfer_input) = bytecode_verifier.is_create2_and_transfer_bytecode_prefix(bytecode_input) {
-            let x = create2AndTransferParamsCall::abi_decode_raw(create2_and_transfer_input, false).unwrap();
+        if let Some(create2_and_transfer_input) =
+            bytecode_verifier.is_create2_and_transfer_bytecode_prefix(bytecode_input)
+        {
+            let x = create2AndTransferParamsCall::abi_decode_raw(create2_and_transfer_input, false)
+                .unwrap();
             if salt != x.salt.as_slice() {
                 println!("Salt mismatch: {:?} != {:?}", salt, x.salt);
                 return None;
             }
-            // We do not need to cross check `owner` here, it will be cross checked against whatever owner is currently set 
+            // We do not need to cross check `owner` here, it will be cross checked against whatever owner is currently set
             // to the final contracts.
             // We do still need to check the input to find out potential constructor param
             let (name, params) = bytecode_verifier.try_parse_bytecode(&x.bytecode)?;
             let salt = FixedBytes::<32>::from_slice(salt);
-            let create2_and_transfer_addr = compute_create2_address_evm(tx.to().unwrap(), salt, keccak256(&tx.input()[32..]));
-            
-            let contract_addr = compute_create2_address_evm(create2_and_transfer_addr, salt, keccak256(&x.bytecode));
+            let create2_and_transfer_addr =
+                compute_create2_address_evm(tx.to().unwrap(), salt, keccak256(&tx.input()[32..]));
+
+            let contract_addr = compute_create2_address_evm(
+                create2_and_transfer_addr,
+                salt,
+                keccak256(&x.bytecode),
+            );
 
             return Some((contract_addr, name, params));
-        }   
+        }
 
         None
     }
