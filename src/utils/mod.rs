@@ -5,7 +5,7 @@ use std::{
 };
 
 use alloy::{
-    hex,
+    hex::{self, FromHex},
     primitives::{keccak256, Address, Bytes, FixedBytes, Keccak256, U160},
 };
 
@@ -38,8 +38,7 @@ pub async fn get_contents_from_github(commit: &str, repo: &str, file_path: &str)
         file.write_all(&data).unwrap();
     }
 
-    let data = fs::read_to_string(&cache_file_path).expect("Failed to read cache file");
-    return data;
+    fs::read_to_string(&cache_file_path).expect("Failed to read cache file")
 }
 
 pub fn compute_create2_address_zk(
@@ -50,7 +49,7 @@ pub fn compute_create2_address_zk(
 ) -> Address {
     let mut address_payload = vec![];
 
-    address_payload.extend_from_slice(&keccak256("zksyncCreate2").as_slice());
+    address_payload.extend_from_slice(keccak256("zksyncCreate2").as_slice());
     address_payload.extend_from_slice(&[0u8; 12]);
     address_payload.extend_from_slice(sender.as_slice());
 
@@ -71,7 +70,7 @@ pub fn compute_create2_address_evm(
     bytecode_hash: FixedBytes<32>,
 ) -> Address {
     let mut address_payload = vec![];
-    address_payload.extend_from_slice(&[0xff as u8]);
+    address_payload.extend_from_slice(&[0xff_u8]);
     address_payload.extend_from_slice(sender.as_slice());
 
     // Extract salt
@@ -107,4 +106,10 @@ pub fn compute_selector(method_name: &str) -> String {
     let result = hasher.finalize();
 
     hex::encode(&result[..4])
+}
+
+/// Converts a short hex string to an [Address] by left-padding it to 40 hex digits.
+pub fn address_from_short_hex(hex: &str) -> Address {
+    let padded_hex = format!("{:0>40}", hex);
+    Address::from_hex(format!("0x{}", padded_hex)).expect("Invalid hex address provided")
 }

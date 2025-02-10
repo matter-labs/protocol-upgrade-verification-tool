@@ -1,12 +1,11 @@
 use alloy::{
     dyn_abi::SolType,
-    hex::FromHex,
     primitives::{keccak256, Address, Bytes, FixedBytes, U256},
     sol,
 };
 
 use super::{fixed_force_deployment::FixedForceDeploymentsData, force_deployment::ForceDeployment};
-use crate::utils::compute_create2_address_zk;
+use crate::utils::{address_from_short_hex, compute_create2_address_zk};
 
 sol! {
     #[derive(Debug)]
@@ -79,12 +78,6 @@ fn verify_force_deployments(
     Ok(())
 }
 
-/// Converts a short hex string to an [Address] by left-padding it to 40 hex digits.
-fn address_from_short_hex(hex: &str) -> Address {
-    let padded_hex = format!("{:0>40}", hex);
-    Address::from_hex(&format!("0x{}", padded_hex)).expect("Invalid hex address provided")
-}
-
 /// Computes the expected address for the file by reading its code hash and computing the create2 address.
 pub(crate) fn compute_expected_address_for_file(
     verifiers: &crate::verifiers::Verifiers,
@@ -98,8 +91,8 @@ pub(crate) fn compute_expected_address_for_file(
         // Create2Factory address
         address_from_short_hex("10000"),
         FixedBytes::ZERO,
-        code.clone(),
-        keccak256(&[]),
+        *code,
+        keccak256([]),
     )
 }
 
@@ -119,9 +112,6 @@ impl PostUpgradeCalldata {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
     ) -> anyhow::Result<()> {
-        // TODO: verify old timelock
-        // TODO: verify gateway deployment position (what is this??)
-
         verify_force_deployments(
             &self.gateway_upgrade_encoded_input.forceDeployments,
             &[
@@ -300,6 +290,16 @@ impl PostUpgradeCalldata {
             result,
         )?;
 
+        if self.gateway_upgrade_encoded_input.l2GatewayUpgradePosition
+            != U256::from(self.gateway_upgrade_encoded_input.forceDeployments.len() - 2)
+        {
+            result.report_error(&format!(
+                "Incorrect l2GatewayUpgradePosition. Expected: {}, Received: {}",
+                self.gateway_upgrade_encoded_input.forceDeployments.len() - 2,
+                self.gateway_upgrade_encoded_input.l2GatewayUpgradePosition
+            ));
+        }
+
         result.expect_address(
             verifiers,
             &self.gateway_upgrade_encoded_input.ctmDeployer,
@@ -309,6 +309,11 @@ impl PostUpgradeCalldata {
             verifiers,
             &self.gateway_upgrade_encoded_input.wrappedBaseTokenStore,
             "l2_wrapped_base_token_store",
+        );
+        result.expect_address(
+            verifiers,
+            &self.gateway_upgrade_encoded_input.oldValidatorTimelock,
+            "old_validator_timelock",
         );
         result.expect_address(
             verifiers,

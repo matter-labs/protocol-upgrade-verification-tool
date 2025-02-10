@@ -93,9 +93,7 @@ sol! {
     }
 
     #[derive(Debug)]
-    function upgrade(ProposedUpgrade calldata _proposedUpgrade) {
-        // Implementation omitted.
-    }
+    function upgrade(ProposedUpgrade calldata _proposedUpgrade);
 
     #[sol(rpc)]
     contract BytecodesSupplier {
@@ -214,7 +212,6 @@ impl ProposedUpgrade {
             .map(|dep| FixedBytes::<32>::from_slice(&dep.to_be_bytes::<32>()))
             .collect();
 
-        // Use iter().copied() to initialize the HashSet.
         let mut expected_bytecodes: HashSet<&str> = EXPECTED_BYTECODES.iter().copied().collect();
 
         for dep in deps {

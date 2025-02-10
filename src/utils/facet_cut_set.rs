@@ -6,8 +6,6 @@ use std::hash::{Hash, Hasher};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Action {
     Add,
-    #[allow(dead_code)]
-    Replace,
     Remove,
 }
 
@@ -44,6 +42,12 @@ pub struct FacetCutSet {
 impl PartialEq for FacetCutSet {
     fn eq(&self, other: &Self) -> bool {
         self.facets == other.facets
+    }
+}
+
+impl Default for FacetCutSet {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

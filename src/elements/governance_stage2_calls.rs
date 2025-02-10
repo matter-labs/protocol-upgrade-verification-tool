@@ -24,25 +24,13 @@ pub struct GovernanceStage2Calls {
 }
 
 sol! {
-    function upgrade(address proxy, address implementation) {
-    }
-
-    function upgradeAndCall(address proxy, address implementation, bytes data) {
-    }
-
-    function setAddresses(address _assetRouter, address _l1CtmDeployer, address _messageRoot) {}
-
+    function upgrade(address proxy, address implementation);
+    function upgradeAndCall(address proxy, address implementation, bytes data);
+    function setAddresses(address _assetRouter, address _l1CtmDeployer, address _messageRoot);
     function setL1NativeTokenVault(address _l1NativeTokenVault);
     function setL1AssetRouter(address _l1AssetRouter);
-
-    function setValidatorTimelock(address addr) {
-    }
-
-    function singleAddressArgument(address addr) {
-    }
-
-    function setProtocolVersionDeadline(uint256 protocolVersion, uint256 newDeadline) {
-    }
+    function setValidatorTimelock(address addr);
+    function setProtocolVersionDeadline(uint256 protocolVersion, uint256 newDeadline);
 
     #[derive(Debug, PartialEq)]
     enum Action {
@@ -76,8 +64,7 @@ sol! {
         bytes forceDeploymentsData;
     }
 
-    function setChainCreationParams(ChainCreationParams calldata _chainCreationParams)  {
-    }
+    function setChainCreationParams(ChainCreationParams calldata _chainCreationParams);
 
     /// @notice Façet structure compatible with the EIP-2535 diamond loupe
     /// @param addr The address of the facet contract
@@ -132,12 +119,13 @@ impl GovernanceStage2Calls {
     }
 
     /// Verifies all the governance stage 2 calls.
+    /// Returns a pair of expected diamond cut data as well as expected fixed force deployments data.
     pub async fn verify(
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         expected_chain_creation_facets: FacetCutSet,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<(String, String)> {
         result.print_info("== Gov stage 2 calls ===");
 
         let list_of_calls = [
@@ -202,14 +190,25 @@ impl GovernanceStage2Calls {
         )?;
 
         // Verify setChainCreationParams call.
-        {
+        let (chain_creation_diamond_cut, force_deployments) = {
             let decoded = setChainCreationParamsCall::abi_decode(&self.calls.elems[4].data, true)
                 .expect("Failed to decode setChainCreationParams call");
             decoded
                 ._chainCreationParams
                 .verify(verifiers, result, expected_chain_creation_facets)
                 .await?;
-        }
+
+            let ChainCreationParams {
+                diamondCut,
+                forceDeploymentsData,
+                ..
+            } = decoded._chainCreationParams;
+
+            (
+                hex::encode(diamondCut.abi_encode()),
+                hex::encode(forceDeploymentsData),
+            )
+        };
 
         // Verify setAddresses call.
         {
@@ -270,7 +269,7 @@ impl GovernanceStage2Calls {
             Some(""),
         )?;
 
-        Ok(())
+        Ok((chain_creation_diamond_cut, force_deployments))
     }
 }
 
