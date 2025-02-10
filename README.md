@@ -1,4 +1,4 @@
-# Governance upgrade CLI tool
+# Protocol Upgrade Verification Tool
 
 Tool to analyze the zkSync upgrades.
 
