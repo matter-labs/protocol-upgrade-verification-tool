@@ -5,10 +5,7 @@ mod elements;
 mod utils;
 mod verifiers;
 use clap::Parser;
-use elements::{
-    post_upgrade_calldata::compute_expected_address_for_file, protocol_version::ProtocolVersion,
-    UpgradeOutput,
-};
+use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 const DEFAULT_CONTRACTS_COMMIT: &str = "6badcb8a9b6114c6dd10d3b172a96812250604b0";
 const DEFAULT_ERA_COMMIT: &str = "99c3905a9e92416e76d37b0858da7f6c7e123e0b";
@@ -52,7 +49,7 @@ struct Args {
     #[clap(long)]
     testnet_contracts: bool,
 
-    // fixme: can it be an address rightaway?
+    // The address of the bridgehub
     #[clap(long)]
     bridgehub_address: String,
 }

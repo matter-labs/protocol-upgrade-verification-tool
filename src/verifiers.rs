@@ -261,12 +261,12 @@ impl VerificationResult {
         expected_file: &str,
         report_ok: bool,
     ) -> bool {
-        let deployed_file = match verifiers
+        let (deployed_file, constructor_params) = match verifiers
             .network_verifier
             .create2_known_bytecodes
             .get(address)
         {
-            Some(file) => file,
+            Some(info) => info,
             None => {
                 self.report_error(&format!(
                     "Address {:#?} {} is not present in the create2 deployments",
@@ -285,13 +285,6 @@ impl VerificationResult {
             ));
             return false;
         }
-
-        // Safe unwrap because deployed file and constructor params are added at the same time.
-        let constructor_params = verifiers
-            .network_verifier
-            .create2_constructor_params
-            .get(address)
-            .expect("Constructor params must exist if create2 deployment exists");
 
         if constructor_params.as_slice() != expected_constructor_params {
             self.report_error(&format!(
