@@ -36,6 +36,7 @@ pub(crate) fn get_expected_old_protocol_version() -> ProtocolVersion {
 struct UpgradeOutput {
     // TODO: potentially verify this array.
     // It does not affect the upgrade, but it could be cross-checked for correctness.
+    #[allow(dead_code)]
     chain_upgrade_diamond_cut: String,
     create2_factory_addr: Address,
     create2_factory_salt: FixedBytes<32>,
