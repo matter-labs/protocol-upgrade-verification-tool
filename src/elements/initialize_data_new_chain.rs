@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use alloy::{primitives::U256, sol};
 
+use crate::MAX_PRIORITY_TX_GAS_LIMIT;
+
 sol! {
     #[derive(Debug, Default, PartialEq, Eq)]
     enum PubdataPricingMode {
@@ -19,6 +21,7 @@ sol! {
         uint32 priorityTxMaxPubdata;
         uint64 minimalL2GasPrice;
     }
+
     struct VerifierParams {
         bytes32 recursionNodeLevelVkHash;
         bytes32 recursionLeafLevelVkHash;
@@ -63,7 +66,7 @@ impl InitializeDataNewChain {
             "system-contracts/DefaultAccount",
         );
 
-        if self.priorityTxMaxGasLimit != U256::from(72_000_000) {
+        if self.priorityTxMaxGasLimit != U256::from(MAX_PRIORITY_TX_GAS_LIMIT) {
             result.report_warn(&format!(
                 "priorityTxMaxGasLimit must be 72_000_000 got {}",
                 self.priorityTxMaxGasLimit
@@ -85,9 +88,9 @@ impl InitializeDataNewChain {
 impl Display for PubdataPricingMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PubdataPricingMode::Rollup => write!(f, "{}", "Rollup"),
-            PubdataPricingMode::Validium => write!(f, "{}", "Validium"),
-            PubdataPricingMode::__Invalid => write!(f, "{}", "Invalid"),
+            PubdataPricingMode::Rollup => write!(f, "Rollup"),
+            PubdataPricingMode::Validium => write!(f, "Validium"),
+            PubdataPricingMode::__Invalid => write!(f, "Invalid"),
         }
     }
 }

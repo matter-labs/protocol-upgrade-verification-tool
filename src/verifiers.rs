@@ -9,10 +9,13 @@ use serde::Deserialize;
 use std::fmt::{self, Display};
 use std::panic::Location;
 
-use crate::utils::{
-    address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier,
-    fee_param_verifier::FeeParamVerifier, get_contents_from_github,
-    network_verifier::NetworkVerifier,
+use crate::{
+    utils::{
+        address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier,
+        fee_param_verifier::FeeParamVerifier, get_contents_from_github,
+        network_verifier::NetworkVerifier,
+    },
+    UpgradeOutput,
 };
 
 sol! {
@@ -39,23 +42,34 @@ impl Verifiers {
         contracts_commit: &str,
         l1_rpc: String,
         era_chain_id: u64,
+        config: &UpgradeOutput,
     ) -> Self {
-        let network_verifier = NetworkVerifier::new(l1_rpc, era_chain_id);
+        let bytecode_verifier = BytecodeVerifier::init_from_github(contracts_commit).await;
+        let network_verifier =
+            NetworkVerifier::new(l1_rpc, era_chain_id, &bytecode_verifier, config).await;
 
-        if testnet_contracts && network_verifier.get_l1_chain_id().await == 1 {
+        if testnet_contracts && network_verifier.get_l1_chain_id() == 1 {
             panic!("Testnet contracts are not expected to be deployed on L1 mainnet - you passed --testnet-contracts flag.");
         }
-
         let bridgehub_address =
             Address::from_hex(bridgehub_address.as_ref()).expect("Bridgehub address");
+
+        let address_verifier = AddressVerifier::new(
+            bridgehub_address,
+            &network_verifier,
+            &bytecode_verifier,
+            config,
+        )
+        .await;
+
         let fee_param_verifier =
             FeeParamVerifier::safe_init(&bridgehub_address, &network_verifier, contracts_commit)
                 .await;
         Self {
             testnet_contracts,
             bridgehub_address,
-            address_verifier: Default::default(),
-            bytecode_verifier: BytecodeVerifier::init_from_github(contracts_commit).await,
+            address_verifier,
+            bytecode_verifier,
             network_verifier,
             genesis_config: GenesisConfig::init_from_github(era_commit)
                 .await
