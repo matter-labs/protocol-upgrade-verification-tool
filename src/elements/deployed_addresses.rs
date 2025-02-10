@@ -450,20 +450,13 @@ impl DeployedAddresses {
         );
         let all_zkchains = stm.getAllHyperchainChainIDs().call().await?._0;
 
-        // Some networks are deliberate about L2WrappedBaseToken not being predeployed there.
-        // The upgrade will still be available to them and a default implementation will be automatically
-        // deployed there.
-        let exempt_networks: [U256; 1] = [
-            U256::from(325u32)
-        ];
-
         for chain in all_zkchains {
             let l2_wrapped_base_token = l2_wrapped_base_token_store
                 .l2WBaseTokenAddress(chain)
                 .call()
                 .await?
                 .l2WBaseTokenAddress;
-            if l2_wrapped_base_token == Address::ZERO && !exempt_networks.contains(&chain) {
+            if l2_wrapped_base_token == Address::ZERO {
                 result.report_warn(&format!(
                     "Chain {} does not have an L2 wrapped base token",
                     chain
