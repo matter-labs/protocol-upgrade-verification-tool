@@ -24,25 +24,13 @@ pub struct GovernanceStage2Calls {
 }
 
 sol! {
-    function upgrade(address proxy, address implementation) {
-    }
-
-    function upgradeAndCall(address proxy, address implementation, bytes data) {
-    }
-
-    function setAddresses(address _assetRouter, address _l1CtmDeployer, address _messageRoot) {}
-
+    function upgrade(address proxy, address implementation);
+    function upgradeAndCall(address proxy, address implementation, bytes data);
+    function setAddresses(address _assetRouter, address _l1CtmDeployer, address _messageRoot);
     function setL1NativeTokenVault(address _l1NativeTokenVault);
     function setL1AssetRouter(address _l1AssetRouter);
-
-    function setValidatorTimelock(address addr) {
-    }
-
-    function singleAddressArgument(address addr) {
-    }
-
-    function setProtocolVersionDeadline(uint256 protocolVersion, uint256 newDeadline) {
-    }
+    function setValidatorTimelock(address addr);
+    function setProtocolVersionDeadline(uint256 protocolVersion, uint256 newDeadline);
 
     #[derive(Debug, PartialEq)]
     enum Action {
@@ -76,8 +64,7 @@ sol! {
         bytes forceDeploymentsData;
     }
 
-    function setChainCreationParams(ChainCreationParams calldata _chainCreationParams)  {
-    }
+    function setChainCreationParams(ChainCreationParams calldata _chainCreationParams);
 
     /// @notice Façet structure compatible with the EIP-2535 diamond loupe
     /// @param addr The address of the facet contract

@@ -19,6 +19,7 @@ sol! {
         uint32 priorityTxMaxPubdata;
         uint64 minimalL2GasPrice;
     }
+
     struct VerifierParams {
         bytes32 recursionNodeLevelVkHash;
         bytes32 recursionLeafLevelVkHash;

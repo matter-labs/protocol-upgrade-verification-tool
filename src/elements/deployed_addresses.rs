@@ -20,7 +20,6 @@ use serde::Deserialize;
 const MAINNET_CHAIN_ID: u64 = 1;
 
 sol! {
-
     contract L1NativeTokenVault {
         constructor(
             address _l1WethAddress,
@@ -41,7 +40,7 @@ sol! {
 
     #[sol(rpc)]
     contract L2WrappedBaseTokenStore {
-        constructor(address _initialOwner, address _admin) {}
+        constructor(address _initialOwner, address _admin);
         address public admin;
         address public owner;
         function l2WBaseTokenAddress(uint256 chainId) external view returns (address l2WBaseTokenAddress);
@@ -63,7 +62,7 @@ sol! {
             address _l1Nullifier,
             uint256 _eraChainId,
             address _eraDiamondProxy
-        ) {}
+        );
         function initialize(address _owner) external;
 
         /// @dev Address of native token vault.
@@ -153,7 +152,7 @@ sol! {
     }
 
     contract GovernanceUpgradeTimer {
-        constructor(uint256 _initialDelay, uint256 _maxAdditionalDelay, address _timerGovernance, address _initialOwner) {}
+        constructor(uint256 _initialDelay, uint256 _maxAdditionalDelay, address _timerGovernance, address _initialOwner);
     }
 
     #[sol(rpc)]

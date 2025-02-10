@@ -6,7 +6,7 @@ use alloy::{
 };
 
 use super::{fixed_force_deployment::FixedForceDeploymentsData, force_deployment::ForceDeployment};
-use crate::utils::compute_create2_address_zk;
+use crate::utils::{address_from_short_hex, compute_create2_address_zk};
 
 sol! {
     #[derive(Debug)]
@@ -77,12 +77,6 @@ fn verify_force_deployments(
 
     result.report_ok("Force deployments verified");
     Ok(())
-}
-
-/// Converts a short hex string to an [Address] by left-padding it to 40 hex digits.
-fn address_from_short_hex(hex: &str) -> Address {
-    let padded_hex = format!("{:0>40}", hex);
-    Address::from_hex(format!("0x{}", padded_hex)).expect("Invalid hex address provided")
 }
 
 /// Computes the expected address for the file by reading its code hash and computing the create2 address.

@@ -6,7 +6,6 @@ use std::hash::{Hash, Hasher};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Action {
     Add,
-    Replace,
     Remove,
 }
 

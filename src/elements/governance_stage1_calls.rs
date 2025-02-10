@@ -49,9 +49,7 @@ sol! {
             DiamondCutData diamondCut;
         }
 
-        function setChainCreationParams(ChainCreationParams calldata _chainCreationParams)  {
-        }
-
+        function setChainCreationParams(ChainCreationParams calldata _chainCreationParams);
     }
 }
 
