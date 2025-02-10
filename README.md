@@ -24,13 +24,13 @@ To conduct the full verification, you need to provide:
 - `testnet-contract`, (optional, FOR TESTNETS ONLY), if provided, it will assume that testnet verifier should be used. 
 
 ```
-cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output.yaml --l1-rpc http://localhost:8545 --contracts-commit 0xa80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 0x99c3905a9e92416e76d37b0858da7f6c7e123e0b --era-chain-id 270 --testnet-contracts  --bridgehub-address 0xb244E9B485fc872e3242960b786dB5189f6A6d2A
+cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output.yaml --l1-rpc http://localhost:8545 --contracts-commit a80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 99c3905a9e92416e76d37b0858da7f6c7e123e0b --era-chain-id 270 --testnet-contracts  --bridgehub-address 0xb244E9B485fc872e3242960b786dB5189f6A6d2A
 ```
 
 ### Mainnet verification
 
 ```
-cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output_mainnet.yaml --l1-rpc <your-l1-rpc> --contracts-commit 0xa80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 0x99c3905a9e92416e76d37b0858da7f6c7e123e0b  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213
+cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output_mainnet.yaml --l1-rpc <your-l1-rpc> --contracts-commit a80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 99c3905a9e92416e76d37b0858da7f6c7e123e0b  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213
 ```
 
 ## Abilities and limitations of the tool
