@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use alloy::{primitives::U256, sol};
 
+use crate::MAX_PRIORITY_TX_GAS_LIMIT;
+
 sol! {
     #[derive(Debug, Default, PartialEq, Eq)]
     enum PubdataPricingMode {
@@ -64,7 +66,7 @@ impl InitializeDataNewChain {
             "system-contracts/DefaultAccount",
         );
 
-        if self.priorityTxMaxGasLimit != U256::from(72_000_000) {
+        if self.priorityTxMaxGasLimit != U256::from(MAX_PRIORITY_TX_GAS_LIMIT) {
             result.report_warn(&format!(
                 "priorityTxMaxGasLimit must be 72_000_000 got {}",
                 self.priorityTxMaxGasLimit

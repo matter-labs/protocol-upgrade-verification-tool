@@ -10,7 +10,7 @@ use std::fmt::{self, Display};
 use std::panic::Location;
 
 use crate::{utils::{
-    address_verifier::AddressVerifier, bytecode_verifier::{self, BytecodeVerifier},
+    address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier,
     fee_param_verifier::FeeParamVerifier, get_contents_from_github,
     network_verifier::NetworkVerifier,
 }, UpgradeOutput};

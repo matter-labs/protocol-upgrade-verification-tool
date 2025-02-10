@@ -119,12 +119,13 @@ impl GovernanceStage2Calls {
     }
 
     /// Verifies all the governance stage 2 calls.
+    /// Returns a pair of expected diamond cut data as well as expected fixed force deployments data.
     pub async fn verify(
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         expected_chain_creation_facets: FacetCutSet,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<(String, String)> {
         result.print_info("== Gov stage 2 calls ===");
 
         let list_of_calls = [
@@ -189,14 +190,22 @@ impl GovernanceStage2Calls {
         )?;
 
         // Verify setChainCreationParams call.
-        {
+        let (chain_creation_diamond_cut, force_deployments) = {
             let decoded = setChainCreationParamsCall::abi_decode(&self.calls.elems[4].data, true)
                 .expect("Failed to decode setChainCreationParams call");
             decoded
                 ._chainCreationParams
                 .verify(verifiers, result, expected_chain_creation_facets)
                 .await?;
-        }
+
+            let ChainCreationParams {
+                diamondCut,
+                forceDeploymentsData,
+                ..
+            } = decoded._chainCreationParams;
+
+            (hex::encode(diamondCut.abi_encode()), hex::encode(forceDeploymentsData))
+        };
 
         // Verify setAddresses call.
         {
@@ -257,7 +266,7 @@ impl GovernanceStage2Calls {
             Some(""),
         )?;
 
-        Ok(())
+        Ok((chain_creation_diamond_cut, force_deployments))
     }
 }
 

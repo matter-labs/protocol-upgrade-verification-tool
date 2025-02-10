@@ -67,6 +67,17 @@ impl From<U256> for ProtocolVersion {
     }
 }
 
+impl From<ProtocolVersion> for U256 {
+    fn from(version: ProtocolVersion) -> Self {
+        let shift_32: U256 = U256::from(2).pow(U256::from(32));
+        let shift_64: U256 = U256::from(2).pow(U256::from(64));
+
+        U256::from(version.major) * shift_64
+            + U256::from(version.minor) * shift_32
+            + U256::from(version.patch)
+    }
+}
+
 impl fmt::Display for ProtocolVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "v{}.{}.{}", self.major, self.minor, self.patch)

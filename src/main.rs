@@ -1,8 +1,3 @@
-use alloy::{
-    hex::ToHexExt,
-    primitives::Address,
-};
-use serde::Deserialize;
 use std::{fmt::Debug, fs, str::FromStr};
 use verifiers::{VerificationResult, Verifiers};
 
@@ -20,6 +15,7 @@ const DEFAULT_ERA_COMMIT: &str = "99c3905a9e92416e76d37b0858da7f6c7e123e0b";
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.26.0";
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.25.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
+pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
 pub(crate) fn get_expected_new_protocol_version() -> ProtocolVersion {
     ProtocolVersion::from_str(EXPECTED_NEW_PROTOCOL_VERSION_STR).unwrap()

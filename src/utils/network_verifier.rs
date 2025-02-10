@@ -33,6 +33,7 @@ sol! {
     #[sol(rpc)]
     contract ChainTypeManager {
         function getHyperchain(uint256 _chainId) public view returns (address);
+        address public validatorTimelock;
     }
 
     function create2AndTransferParams(bytes memory bytecode, bytes32 salt, address owner);
@@ -50,6 +51,7 @@ pub struct BridgehubInfo {
     pub l1_weth_token_address: Address,
     pub ecosystem_admin: Address,
     pub bridgehub_addr: Address,
+    pub validator_timelock: Address,
     pub era_address: Address,
 }
 
@@ -189,6 +191,7 @@ impl NetworkVerifier {
             .await
             .unwrap()
             ._0;
+        let validator_timelock = chain_type_manager.validatorTimelock().call().await.unwrap().validatorTimelock;
 
         let ecosystem_admin = bridgehub.admin().call().await.unwrap().admin;
 
@@ -205,6 +208,7 @@ impl NetworkVerifier {
             l1_weth_token_address,
             ecosystem_admin,
             bridgehub_addr,
+            validator_timelock,
             era_address,
         }
     }

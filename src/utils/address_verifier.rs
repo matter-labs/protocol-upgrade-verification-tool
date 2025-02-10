@@ -1,8 +1,8 @@
 use alloy::primitives::{map::HashMap, Address};
 
-use crate::{compute_expected_address_for_file, UpgradeOutput};
+use crate::UpgradeOutput;
 
-use super::{apply_l2_to_l1_alias, bytecode_verifier::{self, BytecodeVerifier}, network_verifier::{self, NetworkVerifier}};
+use super::{apply_l2_to_l1_alias, bytecode_verifier::BytecodeVerifier, network_verifier::NetworkVerifier};
 
 pub struct AddressVerifier {
     pub address_to_name: HashMap<Address, String>,
@@ -42,6 +42,8 @@ impl AddressVerifier {
             bytecode_verifier.compute_expected_address_for_file("l1-contracts/BridgedStandardERC20"),
             "erc20_bridged_standard",
         );
+        result.add_address(bytecode_verifier.compute_expected_address_for_file("l2-contracts/RollupL2DAValidator"), "rollup_l2_da_validator");
+        result.add_address(bytecode_verifier.compute_expected_address_for_file("l2-contracts/ValidiumL2DAValidator"), "validium_l2_da_validator");
 
         config.add_to_verifier(&mut result);
         result.add_address(
@@ -66,6 +68,7 @@ impl AddressVerifier {
             .add_address(info.shared_bridge, "old_shared_bridge_proxy");
         result
             .add_address(info.legacy_bridge, "legacy_erc20_bridge_proxy");
+        result.add_address(info.validator_timelock, "old_validator_timelock");
 
         result
     }
