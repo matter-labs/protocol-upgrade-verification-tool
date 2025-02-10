@@ -2,6 +2,14 @@
 
 Tool to analyze the zkSync upgrades.
 
+**IMPORTANT**
+
+There will be a specific version of this tool, for each release.
+So make sure that you pick the correct branch, as new versions of the tool will NOT support verifying older releases.
+
+
+
+
 First, you need to get the gateway_ecosystem_upgrade_output.yaml file.
 (you can find it in contracts/l1-contracts/upgrade-envs/outputs )
 
