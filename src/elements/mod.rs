@@ -10,7 +10,11 @@ use initialize_data_new_chain::{FeeParams, PubdataPricingMode};
 use protocol_version::ProtocolVersion;
 use serde::Deserialize;
 
-use crate::{get_expected_new_protocol_version, get_expected_old_protocol_version, utils::address_verifier::AddressVerifier, verifiers::{VerificationResult, Verifiers}, MAX_PRIORITY_TX_GAS_LIMIT};
+use crate::{
+    get_expected_new_protocol_version, get_expected_old_protocol_version,
+    utils::address_verifier::AddressVerifier, verifiers::{VerificationResult, Verifiers},
+    MAX_PRIORITY_TX_GAS_LIMIT,
+};
 
 pub mod call_list;
 pub mod deployed_addresses;
@@ -22,7 +26,6 @@ pub mod initialize_data_new_chain;
 pub mod post_upgrade_calldata;
 pub mod protocol_version;
 pub mod set_new_version_upgrade;
-
 
 #[derive(Debug, Deserialize)]
 pub struct UpgradeOutput {
@@ -76,48 +79,79 @@ impl ContractsConfig {
         expected_force_deployments: String,
     ) {
         if expected_diamond_cut_data != self.diamond_cut_data[2..] {
-            result.report_error(&format!("Initial diamondcutdata mismatch. Received: {}\nExpected: {}", &self.diamond_cut_data[2..], expected_diamond_cut_data));
+            result.report_error(&format!(
+                "Initial diamondcutdata mismatch.\nExpected: {}\nReceived: {}",
+                expected_diamond_cut_data,
+                &self.diamond_cut_data[2..]
+            ));
         }
-        
+
         let provided_fee_params = FeeParams {
-            pubdataPricingMode: if self.diamond_init_pubdata_pricing_mode == 0 { 
+            pubdataPricingMode: if self.diamond_init_pubdata_pricing_mode == 0 {
                 PubdataPricingMode::Rollup
-             } else {
+            } else {
                 PubdataPricingMode::Validium
             },
             batchOverheadL1Gas: self.diamond_init_batch_overhead_l1_gas,
             maxPubdataPerBatch: self.diamond_init_max_pubdata_per_batch,
             maxL2GasPerBatch: self.diamond_init_max_l2_gas_per_batch,
             priorityTxMaxPubdata: self.diamond_init_priority_tx_max_pubdata,
-            minimalL2GasPrice: self.diamond_init_minimal_l2_gas_price
+            minimalL2GasPrice: self.diamond_init_minimal_l2_gas_price,
         };
         if provided_fee_params != verifiers.fee_param_verifier.fee_params {
-            result.report_error(&format!("Diamond init fee params mismatch. Received: {:#?}\nExpected: {:#?}", provided_fee_params, verifiers.fee_param_verifier.fee_params));
-        }   
+            result.report_error(&format!(
+                "Diamond init fee params mismatch.\nExpected: {:#?}\nReceived: {:#?}",
+                verifiers.fee_param_verifier.fee_params, provided_fee_params
+            ));
+        }
 
-        result.expect_address(verifiers, &self.expected_rollup_l2_da_validator, "rollup_l2_da_validator");
-        result.expect_address(verifiers, &self.expected_validium_l2_da_validator, "validium_l2_da_validator");
+        result.expect_address(
+            verifiers,
+            &self.expected_rollup_l2_da_validator,
+            "rollup_l2_da_validator",
+        );
+        result.expect_address(
+            verifiers,
+            &self.expected_validium_l2_da_validator,
+            "validium_l2_da_validator",
+        );
 
         if expected_force_deployments != self.force_deployments_data[2..] {
-            result.report_error(&format!("Fixed force deployment data mismatch. Received: {}\nExpected: {}", &self.force_deployments_data[2..], expected_diamond_cut_data));
+            result.report_error(&format!(
+                "Fixed force deployment data mismatch.\nExpected: {}\nReceived: {}",
+                expected_force_deployments,
+                &self.force_deployments_data[2..]
+            ));
         }
 
         result.expect_address(verifiers, &self.l1_legacy_shared_bridge, "old_shared_bridge_proxy");
 
         let provided_new_protocol_version = ProtocolVersion::from(U256::from(self.new_protocol_version));
         if provided_new_protocol_version != get_expected_new_protocol_version() {
-            result.report_error(&format!("Invalid protocol version provided. Expected: {}, Received: {}", provided_new_protocol_version, get_expected_new_protocol_version()));
+            result.report_error(&format!(
+                "Invalid protocol version provided.\nExpected: {}\nReceived: {}",
+                get_expected_new_protocol_version(),
+                provided_new_protocol_version
+            ));
         }
 
         let provided_old_protocol_version = ProtocolVersion::from(U256::from(self.old_protocol_version));
         if provided_old_protocol_version != get_expected_old_protocol_version() {
-            result.report_error(&format!("Invalid protocol version provided. Expected: {}, Received: {}", provided_old_protocol_version, get_expected_old_protocol_version()));
+            result.report_error(&format!(
+                "Invalid protocol version provided.\nExpected: {}\nReceived: {}",
+                get_expected_old_protocol_version(),
+                provided_old_protocol_version
+            ));
         }
 
         result.expect_address(verifiers, &self.old_validator_timelock, "old_validator_timelock");
 
         if self.priority_tx_max_gas_limit != MAX_PRIORITY_TX_GAS_LIMIT {
-            result.report_error(&format!("Invalid priority tx max gas limit. Expected: {}, Received: {}", MAX_PRIORITY_TX_GAS_LIMIT, self.priority_tx_max_gas_limit));
+            result.report_error(&format!(
+                "Invalid priority tx max gas limit.\nExpected: {}\nReceived: {}",
+                MAX_PRIORITY_TX_GAS_LIMIT,
+                self.priority_tx_max_gas_limit
+            ));
         }
 
         if self.recursion_circuits_set_vks_hash != [0u8; 32]
@@ -126,10 +160,8 @@ impl ContractsConfig {
         {
             result.report_error("Verifier params must be empty.");
         }
-
     }
 }
-
 
 impl UpgradeOutput {
     pub fn add_to_verifier(&self, address_verifier: &mut AddressVerifier) {
@@ -158,7 +190,8 @@ impl UpgradeOutput {
         } else {
             result.report_error(&format!(
                 "L1 chain id mismatch: {} vs {} ",
-                self.l1_chain_id, verifiers.network_verifier.get_l1_chain_id()
+                self.l1_chain_id,
+                verifiers.network_verifier.get_l1_chain_id()
             ));
         }
 
@@ -185,16 +218,24 @@ impl UpgradeOutput {
                 verifiers,
                 result,
                 facets_to_remove.merge(facets_to_add.clone()),
-                &self.chain_upgrade_diamond_cut
+                &self.chain_upgrade_diamond_cut,
             )
             .await?;
 
         let stage2 = GovernanceStage2Calls {
             calls: CallList::parse(&self.governance_stage2_calls),
         };
-        let (expected_chain_creation_data, expected_force_deployments) = stage2.verify(verifiers, result, facets_to_add).await?;
+        let (expected_chain_creation_data, expected_force_deployments) =
+            stage2.verify(verifiers, result, facets_to_add).await?;
 
-        self.contracts_config.verify(verifiers, result, expected_chain_creation_data, expected_force_deployments).await;
+        self.contracts_config
+            .verify(
+                verifiers,
+                result,
+                expected_chain_creation_data,
+                expected_force_deployments,
+            )
+            .await;
 
         Ok(())
     }
