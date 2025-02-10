@@ -82,7 +82,7 @@ fn verify_force_deployments(
 /// Converts a short hex string to an [Address] by left-padding it to 40 hex digits.
 fn address_from_short_hex(hex: &str) -> Address {
     let padded_hex = format!("{:0>40}", hex);
-    Address::from_hex(&format!("0x{}", padded_hex)).expect("Invalid hex address provided")
+    Address::from_hex(format!("0x{}", padded_hex)).expect("Invalid hex address provided")
 }
 
 /// Computes the expected address for the file by reading its code hash and computing the create2 address.
@@ -98,8 +98,8 @@ pub(crate) fn compute_expected_address_for_file(
         // Create2Factory address
         address_from_short_hex("10000"),
         FixedBytes::ZERO,
-        code.clone(),
-        keccak256(&[]),
+        *code,
+        keccak256([]),
     )
 }
 

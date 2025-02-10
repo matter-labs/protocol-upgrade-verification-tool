@@ -20,8 +20,8 @@ use elements::{
 const DEFAULT_CONTRACTS_COMMIT: &str = "6badcb8a9b6114c6dd10d3b172a96812250604b0";
 const DEFAULT_ERA_COMMIT: &str = "99c3905a9e92416e76d37b0858da7f6c7e123e0b";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &'static str = "0.26.0";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &'static str = "0.25.0";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.26.0";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.25.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 
 pub(crate) fn get_expected_new_protocol_version() -> ProtocolVersion {
@@ -80,7 +80,7 @@ impl UpgradeOutput {
 
         // Check that addresses actually contain correct bytecodes.
         self.deployed_addresses
-            .verify(&self, verifiers, result)
+            .verify(self, verifiers, result)
             .await?;
         let (facets_to_remove, facets_to_add) = self
             .deployed_addresses
@@ -125,7 +125,7 @@ pub fn address_eq(address: &Address, addr_string: &str) -> bool {
     address.encode_hex()
         == addr_string
             .strip_prefix("0x")
-            .unwrap_or(&addr_string)
+            .unwrap_or(addr_string)
             .to_ascii_lowercase()
 }
 
@@ -192,28 +192,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some((address, contract, constructor_param)) = verifiers
             .network_verifier
             .check_create2_deploy(
-                &transaction,
+                transaction,
                 &config.create2_factory_addr,
                 &config.create2_factory_salt,
                 &verifiers.bytecode_verifier,
             )
             .await
         {
-            verifiers
+            if verifiers
                 .network_verifier
                 .create2_constructor_params
-                .insert(address, constructor_param)
-                .map(|_| {
-                    panic!("Duplicate deployment for {:#?}", address);
-                });
+                .insert(address, constructor_param).is_some() { panic!("Duplicate deployment for {:#?}", address) }
 
-            verifiers
+            if verifiers
                 .network_verifier
                 .create2_known_bytecodes
-                .insert(address, contract.clone())
-                .map(|_| {
-                    panic!("Duplicate deployment for {:#?}", address);
-                });
+                .insert(address, contract.clone()).is_some() { panic!("Duplicate deployment for {:#?}", address) }
         }
     }
 

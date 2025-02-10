@@ -79,7 +79,7 @@ fn expect_simple_call(
         .address_to_name
         .get(&call.target)
         .map(String::as_str)
-        .unwrap_or_else(|| "Unknown".into());
+        .unwrap_or_else(|| "Unknown");
 
     if target != address_from_call {
         return Err(format!(

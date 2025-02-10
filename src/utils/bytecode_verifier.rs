@@ -161,7 +161,7 @@ impl BytecodeVerifier {
                 let bytecode_hash = FixedBytes::try_from(decoded.as_slice())
                     .expect("Invalid length for FixedBytes (zk_bytecode_hash)");
                 bytecode_file_to_zkhash
-                    .insert(contract.contract_name.clone(), bytecode_hash.clone());
+                    .insert(contract.contract_name.clone(), bytecode_hash);
                 zk_bytecode_file_by_hash.insert(bytecode_hash, contract.contract_name);
             }
         }

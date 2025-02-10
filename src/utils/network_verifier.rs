@@ -1,4 +1,3 @@
-use std::ops::Add;
 
 use alloy::consensus::Transaction;
 use alloy::hex::FromHex;
@@ -77,13 +76,13 @@ impl NetworkVerifier {
 
     pub async fn get_l1_chain_id(&self) -> u64 {
         let provider = ProviderBuilder::new().on_http(self.l1_rpc.parse().unwrap());
-        let chain_id = provider.get_chain_id().await.unwrap();
-        chain_id
+        
+        provider.get_chain_id().await.unwrap()
     }
 
     pub async fn get_bytecode_hash_at(&self, address: &Address) -> FixedBytes<32> {
         let provider = ProviderBuilder::new().on_http(self.l1_rpc.parse().unwrap());
-        let code = provider.get_code_at(address.clone()).await.unwrap();
+        let code = provider.get_code_at(*address).await.unwrap();
         if code.len() == 0 {
             // If address has no bytecode - we return formal 0s.
             FixedBytes::ZERO
@@ -96,21 +95,21 @@ impl NetworkVerifier {
         let provider = self.get_l1_provider();
 
         let ctm = ChainTypeManager::new(stm_addr, provider);
-        let address = ctm
+        
+
+        ctm
             .getHyperchain(U256::from(era_chain_id))
             .call()
             .await
             .unwrap()
-            ._0;
-
-        address
+            ._0
     }
 
     pub async fn storage_at(&self, address: &Address, key: &FixedBytes<32>) -> FixedBytes<32> {
         let provider = ProviderBuilder::new().on_http(self.l1_rpc.parse().unwrap());
 
         let storage = provider
-            .get_storage_at(address.clone(), U256::from_be_bytes(key.0))
+            .get_storage_at(*address, U256::from_be_bytes(key.0))
             .await
             .unwrap();
 
@@ -121,7 +120,7 @@ impl NetworkVerifier {
         let provider = ProviderBuilder::new().on_http(self.l1_rpc.parse().unwrap());
 
         let storage = provider
-            .get_storage_at(address.clone(), U256::from(key))
+            .get_storage_at(*address, U256::from(key))
             .await
             .unwrap();
 
@@ -206,7 +205,7 @@ impl NetworkVerifier {
             .unwrap()
             .unwrap();
 
-        if tx.to() != Some(expected_create2_address.clone()) {
+        if tx.to() != Some(*expected_create2_address) {
             return None;
         }
 

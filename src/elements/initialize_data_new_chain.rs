@@ -85,9 +85,9 @@ impl InitializeDataNewChain {
 impl Display for PubdataPricingMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PubdataPricingMode::Rollup => write!(f, "{}", "Rollup"),
-            PubdataPricingMode::Validium => write!(f, "{}", "Validium"),
-            PubdataPricingMode::__Invalid => write!(f, "{}", "Invalid"),
+            PubdataPricingMode::Rollup => write!(f, "Rollup"),
+            PubdataPricingMode::Validium => write!(f, "Validium"),
+            PubdataPricingMode::__Invalid => write!(f, "Invalid"),
         }
     }
 }

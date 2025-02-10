@@ -909,7 +909,7 @@ impl DeployedAddresses {
                 .address_verifier
                 .name_to_address
                 .get(facet.name)
-                .expect(&format!("{} not found", facet.name));
+                .unwrap_or_else(|| panic!("{} not found", facet.name));
             let bytecode = l1_provider
                 .get_code_at(address)
                 .await

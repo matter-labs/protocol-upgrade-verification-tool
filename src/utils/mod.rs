@@ -38,8 +38,8 @@ pub async fn get_contents_from_github(commit: &str, repo: &str, file_path: &str)
         file.write_all(&data).unwrap();
     }
 
-    let data = fs::read_to_string(&cache_file_path).expect("Failed to read cache file");
-    return data;
+    
+    fs::read_to_string(&cache_file_path).expect("Failed to read cache file")
 }
 
 pub fn compute_create2_address_zk(
@@ -50,7 +50,7 @@ pub fn compute_create2_address_zk(
 ) -> Address {
     let mut address_payload = vec![];
 
-    address_payload.extend_from_slice(&keccak256("zksyncCreate2").as_slice());
+    address_payload.extend_from_slice(keccak256("zksyncCreate2").as_slice());
     address_payload.extend_from_slice(&[0u8; 12]);
     address_payload.extend_from_slice(sender.as_slice());
 
@@ -71,7 +71,7 @@ pub fn compute_create2_address_evm(
     bytecode_hash: FixedBytes<32>,
 ) -> Address {
     let mut address_payload = vec![];
-    address_payload.extend_from_slice(&[0xff as u8]);
+    address_payload.extend_from_slice(&[0xff_u8]);
     address_payload.extend_from_slice(sender.as_slice());
 
     // Extract salt

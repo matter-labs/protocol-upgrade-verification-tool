@@ -1,8 +1,7 @@
 use alloy::primitives::Address;
 use std::cmp::Ordering;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
-use std::ops::Add;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Action {
@@ -44,6 +43,12 @@ pub struct FacetCutSet {
 impl PartialEq for FacetCutSet {
     fn eq(&self, other: &Self) -> bool {
         self.facets == other.facets
+    }
+}
+
+impl Default for FacetCutSet {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
