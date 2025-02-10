@@ -6,7 +6,8 @@ mod utils;
 mod verifiers;
 use clap::Parser;
 use elements::{
-    post_upgrade_calldata::compute_expected_address_for_file, protocol_version::ProtocolVersion, UpgradeOutput,
+    post_upgrade_calldata::compute_expected_address_for_file, protocol_version::ProtocolVersion,
+    UpgradeOutput,
 };
 
 const DEFAULT_CONTRACTS_COMMIT: &str = "6badcb8a9b6114c6dd10d3b172a96812250604b0";
@@ -75,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &args.contracts_commit,
         args.l1_rpc,
         args.era_chain_id,
-        &config
+        &config,
     )
     .await;
 

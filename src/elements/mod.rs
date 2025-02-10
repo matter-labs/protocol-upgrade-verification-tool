@@ -12,7 +12,8 @@ use serde::Deserialize;
 
 use crate::{
     get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::address_verifier::AddressVerifier, verifiers::{VerificationResult, Verifiers},
+    utils::address_verifier::AddressVerifier,
+    verifiers::{VerificationResult, Verifiers},
     MAX_PRIORITY_TX_GAS_LIMIT,
 };
 
@@ -124,9 +125,14 @@ impl ContractsConfig {
             ));
         }
 
-        result.expect_address(verifiers, &self.l1_legacy_shared_bridge, "old_shared_bridge_proxy");
+        result.expect_address(
+            verifiers,
+            &self.l1_legacy_shared_bridge,
+            "old_shared_bridge_proxy",
+        );
 
-        let provided_new_protocol_version = ProtocolVersion::from(U256::from(self.new_protocol_version));
+        let provided_new_protocol_version =
+            ProtocolVersion::from(U256::from(self.new_protocol_version));
         if provided_new_protocol_version != get_expected_new_protocol_version() {
             result.report_error(&format!(
                 "Invalid protocol version provided.\nExpected: {}\nReceived: {}",
@@ -135,7 +141,8 @@ impl ContractsConfig {
             ));
         }
 
-        let provided_old_protocol_version = ProtocolVersion::from(U256::from(self.old_protocol_version));
+        let provided_old_protocol_version =
+            ProtocolVersion::from(U256::from(self.old_protocol_version));
         if provided_old_protocol_version != get_expected_old_protocol_version() {
             result.report_error(&format!(
                 "Invalid protocol version provided.\nExpected: {}\nReceived: {}",
@@ -144,13 +151,16 @@ impl ContractsConfig {
             ));
         }
 
-        result.expect_address(verifiers, &self.old_validator_timelock, "old_validator_timelock");
+        result.expect_address(
+            verifiers,
+            &self.old_validator_timelock,
+            "old_validator_timelock",
+        );
 
         if self.priority_tx_max_gas_limit != MAX_PRIORITY_TX_GAS_LIMIT {
             result.report_error(&format!(
                 "Invalid priority tx max gas limit.\nExpected: {}\nReceived: {}",
-                MAX_PRIORITY_TX_GAS_LIMIT,
-                self.priority_tx_max_gas_limit
+                MAX_PRIORITY_TX_GAS_LIMIT, self.priority_tx_max_gas_limit
             ));
         }
 

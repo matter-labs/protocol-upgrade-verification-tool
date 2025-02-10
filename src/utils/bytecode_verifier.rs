@@ -3,7 +3,10 @@ use alloy::primitives::{keccak256, Address, Bytes, FixedBytes};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{address_from_short_hex, compute_create2_address_zk, compute_hash_with_arguments, get_contents_from_github};
+use super::{
+    address_from_short_hex, compute_create2_address_zk, compute_hash_with_arguments,
+    get_contents_from_github,
+};
 
 pub struct BytecodeVerifier {
     /// Maps init bytecode hash to the corresponding file name.
@@ -117,10 +120,7 @@ impl BytecodeVerifier {
             .insert(bytecode_hash, file);
     }
 
-    pub(crate) fn compute_expected_address_for_file(
-        &self,
-        file: &str,
-    ) -> Address {
+    pub(crate) fn compute_expected_address_for_file(&self, file: &str) -> Address {
         let code = self
             .file_to_zk_bytecode_hash(file)
             .unwrap_or_else(|| panic!("Bytecode not found for file: {}", file));
@@ -131,7 +131,7 @@ impl BytecodeVerifier {
             *code,
             keccak256([]),
         )
-    }    
+    }
 
     /// Initializes the verifier from contract hashes obtained from GitHub.
     pub async fn init_from_github(commit: &str) -> Self {
@@ -176,8 +176,7 @@ impl BytecodeVerifier {
                 });
                 let bytecode_hash = FixedBytes::try_from(decoded.as_slice())
                     .expect("Invalid length for FixedBytes (zk_bytecode_hash)");
-                bytecode_file_to_zkhash
-                    .insert(contract.contract_name.clone(), bytecode_hash);
+                bytecode_file_to_zkhash.insert(contract.contract_name.clone(), bytecode_hash);
                 zk_bytecode_file_by_hash.insert(bytecode_hash, contract.contract_name);
             }
         }

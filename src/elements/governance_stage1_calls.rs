@@ -105,7 +105,7 @@ impl GovernanceStage1Calls {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         expected_upgrade_facets: FacetCutSet,
-        expected_chain_upgrade_diamond_cut: &str
+        expected_chain_upgrade_diamond_cut: &str,
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 1 calls ===");
 
@@ -161,7 +161,11 @@ impl GovernanceStage1Calls {
 
         let diamond_cut = data.diamondCut;
         if alloy::hex::encode(diamond_cut.abi_encode()) != expected_chain_upgrade_diamond_cut[2..] {
-            result.report_error(&format!("Invalid chain upgrade diamond cut. Expected: {}\n Received: {}", expected_chain_upgrade_diamond_cut, alloy::hex::encode(diamond_cut.abi_encode())));
+            result.report_error(&format!(
+                "Invalid chain upgrade diamond cut. Expected: {}\n Received: {}",
+                expected_chain_upgrade_diamond_cut,
+                alloy::hex::encode(diamond_cut.abi_encode())
+            ));
         }
 
         if diamond_cut.initAddress != deployed_addresses.l1_gateway_upgrade {

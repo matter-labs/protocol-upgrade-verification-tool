@@ -38,7 +38,6 @@ pub async fn get_contents_from_github(commit: &str, repo: &str, file_path: &str)
         file.write_all(&data).unwrap();
     }
 
-    
     fs::read_to_string(&cache_file_path).expect("Failed to read cache file")
 }
 

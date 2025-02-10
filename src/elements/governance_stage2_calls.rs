@@ -204,7 +204,10 @@ impl GovernanceStage2Calls {
                 ..
             } = decoded._chainCreationParams;
 
-            (hex::encode(diamondCut.abi_encode()), hex::encode(forceDeploymentsData))
+            (
+                hex::encode(diamondCut.abi_encode()),
+                hex::encode(forceDeploymentsData),
+            )
         };
 
         // Verify setAddresses call.

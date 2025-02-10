@@ -290,8 +290,14 @@ impl PostUpgradeCalldata {
             result,
         )?;
 
-        if self.gateway_upgrade_encoded_input.l2GatewayUpgradePosition != U256::from(self.gateway_upgrade_encoded_input.forceDeployments.len() - 2) {
-            result.report_error(&format!("Incorrect l2GatewayUpgradePosition. Expected: {}, Received: {}", self.gateway_upgrade_encoded_input.forceDeployments.len() - 2, self.gateway_upgrade_encoded_input.l2GatewayUpgradePosition));
+        if self.gateway_upgrade_encoded_input.l2GatewayUpgradePosition
+            != U256::from(self.gateway_upgrade_encoded_input.forceDeployments.len() - 2)
+        {
+            result.report_error(&format!(
+                "Incorrect l2GatewayUpgradePosition. Expected: {}, Received: {}",
+                self.gateway_upgrade_encoded_input.forceDeployments.len() - 2,
+                self.gateway_upgrade_encoded_input.l2GatewayUpgradePosition
+            ));
         }
 
         result.expect_address(
@@ -304,7 +310,11 @@ impl PostUpgradeCalldata {
             &self.gateway_upgrade_encoded_input.wrappedBaseTokenStore,
             "l2_wrapped_base_token_store",
         );
-        result.expect_address(verifiers, &self.gateway_upgrade_encoded_input.oldValidatorTimelock, "old_validator_timelock");
+        result.expect_address(
+            verifiers,
+            &self.gateway_upgrade_encoded_input.oldValidatorTimelock,
+            "old_validator_timelock",
+        );
         result.expect_address(
             verifiers,
             &self.gateway_upgrade_encoded_input.newValidatorTimelock,

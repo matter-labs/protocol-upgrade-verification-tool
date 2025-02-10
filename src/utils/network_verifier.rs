@@ -1,13 +1,12 @@
-
 use alloy::consensus::Transaction;
 use alloy::hex::FromHex;
-use std::collections::HashMap;
 use alloy::primitives::{keccak256, Address, FixedBytes, TxHash, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::sol;
 use alloy::sol_types::SolCall;
 use alloy::transports::http::Http;
 use reqwest::Client;
+use std::collections::HashMap;
 
 use crate::UpgradeOutput;
 
@@ -67,10 +66,10 @@ pub struct NetworkVerifier {
 
 impl NetworkVerifier {
     pub async fn new(
-        l1_rpc: String, 
+        l1_rpc: String,
         l2_chain_id: u64,
         bytecode_verifier: &BytecodeVerifier,
-        config: &UpgradeOutput
+        config: &UpgradeOutput,
     ) -> Self {
         let mut create2_constructor_params = HashMap::new();
         let mut create2_known_bytecodes = HashMap::new();
@@ -79,23 +78,30 @@ impl NetworkVerifier {
             "Adding {} transactions from create2",
             config.transactions.len()
         );
-    
+
         for transaction in &config.transactions {
-            if let Some((address, contract, constructor_param)) = 
-                check_create2_deploy(
-                    l1_provider.clone(),
-                    transaction,
-                    &config.create2_factory_addr,
-                    &config.create2_factory_salt,
-                    bytecode_verifier,
-                )
-                .await
+            if let Some((address, contract, constructor_param)) = check_create2_deploy(
+                l1_provider.clone(),
+                transaction,
+                &config.create2_factory_addr,
+                &config.create2_factory_salt,
+                bytecode_verifier,
+            )
+            .await
             {
                 if create2_constructor_params
-                    .insert(address, constructor_param).is_some() { panic!("Duplicate deployment for {:#?}", address) }
-    
+                    .insert(address, constructor_param)
+                    .is_some()
+                {
+                    panic!("Duplicate deployment for {:#?}", address)
+                }
+
                 if create2_known_bytecodes
-                    .insert(address, contract.clone()).is_some() { panic!("Duplicate deployment for {:#?}", address) }
+                    .insert(address, contract.clone())
+                    .is_some()
+                {
+                    panic!("Duplicate deployment for {:#?}", address)
+                }
             }
         }
 
@@ -104,7 +110,7 @@ impl NetworkVerifier {
             l1_provider,
             l2_chain_id,
             create2_constructor_params,
-            create2_known_bytecodes
+            create2_known_bytecodes,
         }
     }
 
@@ -128,9 +134,8 @@ impl NetworkVerifier {
 
     pub async fn get_chain_diamond_proxy(&self, stm_addr: Address, era_chain_id: u64) -> Address {
         let ctm = ChainTypeManager::new(stm_addr, self.l1_provider.clone());
-        
-        ctm
-            .getHyperchain(U256::from(era_chain_id))
+
+        ctm.getHyperchain(U256::from(era_chain_id))
             .call()
             .await
             .unwrap()
@@ -138,7 +143,8 @@ impl NetworkVerifier {
     }
 
     pub async fn storage_at(&self, address: &Address, key: &FixedBytes<32>) -> FixedBytes<32> {
-        let storage = self.l1_provider
+        let storage = self
+            .l1_provider
             .get_storage_at(*address, U256::from_be_bytes(key.0))
             .await
             .unwrap();
@@ -147,7 +153,8 @@ impl NetworkVerifier {
     }
 
     pub async fn get_storage_at(&self, address: &Address, key: u8) -> FixedBytes<32> {
-        let storage = self.l1_provider
+        let storage = self
+            .l1_provider
             .get_storage_at(*address, U256::from(key))
             .await
             .unwrap();
@@ -191,7 +198,12 @@ impl NetworkVerifier {
             .await
             .unwrap()
             ._0;
-        let validator_timelock = chain_type_manager.validatorTimelock().call().await.unwrap().validatorTimelock;
+        let validator_timelock = chain_type_manager
+            .validatorTimelock()
+            .call()
+            .await
+            .unwrap()
+            .validatorTimelock;
 
         let ecosystem_admin = bridgehub.admin().call().await.unwrap().admin;
 
@@ -212,8 +224,6 @@ impl NetworkVerifier {
             era_address,
         }
     }
-
-
 }
 
 /// Fetches the `transaction` and tries to parse it as a CREATE2 deployment
@@ -279,11 +289,8 @@ async fn check_create2_deploy(
         let create2_and_transfer_addr =
             compute_create2_address_evm(tx.to().unwrap(), salt, keccak256(&tx.input()[32..]));
 
-        let contract_addr = compute_create2_address_evm(
-            create2_and_transfer_addr,
-            salt,
-            keccak256(&x.bytecode),
-        );
+        let contract_addr =
+            compute_create2_address_evm(create2_and_transfer_addr, salt, keccak256(&x.bytecode));
 
         return Some((contract_addr, name, params));
     }

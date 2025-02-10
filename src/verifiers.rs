@@ -9,11 +9,14 @@ use serde::Deserialize;
 use std::fmt::{self, Display};
 use std::panic::Location;
 
-use crate::{utils::{
-    address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier,
-    fee_param_verifier::FeeParamVerifier, get_contents_from_github,
-    network_verifier::NetworkVerifier,
-}, UpgradeOutput};
+use crate::{
+    utils::{
+        address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier,
+        fee_param_verifier::FeeParamVerifier, get_contents_from_github,
+        network_verifier::NetworkVerifier,
+    },
+    UpgradeOutput,
+};
 
 sol! {
     function transparentProxyConstructor(address impl, address initialAdmin, bytes memory initCalldata);
@@ -39,10 +42,11 @@ impl Verifiers {
         contracts_commit: &str,
         l1_rpc: String,
         era_chain_id: u64,
-        config: &UpgradeOutput
+        config: &UpgradeOutput,
     ) -> Self {
         let bytecode_verifier = BytecodeVerifier::init_from_github(contracts_commit).await;
-        let network_verifier = NetworkVerifier::new(l1_rpc, era_chain_id, &bytecode_verifier, config).await;
+        let network_verifier =
+            NetworkVerifier::new(l1_rpc, era_chain_id, &bytecode_verifier, config).await;
 
         if testnet_contracts && network_verifier.get_l1_chain_id() == 1 {
             panic!("Testnet contracts are not expected to be deployed on L1 mainnet - you passed --testnet-contracts flag.");
@@ -54,8 +58,9 @@ impl Verifiers {
             bridgehub_address,
             &network_verifier,
             &bytecode_verifier,
-            config
-        ).await;
+            config,
+        )
+        .await;
 
         let fee_param_verifier =
             FeeParamVerifier::safe_init(&bridgehub_address, &network_verifier, contracts_commit)
