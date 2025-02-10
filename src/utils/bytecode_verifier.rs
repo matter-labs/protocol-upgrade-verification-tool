@@ -1,7 +1,7 @@
 use alloy::hex;
 use alloy::primitives::{keccak256, Bytes, FixedBytes};
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use super::{compute_hash_with_arguments, get_contents_from_github};
 
@@ -69,10 +69,7 @@ impl BytecodeVerifier {
     /// Checks whether the provided `slice` starts with the create2 and transfer bytecode.
     ///
     /// If so, returns the remainder of the slice (after the prefix).
-    pub fn is_create2_and_transfer_bytecode_prefix<'a>(
-        &self,
-        slice: &'a [u8],
-    ) -> Option<&'a [u8]> {
+    pub fn is_create2_and_transfer_bytecode_prefix<'a>(&self, slice: &'a [u8]) -> Option<&'a [u8]> {
         let prefix = self.get_create2_and_transfer_bytecode();
         if slice.len() < prefix.len() {
             return None;
@@ -85,12 +82,18 @@ impl BytecodeVerifier {
     }
 
     /// Returns the file name corresponding to the given init bytecode hash.
-    pub fn evm_init_bytecode_hash_to_file(&self, bytecode_hash: &FixedBytes<32>) -> Option<&String> {
+    pub fn evm_init_bytecode_hash_to_file(
+        &self,
+        bytecode_hash: &FixedBytes<32>,
+    ) -> Option<&String> {
         self.init_bytecode_file_by_hash.get(bytecode_hash)
     }
 
     /// Returns the file name corresponding to the given deployed bytecode hash.
-    pub fn evm_deployed_bytecode_hash_to_file(&self, bytecode_hash: &FixedBytes<32>) -> Option<&String> {
+    pub fn evm_deployed_bytecode_hash_to_file(
+        &self,
+        bytecode_hash: &FixedBytes<32>,
+    ) -> Option<&String> {
         self.deployed_bytecode_file_by_hash.get(bytecode_hash)
     }
 
@@ -105,8 +108,13 @@ impl BytecodeVerifier {
     }
 
     /// Inserts an entry for the given deployed bytecode hash and file name.
-    pub fn insert_evm_deployed_bytecode_hash(&mut self, bytecode_hash: FixedBytes<32>, file: String) {
-        self.deployed_bytecode_file_by_hash.insert(bytecode_hash, file);
+    pub fn insert_evm_deployed_bytecode_hash(
+        &mut self,
+        bytecode_hash: FixedBytes<32>,
+        file: String,
+    ) {
+        self.deployed_bytecode_file_by_hash
+            .insert(bytecode_hash, file);
     }
 
     /// Initializes the verifier from contract hashes obtained from GitHub.
@@ -119,17 +127,24 @@ impl BytecodeVerifier {
         let contract_hashes = ContractHashes::init_from_github(commit).await;
         for contract in contract_hashes.hashes {
             if let Some(ref hash) = contract.evm_bytecode_hash {
-                let decoded = hex::decode(hash)
-                    .unwrap_or_else(|_| panic!("Invalid hex in evm_bytecode_hash for {}", contract.contract_name));
+                let decoded = hex::decode(hash).unwrap_or_else(|_| {
+                    panic!(
+                        "Invalid hex in evm_bytecode_hash for {}",
+                        contract.contract_name
+                    )
+                });
                 let bytecode_hash = FixedBytes::try_from(decoded.as_slice())
                     .expect("Invalid length for FixedBytes (evm_bytecode_hash)");
-                init_bytecode_file_by_hash
-                    .insert(bytecode_hash, contract.contract_name.clone());
+                init_bytecode_file_by_hash.insert(bytecode_hash, contract.contract_name.clone());
             }
 
             if let Some(ref hash) = contract.evm_deployed_bytecode_hash {
-                let decoded = hex::decode(hash)
-                    .unwrap_or_else(|_| panic!("Invalid hex in evm_deployed_bytecode_hash for {}", contract.contract_name));
+                let decoded = hex::decode(hash).unwrap_or_else(|_| {
+                    panic!(
+                        "Invalid hex in evm_deployed_bytecode_hash for {}",
+                        contract.contract_name
+                    )
+                });
                 let bytecode_hash = FixedBytes::try_from(decoded.as_slice())
                     .expect("Invalid length for FixedBytes (evm_deployed_bytecode_hash)");
                 deployed_bytecode_file_by_hash
@@ -137,14 +152,17 @@ impl BytecodeVerifier {
             }
 
             if let Some(ref hash) = contract.zk_bytecode_hash {
-                let decoded = hex::decode(hash)
-                    .unwrap_or_else(|_| panic!("Invalid hex in zk_bytecode_hash for {}", contract.contract_name));
+                let decoded = hex::decode(hash).unwrap_or_else(|_| {
+                    panic!(
+                        "Invalid hex in zk_bytecode_hash for {}",
+                        contract.contract_name
+                    )
+                });
                 let bytecode_hash = FixedBytes::try_from(decoded.as_slice())
                     .expect("Invalid length for FixedBytes (zk_bytecode_hash)");
                 bytecode_file_to_zkhash
                     .insert(contract.contract_name.clone(), bytecode_hash.clone());
-                zk_bytecode_file_by_hash
-                    .insert(bytecode_hash, contract.contract_name);
+                zk_bytecode_file_by_hash.insert(bytecode_hash, contract.contract_name);
             }
         }
 
@@ -152,7 +170,7 @@ impl BytecodeVerifier {
             init_bytecode_file_by_hash,
             deployed_bytecode_file_by_hash,
             zk_bytecode_file_by_hash,
-            bytecode_file_to_zkhash
+            bytecode_file_to_zkhash,
         }
     }
 }

@@ -1,14 +1,22 @@
-use crate::{
-    elements::initialize_data_new_chain::InitializeDataNewChain, get_expected_old_protocol_version, utils::{compute_selector, facet_cut_set::{self, FacetCutSet, FacetInfo}}, verifiers::Verifiers
-};
-use alloy::{
-    hex, primitives::U256, sol,
-    sol_types::{SolCall, SolValue},
-};
 use super::{
     call_list::{Call, CallList},
     fixed_force_deployment::FixedForceDeploymentsData,
     protocol_version::ProtocolVersion,
+};
+use crate::{
+    elements::initialize_data_new_chain::InitializeDataNewChain,
+    get_expected_old_protocol_version,
+    utils::{
+        compute_selector,
+        facet_cut_set::{self, FacetCutSet, FacetInfo},
+    },
+    verifiers::Verifiers,
+};
+use alloy::{
+    hex,
+    primitives::U256,
+    sol,
+    sol_types::{SolCall, SolValue},
 };
 
 pub struct GovernanceStage2Calls {
@@ -107,8 +115,8 @@ impl GovernanceStage2Calls {
             }
             (decoded.proxy, decoded.implementation)
         } else {
-            let decoded = upgradeCall::abi_decode(data, true)
-                .expect("Failed to decode upgrade call");
+            let decoded =
+                upgradeCall::abi_decode(data, true).expect("Failed to decode upgrade call");
             (decoded.proxy, decoded.implementation)
         };
 
@@ -216,7 +224,11 @@ impl GovernanceStage2Calls {
         {
             let decoded = setL1NativeTokenVaultCall::abi_decode(&self.calls.elems[6].data, true)
                 .expect("Failed to decode setL1NativeTokenVault call");
-            result.expect_address(verifiers, &decoded._l1NativeTokenVault, "native_token_vault");
+            result.expect_address(
+                verifiers,
+                &decoded._l1NativeTokenVault,
+                "native_token_vault",
+            );
         }
 
         // Verify setL1AssetRouter call.
@@ -228,8 +240,9 @@ impl GovernanceStage2Calls {
 
         // Verify setProtocolVersionDeadline call.
         {
-            let decoded = setProtocolVersionDeadlineCall::abi_decode(&self.calls.elems[8].data, true)
-                .expect("Failed to decode setProtocolVersionDeadline call");
+            let decoded =
+                setProtocolVersionDeadlineCall::abi_decode(&self.calls.elems[8].data, true)
+                    .expect("Failed to decode setProtocolVersionDeadline call");
             let pv = ProtocolVersion::from(decoded.protocolVersion);
             let expected_old = get_expected_old_protocol_version();
 
@@ -287,14 +300,19 @@ impl ChainCreationParams {
             ));
         }
 
-        if self.genesisIndexRepeatedStorageChanges != verifiers.genesis_config.genesis_rollup_leaf_index {
+        if self.genesisIndexRepeatedStorageChanges
+            != verifiers.genesis_config.genesis_rollup_leaf_index
+        {
             result.report_error(&format!(
                 "Expected genesis index repeated storage changes to be {}, but got {}",
-                verifiers.genesis_config.genesis_rollup_leaf_index, self.genesisIndexRepeatedStorageChanges
+                verifiers.genesis_config.genesis_rollup_leaf_index,
+                self.genesisIndexRepeatedStorageChanges
             ));
         }
 
-        if self.genesisBatchCommitment.to_string() != verifiers.genesis_config.genesis_batch_commitment {
+        if self.genesisBatchCommitment.to_string()
+            != verifiers.genesis_config.genesis_batch_commitment
+        {
             result.report_error(&format!(
                 "Expected genesis batch commitment to be {}, but got {}",
                 verifiers.genesis_config.genesis_batch_commitment, self.genesisBatchCommitment
@@ -312,7 +330,9 @@ impl ChainCreationParams {
         let fixed_force_deployments_data =
             FixedForceDeploymentsData::abi_decode(&self.forceDeploymentsData, true)
                 .expect("Failed to decode FixedForceDeploymentsData");
-        fixed_force_deployments_data.verify(verifiers, result).await?;
+        fixed_force_deployments_data
+            .verify(verifiers, result)
+            .await?;
 
         Ok(())
     }
@@ -343,10 +363,10 @@ pub async fn verify_chain_creation_diamond_cut(
             }
         };
         proposed_facet_cut.add_facet(FacetInfo {
-            facet: facet.facet, 
+            facet: facet.facet,
             action,
             is_freezable: facet.isFreezable,
-            selectors: facet.selectors.iter().map(|x| x.0).collect() 
+            selectors: facet.selectors.iter().map(|x| x.0).collect(),
         });
     }
 
@@ -358,8 +378,9 @@ pub async fn verify_chain_creation_diamond_cut(
     }
 
     result.expect_address(verifiers, &diamond_cut.initAddress, "diamond_init");
-    let initialize_data_new_chain = InitializeDataNewChain::abi_decode(&diamond_cut.initCalldata, true)
-        .expect("Failed to decode InitializeDataNewChain");
+    let initialize_data_new_chain =
+        InitializeDataNewChain::abi_decode(&diamond_cut.initCalldata, true)
+            .expect("Failed to decode InitializeDataNewChain");
     initialize_data_new_chain.verify(verifiers, result).await?;
 
     Ok(())

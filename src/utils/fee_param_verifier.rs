@@ -1,4 +1,7 @@
-use alloy::{primitives::{Address, U256}, sol_types::SolValue};
+use alloy::{
+    primitives::{Address, U256},
+    sol_types::SolValue,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::elements::initialize_data_new_chain::{FeeParams, PubdataPricingMode};
@@ -40,7 +43,7 @@ impl FeeParamVerifier {
         }
 
         Self {
-            fee_params: github_based
+            fee_params: github_based,
         }
     }
 
@@ -58,21 +61,27 @@ impl FeeParamVerifier {
 
     async fn init_from_on_chain(
         bridgehub_addr: &Address,
-        network_verifier: &NetworkVerifier    
+        network_verifier: &NetworkVerifier,
     ) -> FeeParams {
-        let bridgehub = Bridgehub::new(
-            *bridgehub_addr,
-            network_verifier.get_l1_provider().clone(),
-        );
+        let bridgehub = Bridgehub::new(*bridgehub_addr, network_verifier.get_l1_provider().clone());
 
-        let diamond_proxy_address = &bridgehub.getHyperchain(U256::from(network_verifier.l2_chain_id)).call().await.unwrap().chainAddress;
+        let diamond_proxy_address = &bridgehub
+            .getHyperchain(U256::from(network_verifier.l2_chain_id))
+            .call()
+            .await
+            .unwrap()
+            .chainAddress;
 
         let value = network_verifier
             .get_storage_at(diamond_proxy_address, FEE_PARAM_STORAGE_SLOT)
             .await;
 
         FeeParams {
-            pubdataPricingMode: PubdataPricingMode::abi_decode(&expand_to_word(&value.0[31..32]), true).unwrap(),
+            pubdataPricingMode: PubdataPricingMode::abi_decode(
+                &expand_to_word(&value.0[31..32]),
+                true,
+            )
+            .unwrap(),
             batchOverheadL1Gas: u32::abi_decode(&expand_to_word(&value.0[27..31]), true).unwrap(),
             maxPubdataPerBatch: u32::abi_decode(&expand_to_word(&value.0[23..27]), true).unwrap(),
             maxL2GasPerBatch: u32::abi_decode(&expand_to_word(&value.0[19..23]), true).unwrap(),

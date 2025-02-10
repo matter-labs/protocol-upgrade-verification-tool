@@ -7,9 +7,7 @@ use alloy::{
 
 use crate::get_expected_new_protocol_version;
 
-use super::{
-    post_upgrade_calldata::PostUpgradeCalldata, protocol_version::ProtocolVersion,
-};
+use super::{post_upgrade_calldata::PostUpgradeCalldata, protocol_version::ProtocolVersion};
 
 const DEPLOYER_SYSTEM_CONTRACT: u32 = 0x8006;
 const FORCE_DEPLOYER_ADDRESS: u32 = 0x8007;
@@ -207,9 +205,7 @@ impl ProposedUpgrade {
             result.report_error("Invalid reservedDynamic");
         }
 
-        let l1_provider = verifiers
-            .network_verifier
-            .get_l1_provider();
+        let l1_provider = verifiers.network_verifier.get_l1_provider();
         let bytecodes_supplier = BytecodesSupplier::new(bytecodes_supplier_addr, l1_provider);
 
         let deps: Vec<FixedBytes<32>> = tx

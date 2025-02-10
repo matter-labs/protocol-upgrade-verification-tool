@@ -37,7 +37,7 @@ impl FixedForceDeploymentsData {
         if U256::from(expected_l1_chain_id) != self.l1ChainId {
             result.report_error(&format!(
                 "L1 chain id mismatch: expected {}, got {}",
-                expected_l1_chain_id, self.l1ChainId, 
+                expected_l1_chain_id, self.l1ChainId,
             ));
         }
 
@@ -45,7 +45,7 @@ impl FixedForceDeploymentsData {
         if U256::from(era_chain_id) != self.eraChainId {
             result.report_error(&format!(
                 "Era chain id mismatch: expected {}, got {}",
-                era_chain_id, self.eraChainId 
+                era_chain_id, self.eraChainId
             ));
         }
 
@@ -55,7 +55,11 @@ impl FixedForceDeploymentsData {
             &self.l2TokenProxyBytecodeHash,
             "l1-contracts/BeaconProxy",
         );
-        result.expect_address(verifiers, &self.aliasedL1Governance, "aliased_protocol_upgrade_handler_proxy");
+        result.expect_address(
+            verifiers,
+            &self.aliasedL1Governance,
+            "aliased_protocol_upgrade_handler_proxy",
+        );
 
         if self.maxNumberOfZKChains != U256::from(MAX_NUMBER_OF_ZK_CHAINS) {
             result.report_error("maxNumberOfZKChains must be 100");
