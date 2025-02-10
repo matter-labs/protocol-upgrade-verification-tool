@@ -1,6 +1,5 @@
 use alloy::{
     dyn_abi::SolType,
-    hex::FromHex,
     primitives::{keccak256, Address, Bytes, FixedBytes, U256},
     sol,
 };
