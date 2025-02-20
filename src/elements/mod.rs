@@ -1,8 +1,5 @@
-use std::ops::Add;
-
 use alloy::primitives::{Address, FixedBytes, U256};
 use call_list::CallList;
-use chrono::format::Fixed;
 use deployed_addresses::DeployedAddresses;
 use governance_stage1_calls::GovernanceStage1Calls;
 use governance_stage2_calls::GovernanceStage2Calls;
@@ -56,7 +53,6 @@ pub(crate) struct ContractsConfig {
     diamond_init_max_pubdata_per_batch: u32,
     diamond_init_minimal_l2_gas_price: u64,
     diamond_init_priority_tx_max_pubdata: u32,
-    // todo: maybe convert to enum rightaway
     diamond_init_pubdata_pricing_mode: u32,
     expected_rollup_l2_da_validator: Address,
     expected_validium_l2_da_validator: Address,
