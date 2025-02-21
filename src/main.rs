@@ -6,10 +6,7 @@ mod elements;
 mod utils;
 mod verifiers;
 use clap::Parser;
-use elements::{
-    protocol_version::ProtocolVersion,
-    UpgradeOutput,
-};
+use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 const DEFAULT_CONTRACTS_COMMIT: &str = "6badcb8a9b6114c6dd10d3b172a96812250604b0";
 const DEFAULT_ERA_COMMIT: &str = "99c3905a9e92416e76d37b0858da7f6c7e123e0b";
@@ -92,8 +89,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     r.unwrap();
 
     if args.display_upgrade_data.unwrap_or_default() {
-        println!("Stage1 encoded upgrade data = {}", encode_upgrade_data(&config.governance_stage1_calls));
-        println!("Stage2 encoded upgrade data = {}", encode_upgrade_data(&config.governance_stage2_calls));
+        println!(
+            "Stage1 encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_stage1_calls)
+        );
+        println!(
+            "Stage2 encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_stage2_calls)
+        );
     }
 
     Ok(())

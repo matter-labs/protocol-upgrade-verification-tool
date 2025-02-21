@@ -8,7 +8,7 @@ sol! {
         Call[] calls;
         address executor;
         bytes32 salt;
-    }  
+    }
 
     #[derive(Debug)]
     struct Call {
