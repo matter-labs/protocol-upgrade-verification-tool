@@ -4,6 +4,13 @@ use std::collections::VecDeque;
 
 sol! {
     #[derive(Debug)]
+    struct UpgradeProposal {
+        Call[] calls;
+        address executor;
+        bytes32 salt;
+    }
+
+    #[derive(Debug)]
     struct Call {
         address target;
         uint256 value;

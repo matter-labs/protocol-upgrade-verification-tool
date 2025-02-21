@@ -33,6 +33,16 @@ cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output.yaml --l1-rp
 cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output_mainnet.yaml --l1-rpc <your-l1-rpc> --contracts-commit a80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 99c3905a9e92416e76d37b0858da7f6c7e123e0b  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213
 ```
 
+#### Tally upgrade data
+
+You should provide `--display-upgrade-data true` to the command to also display the `UpgradeData` for both stage1 and stage2 calls, i.e:
+
+```
+cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output_mainnet.yaml --l1-rpc <your-l1-rpc> --contracts-commit a80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 99c3905a9e92416e76d37b0858da7f6c7e123e0b  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --display-upgrade-data true
+```
+
+These encoded `UpgradeData` structs should be the content that is sent to L1.
+
 ## Abilities and limitations of the tool
 
 This tool will check that:
