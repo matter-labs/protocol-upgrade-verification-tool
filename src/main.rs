@@ -1,4 +1,5 @@
 use std::{fmt::Debug, fs, str::FromStr};
+use utils::display_upgrade_data::encode_upgrade_data;
 use verifiers::{VerificationResult, Verifiers};
 
 mod elements;
@@ -6,7 +7,7 @@ mod utils;
 mod verifiers;
 use clap::Parser;
 use elements::{
-    post_upgrade_calldata::compute_expected_address_for_file, protocol_version::ProtocolVersion,
+    protocol_version::ProtocolVersion,
     UpgradeOutput,
 };
 
@@ -39,6 +40,9 @@ struct Args {
     // Commit from era-contracts - used for bytecode verification
     #[clap(long, default_value = DEFAULT_CONTRACTS_COMMIT)]
     contracts_commit: String,
+
+    #[clap(long)]
+    display_upgrade_data: Option<bool>,
 
     // L1 address
     #[clap(long)]
@@ -86,6 +90,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{}", result);
     r.unwrap();
+
+    if args.display_upgrade_data.unwrap_or_default() {
+        println!("Stage1 encoded upgrade data = {}", encode_upgrade_data(&config.governance_stage1_calls));
+        println!("Stage2 encoded upgrade data = {}", encode_upgrade_data(&config.governance_stage2_calls));
+    }
 
     Ok(())
 }
