@@ -2,6 +2,9 @@
 
 Tool to analyze the zkSync upgrades.
 
+**This is a version for v27 upgrade.**
+
+
 **IMPORTANT**
 
 There will be a specific version of this tool, for each release.
