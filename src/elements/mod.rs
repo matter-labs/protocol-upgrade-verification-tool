@@ -1,8 +1,6 @@
-use std::ops::Add;
-
 use alloy::primitives::{Address, FixedBytes, U256};
+use anyhow::Context;
 use call_list::CallList;
-use chrono::format::Fixed;
 use deployed_addresses::DeployedAddresses;
 use governance_stage1_calls::GovernanceStage1Calls;
 use governance_stage2_calls::GovernanceStage2Calls;
@@ -208,11 +206,13 @@ impl UpgradeOutput {
         // Check that addresses actually contain correct bytecodes.
         self.deployed_addresses
             .verify(self, verifiers, result)
-            .await?;
+            .await
+            .context("checking deployed addresses")?;
         let (facets_to_remove, facets_to_add) = self
             .deployed_addresses
             .get_expected_facet_cuts(verifiers)
-            .await?;
+            .await
+            .context("checking facets")?;
 
         result
             .expect_deployed_bytecode(verifiers, &self.create2_factory_addr, "Create2Factory")

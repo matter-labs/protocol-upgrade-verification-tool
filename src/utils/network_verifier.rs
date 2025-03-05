@@ -19,8 +19,9 @@ sol! {
         address public sharedBridge;
         address public admin;
         address public owner;
-        mapping(uint256 _chainId => address) public stateTransitionManager;
+        mapping(uint256 _chainId => address) public chainTypeManager;
         function getHyperchain(uint256 _chainId) external view returns (address chainAddress);
+        function getAllZKChainChainIDs() external view returns (uint256[] memory);
     }
 
     #[sol(rpc)]
@@ -186,7 +187,7 @@ impl NetworkVerifier {
         let era_chain_id = self.get_era_chain_id();
 
         let stm_address = bridgehub
-            .stateTransitionManager(era_chain_id.try_into().unwrap())
+            .chainTypeManager(era_chain_id.try_into().unwrap())
             .call()
             .await
             .unwrap()
