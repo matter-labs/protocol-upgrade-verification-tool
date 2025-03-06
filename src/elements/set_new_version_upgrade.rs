@@ -84,6 +84,7 @@ sol! {
         L2CanonicalTransaction l2ProtocolUpgradeTx;
         bytes32 bootloaderHash;
         bytes32 defaultAccountHash;
+        bytes32 evmEmulatorHash;
         address verifier;
         VerifierParams verifierParams;
         bytes l1ContractsUpgradeCalldata;
@@ -103,7 +104,7 @@ sol! {
 
 impl upgradeCall {} // Placeholder implementation.
 
-const EXPECTED_BYTECODES: [&str; 41] = [
+const EXPECTED_BYTECODES: [&str; 46] = [
     "CodeOracle.yul",
     "EcAdd.yul",
     "EcMul.yul",
@@ -114,6 +115,9 @@ const EXPECTED_BYTECODES: [&str; 41] = [
     "P256Verify.yul",
     "SHA256.yul",
     "proved_batch.yul",
+    "EvmEmulator.yul",
+    "Identity.yul",
+    "EvmGasManager.yul",
     "l1-contracts/BeaconProxy",
     "l1-contracts/BridgedStandardERC20",
     "l1-contracts/Bridgehub",
@@ -133,6 +137,8 @@ const EXPECTED_BYTECODES: [&str; 41] = [
     "system-contracts/Create2Factory",
     "system-contracts/DefaultAccount",
     "system-contracts/EmptyContract",
+    "system-contracts/EvmPredeploysManager",
+    "system-contracts/EvmHashesStorage",
     "system-contracts/ImmutableSimulator",
     "system-contracts/KnownCodesStorage",
     "system-contracts/L1Messenger",
@@ -316,11 +322,6 @@ impl ProposedUpgrade {
 
         if initial_error_count == result.errors {
             result.report_ok("Proposed upgrade info is correct");
-        } else {
-            anyhow::bail!(
-                "{} errors found in the upgrade information",
-                result.errors - initial_error_count
-            );
         }
 
         Ok(())

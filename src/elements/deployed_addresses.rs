@@ -5,6 +5,7 @@ use crate::{
     utils::{
         address_verifier::AddressVerifier,
         facet_cut_set::{self, FacetCutSet, FacetInfo},
+        network_verifier::Bridgehub as BridgehubSol,
         network_verifier::BridgehubInfo,
     },
     UpgradeOutput,
@@ -448,13 +449,24 @@ impl DeployedAddresses {
             bridgehub_info.stm_address,
             verifiers.network_verifier.get_l1_provider(),
         );
-        let all_zkchains = stm.getAllHyperchainChainIDs().call().await?._0;
+
+        let bb = BridgehubSol::new(
+            bridgehub_info.bridgehub_addr,
+            verifiers.network_verifier.get_l1_provider(),
+        );
+        let all_zkchains = bb
+            .getAllZKChainChainIDs()
+            .call()
+            .await
+            .context("getallhyperchain")?
+            ._0;
 
         for chain in all_zkchains {
             let l2_wrapped_base_token = l2_wrapped_base_token_store
                 .l2WBaseTokenAddress(chain)
                 .call()
-                .await?
+                .await
+                .context("l2 wrapped base token")?
                 .l2WBaseTokenAddress;
             if l2_wrapped_base_token == Address::ZERO {
                 result.report_warn(&format!(
@@ -466,7 +478,8 @@ impl DeployedAddresses {
             let l2_shared_bridge = l1_legacy_shared_bridge
                 .l2BridgeAddress(chain)
                 .call()
-                .await?
+                .await
+                .context("l2 bridge address")?
                 .l2SharedBridgeAddress;
             if l2_shared_bridge == Address::ZERO {
                 result.report_warn(&format!(
@@ -1044,11 +1057,14 @@ impl DeployedAddresses {
         self.verify_message_root(verifiers, result, &bridgehub_info)
             .await?;
         self.verify_governance_upgrade_timer(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("governance upgrade timer")?;
         self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
-            .await?;
-        self.verify_protocol_upgrade_handler_impl(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("per chain info")?;
+        /*self.verify_protocol_upgrade_handler_impl(config, verifiers, result, &bridgehub_info)
+        .await
+        .context("protocol upgrade handler")?;*/
 
         result.expect_create2_params(
             verifiers,

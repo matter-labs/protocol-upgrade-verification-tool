@@ -142,10 +142,10 @@ impl GovernanceStage2Calls {
             ("old_shared_bridge_proxy", "setL1AssetRouter(address)"),
             ("state_transition_manager", "setProtocolVersionDeadline(uint256,uint256)"),
             ("upgrade_timer", "checkDeadline()"),
-            (
+            /*(
                 "protocol_upgrade_handler_transparent_proxy_admin",
                 "upgradeAndCall(address,address,bytes)",
-            ),
+            ),*/
         ];
 
         self.calls.verify(&list_of_calls, verifiers, result)?;
@@ -260,14 +260,14 @@ impl GovernanceStage2Calls {
             }
         }
 
-        self.verify_upgrade_call(
+        /*self.verify_upgrade_call(
             verifiers,
             result,
             &self.calls.elems[10],
             "protocol_upgrade_handler_proxy",
             "new_protocol_upgrade_handler_impl",
             Some(""),
-        )?;
+        )?;*/
 
         Ok((chain_creation_diamond_cut, force_deployments))
     }

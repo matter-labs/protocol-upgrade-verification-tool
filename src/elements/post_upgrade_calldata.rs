@@ -122,6 +122,7 @@ impl PostUpgradeCalldata {
                 ),
                 ("Ecrecover.yul", address_from_short_hex("1"), false),
                 ("SHA256.yul", address_from_short_hex("2"), false),
+                ("Identity.yul", address_from_short_hex("4"), false),
                 ("EcAdd.yul", address_from_short_hex("6"), false),
                 ("EcMul.yul", address_from_short_hex("7"), false),
                 ("EcPairing.yul", address_from_short_hex("8"), false),
@@ -195,6 +196,17 @@ impl PostUpgradeCalldata {
                 ),
                 ("Keccak256.yul", address_from_short_hex("8010"), false),
                 ("CodeOracle.yul", address_from_short_hex("8012"), false),
+                ("EvmGasManager.yul", address_from_short_hex("8013"), false),
+                (
+                    "system-contracts/EvmPredeploysManager",
+                    address_from_short_hex("8014"),
+                    false,
+                ),
+                (
+                    "system-contracts/EvmHashesStorage",
+                    address_from_short_hex("8015"),
+                    false,
+                ),
                 ("P256Verify.yul", address_from_short_hex("100"), false),
                 (
                     "system-contracts/PubdataChunkPublisher",

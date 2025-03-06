@@ -1,8 +1,6 @@
-use std::ops::Add;
-
 use alloy::primitives::{Address, FixedBytes, U256};
+use anyhow::Context;
 use call_list::CallList;
-use chrono::format::Fixed;
 use deployed_addresses::DeployedAddresses;
 use governance_stage1_calls::GovernanceStage1Calls;
 use governance_stage2_calls::GovernanceStage2Calls;
@@ -208,11 +206,13 @@ impl UpgradeOutput {
         // Check that addresses actually contain correct bytecodes.
         self.deployed_addresses
             .verify(self, verifiers, result)
-            .await?;
+            .await
+            .context("checking deployed addresses")?;
         let (facets_to_remove, facets_to_add) = self
             .deployed_addresses
             .get_expected_facet_cuts(verifiers)
-            .await?;
+            .await
+            .context("checking facets")?;
 
         result
             .expect_deployed_bytecode(verifiers, &self.create2_factory_addr, "Create2Factory")
@@ -230,13 +230,16 @@ impl UpgradeOutput {
                 facets_to_remove.merge(facets_to_add.clone()),
                 &self.chain_upgrade_diamond_cut,
             )
-            .await?;
+            .await
+            .context("stage1")?;
 
         let stage2 = GovernanceStage2Calls {
             calls: CallList::parse(&self.governance_stage2_calls),
         };
-        let (expected_chain_creation_data, expected_force_deployments) =
-            stage2.verify(verifiers, result, facets_to_add).await?;
+        let (expected_chain_creation_data, expected_force_deployments) = stage2
+            .verify(verifiers, result, facets_to_add)
+            .await
+            .context("stage2")?;
 
         self.contracts_config
             .verify(
