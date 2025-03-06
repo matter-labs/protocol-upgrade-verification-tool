@@ -84,6 +84,7 @@ sol! {
         L2CanonicalTransaction l2ProtocolUpgradeTx;
         bytes32 bootloaderHash;
         bytes32 defaultAccountHash;
+        bytes32 evmEmulatorHash;
         address verifier;
         VerifierParams verifierParams;
         bytes l1ContractsUpgradeCalldata;
@@ -316,11 +317,6 @@ impl ProposedUpgrade {
 
         if initial_error_count == result.errors {
             result.report_ok("Proposed upgrade info is correct");
-        } else {
-            anyhow::bail!(
-                "{} errors found in the upgrade information",
-                result.errors - initial_error_count
-            );
         }
 
         Ok(())

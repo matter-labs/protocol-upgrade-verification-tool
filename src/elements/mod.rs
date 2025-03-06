@@ -230,13 +230,16 @@ impl UpgradeOutput {
                 facets_to_remove.merge(facets_to_add.clone()),
                 &self.chain_upgrade_diamond_cut,
             )
-            .await?;
+            .await
+            .context("stage1")?;
 
         let stage2 = GovernanceStage2Calls {
             calls: CallList::parse(&self.governance_stage2_calls),
         };
-        let (expected_chain_creation_data, expected_force_deployments) =
-            stage2.verify(verifiers, result, facets_to_add).await?;
+        let (expected_chain_creation_data, expected_force_deployments) = stage2
+            .verify(verifiers, result, facets_to_add)
+            .await
+            .context("stage2")?;
 
         self.contracts_config
             .verify(

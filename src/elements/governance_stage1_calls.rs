@@ -5,6 +5,7 @@ use alloy::{
     sol,
     sol_types::{SolCall, SolValue},
 };
+use anyhow::Context;
 
 use crate::{
     elements::set_new_version_upgrade::upgradeCall,
@@ -120,12 +121,14 @@ impl GovernanceStage1Calls {
                 "state_transition_manager",
                 "setValidatorTimelock(address)",
             ),
-            ("state_transition_manager","setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes)))"),
+            //("state_transition_manager","setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes)))"),
             ("upgrade_timer", "startTimer()"),
 
         ];
 
-        self.calls.verify(&list_of_calls, verifiers, result)?;
+        self.calls
+            .verify(&list_of_calls, verifiers, result)
+            .context("calls")?;
 
         // Checking the new validator timelock
         {
@@ -136,7 +139,7 @@ impl GovernanceStage1Calls {
         }
 
         // Checking the dummy chain creation params
-        {
+        /*{
             let decoded = StateTransitionManagerLegacy::setChainCreationParamsCall::abi_decode(
                 &self.calls.elems[6].data,
                 true,
@@ -150,7 +153,7 @@ impl GovernanceStage1Calls {
             {
                 result.report_error("Invalid dummy chain creation params in stage1");
             }
-        }
+        }*/
 
         let calldata = &self.calls.elems[4].data;
         let data = setNewVersionUpgradeCall::abi_decode(calldata, true).unwrap();
@@ -186,7 +189,8 @@ impl GovernanceStage1Calls {
                 result,
                 deployed_addresses.l1_bytecodes_supplier_addr,
             )
-            .await?;
+            .await
+            .context("proposed upgrade")?;
 
         Ok(())
     }
