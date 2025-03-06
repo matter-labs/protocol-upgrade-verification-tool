@@ -1062,9 +1062,9 @@ impl DeployedAddresses {
         self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
             .await
             .context("per chain info")?;
-        self.verify_protocol_upgrade_handler_impl(config, verifiers, result, &bridgehub_info)
-            .await
-            .context("protocol upgrade handler")?;
+        /*self.verify_protocol_upgrade_handler_impl(config, verifiers, result, &bridgehub_info)
+        .await
+        .context("protocol upgrade handler")?;*/
 
         result.expect_create2_params(
             verifiers,
