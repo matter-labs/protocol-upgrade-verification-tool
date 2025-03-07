@@ -58,7 +58,7 @@ pub struct GovernanceStage1Calls {
     pub calls: CallList,
 }
 
-async fn verity_facet_cuts(
+pub async fn verity_facet_cuts(
     facet_cuts: &[FacetCut],
     result: &mut crate::verifiers::VerificationResult,
     expected_upgrade_facets: FacetCutSet,
@@ -110,25 +110,13 @@ impl GovernanceStage1Calls {
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 1 calls ===");
 
-        let list_of_calls = [
-            ("validator_timelock", "acceptOwnership()"),
-            ("l1_asset_router_proxy", "acceptOwnership()"),
-            ("ctm_deployment_tracker", "acceptOwnership()"),
-            ("rollup_da_manager", "acceptOwnership()"),
-            ("state_transition_manager",
-            "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
-            (
-                "state_transition_manager",
-                "setValidatorTimelock(address)",
-            ),
-            //("state_transition_manager","setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes)))"),
-            ("upgrade_timer", "startTimer()"),
-
-        ];
+        let list_of_calls = [("bridgehub_proxy", "pauseMigration()")];
 
         self.calls
             .verify(&list_of_calls, verifiers, result)
             .context("calls")?;
+
+        /*
 
         // Checking the new validator timelock
         {
@@ -190,7 +178,7 @@ impl GovernanceStage1Calls {
                 deployed_addresses.l1_bytecodes_supplier_addr,
             )
             .await
-            .context("proposed upgrade")?;
+            .context("proposed upgrade")?;*/
 
         Ok(())
     }

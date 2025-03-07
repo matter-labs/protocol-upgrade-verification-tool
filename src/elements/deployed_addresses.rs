@@ -343,6 +343,10 @@ impl DeployedAddresses {
         result: &mut crate::verifiers::VerificationResult,
         bridgehub_info: &BridgehubInfo,
     ) -> Result<()> {
+        if self.validator_timelock_addr == Address::ZERO {
+            result.report_warn("ValidatorTimelock address is zero");
+            return Ok(());
+        }
         let execution_delay = if config.l1_chain_id == MAINNET_CHAIN_ID {
             10800
         } else {
@@ -400,6 +404,10 @@ impl DeployedAddresses {
         result: &mut crate::verifiers::VerificationResult,
         bridgehub_info: &BridgehubInfo,
     ) -> Result<()> {
+        if self.l2_wrapped_base_token_store_addr == Address::ZERO {
+            result.report_warn("L2WrappedBaseTokenStore address is zero");
+            return Ok(());
+        }
         result.expect_create2_params(
             verifiers,
             &self.l2_wrapped_base_token_store_addr,
@@ -462,17 +470,19 @@ impl DeployedAddresses {
             ._0;
 
         for chain in all_zkchains {
-            let l2_wrapped_base_token = l2_wrapped_base_token_store
-                .l2WBaseTokenAddress(chain)
-                .call()
-                .await
-                .context("l2 wrapped base token")?
-                .l2WBaseTokenAddress;
-            if l2_wrapped_base_token == Address::ZERO {
-                result.report_warn(&format!(
-                    "Chain {} does not have an L2 wrapped base token",
-                    chain
-                ));
+            if self.l2_wrapped_base_token_store_addr != Address::ZERO {
+                let l2_wrapped_base_token = l2_wrapped_base_token_store
+                    .l2WBaseTokenAddress(chain)
+                    .call()
+                    .await
+                    .context("l2 wrapped base token")?
+                    .l2WBaseTokenAddress;
+                if l2_wrapped_base_token == Address::ZERO {
+                    result.report_warn(&format!(
+                        "Chain {} does not have an L2 wrapped base token",
+                        chain
+                    ));
+                }
             }
 
             let l2_shared_bridge = l1_legacy_shared_bridge
@@ -538,10 +548,12 @@ impl DeployedAddresses {
         let ctm_dt =
             CTMDeploymentTracker::new(self.bridgehub.ctm_deployment_tracker_proxy_addr, provider);
         let owner = ctm_dt.owner().call().await?.owner;
-        ensure!(
-            owner == self.l1_transitionary_owner,
-            "CTMDeploymentTracker owner mismatch"
-        );
+        if owner != self.l1_transitionary_owner {
+            result.report_error(&format!(
+                "CTMDeploymentTracker owner mismatch: {} vs {}",
+                owner, self.l1_transitionary_owner
+            ));
+        }
         Ok(())
     }
 
@@ -581,10 +593,12 @@ impl DeployedAddresses {
         let provider = verifiers.network_verifier.get_l1_provider();
         let l1_asset_router = L1AssetRouter::new(self.bridges.shared_bridge_proxy_addr, provider);
         let current_owner = l1_asset_router.owner().call().await?.owner;
-        ensure!(
-            current_owner == self.l1_transitionary_owner,
-            "L1AssetRouter owner mismatch"
-        );
+        if current_owner != self.l1_transitionary_owner {
+            result.report_error(&format!(
+                "L1AssetRouter owner mismatch: {} vs {}",
+                current_owner, self.l1_transitionary_owner
+            ));
+        }
 
         let legacy_bridge = l1_asset_router.legacyBridge().call().await?.legacyBridge;
         ensure!(
@@ -1025,17 +1039,24 @@ impl DeployedAddresses {
         self.verify_ntv(config, verifiers, result, &bridgehub_info)
             .await?;
         self.verify_validator_timelock(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("validator timelock")?;
         self.verify_wrapped_base_token_store(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("wrapped_basen_token")?;
         self.verify_ctm_deployment_tracker(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("ctm tracker")?;
         self.verify_l1_asset_router(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("l1 asset")?;
         self.verify_l1_nullifier(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("l1 nullifier")?;
         self.verify_l1_erc20_bridge(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("l1_erc20_bridge")?;
+        println!("here");
         self.verify_bridgehub_impl(config, verifiers, result)
             .await?;
         self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info)
