@@ -3,11 +3,18 @@ use std::collections::HashSet;
 use alloy::{
     primitives::{Address, FixedBytes, U256},
     sol,
+    sol_types::SolCall,
 };
+use anyhow::Context;
 
 use crate::get_expected_new_protocol_version;
 
-use super::{post_upgrade_calldata::PostUpgradeCalldata, protocol_version::ProtocolVersion};
+use super::{
+    force_deployment::{
+        expected_force_deployments, forceDeployOnAddressesCall, verify_force_deployments,
+    },
+    protocol_version::ProtocolVersion,
+};
 
 const DEPLOYER_SYSTEM_CONTRACT: u32 = 0x8006;
 const FORCE_DEPLOYER_ADDRESS: u32 = 0x8007;
@@ -258,6 +265,15 @@ impl ProposedUpgrade {
                 expected_bytecodes
             ));
         }
+        // Check calldata.
+        let calldata = forceDeployOnAddressesCall::abi_decode(&tx.data, true).unwrap();
+        let expected_deployments = expected_force_deployments();
+        verify_force_deployments(
+            &calldata._deployParams,
+            &expected_deployments,
+            verifiers,
+            result,
+        )?;
 
         Ok(())
     }
@@ -274,7 +290,8 @@ impl ProposedUpgrade {
         let initial_error_count = result.errors;
 
         self.verify_transaction(verifiers, result, expected_version, bytecodes_supplier_addr)
-            .await?;
+            .await
+            .context("upgrade tx")?;
 
         result.expect_zk_bytecode(verifiers, &self.bootloaderHash, "proved_batch.yul");
         result.expect_zk_bytecode(
@@ -305,8 +322,9 @@ impl ProposedUpgrade {
             result.report_error("l1ContractsUpgradeCalldata is not empty");
         }
 
-        let post_upgrade_calldata = PostUpgradeCalldata::parse(&self.postUpgradeCalldata)?;
-        post_upgrade_calldata.verify(verifiers, result).await?;
+        if self.postUpgradeCalldata.len() != 0 {
+            result.report_error("Expected empty post upgrade calldata");
+        }
 
         if self.upgradeTimestamp != U256::default() {
             result.report_error("Upgrade timestamp must be zero");
