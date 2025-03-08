@@ -8,10 +8,10 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
-// Current top of draft-release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "e85a685b377f72ec9c723cd9d941b42e29974373";
-// Current top of evm-emulator/integration branch
-const DEFAULT_ERA_COMMIT: &str = "8d396ae490cc124bd2c705dc1174de23f53cccfb";
+// Current top of release-27 branch
+const DEFAULT_CONTRACTS_COMMIT: &str = "00946002e684966eab680f919c8c517f8cc64d9e";
+// Current commit after v27 merge to main branch
+const DEFAULT_ERA_COMMIT: &str = "659edaaf3fad253bf85b3a960393c812c884eec6";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.27.0";
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.26.0";
