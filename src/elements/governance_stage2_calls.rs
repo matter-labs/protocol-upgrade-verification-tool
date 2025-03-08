@@ -266,6 +266,10 @@ impl GovernanceStage2Calls {
                     alloy::hex::encode(diamond_cut.abi_encode())
                 ));
             }
+            // TODO: verify diamond_cut.initAddress
+
+            // should match state_transiton.default_upgrade
+            println!("diamond_cut.initAddress: {}", diamond_cut.initAddress);
 
             /*if diamond_cut.initAddress != deployed_addresses.l1_gateway_upgrade {
                 result.report_error(&format!(

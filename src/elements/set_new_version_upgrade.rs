@@ -195,16 +195,16 @@ impl ProposedUpgrade {
             result.report_error("Invalid paymaster");
         }
         if tx.nonce != U256::from(expected_version.minor) {
-            result.report_error("Minor protocol version mismatch");
+            result.report_error(&format!(
+                "Minor protocol version mismatch: {} vs {} ",
+                tx.nonce, expected_version.minor
+            ));
         }
         if tx.value != U256::ZERO {
             result.report_error("Invalid value");
         }
         if tx.reserved != [U256::ZERO; 4] {
             result.report_error("Invalid reserved");
-        }
-        if !tx.data.is_empty() {
-            result.report_error("Invalid data");
         }
         if !tx.signature.is_empty() {
             result.report_error("Invalid signature");
