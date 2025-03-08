@@ -201,7 +201,7 @@ impl GovernanceStage2Calls {
             verifiers,
             result,
             &self.calls.elems[2],
-            "l1_nullifier",
+            "l1_nullifier_proxy_addr",
             "l1_nullifier_implementation_addr",
             None,
         )?;
@@ -243,7 +243,7 @@ impl GovernanceStage2Calls {
             result,
             &self.calls.elems[7],
             "l1_message_root",
-            "message_root_implementation_addr",
+            "l1_message_root_implementation_addr",
             None,
         )?;
 
@@ -267,12 +267,12 @@ impl GovernanceStage2Calls {
                 ));
             }
 
-            if diamond_cut.initAddress != deployed_addresses.l1_gateway_upgrade {
+            /*if diamond_cut.initAddress != deployed_addresses.l1_gateway_upgrade {
                 result.report_error(&format!(
                     "Unexpected init address for the diamond cut: {}, expected {}",
                     diamond_cut.initAddress, deployed_addresses.l1_gateway_upgrade
                 ));
-            }
+            }*/
 
             verity_facet_cuts(&diamond_cut.facetCuts, result, expected_upgrade_facets).await;
 

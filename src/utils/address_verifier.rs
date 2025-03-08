@@ -70,7 +70,7 @@ impl AddressVerifier {
         result.add_address(bridgehub_addr, "bridgehub_proxy");
         result.add_address(info.stm_address, "state_transition_manager");
         result.add_address(info.transparent_proxy_admin, "transparent_proxy_admin");
-        result.add_address(info.shared_bridge, "old_shared_bridge_proxy");
+        result.add_address(info.shared_bridge, "l1_asset_router_proxy");
         result.add_address(info.legacy_bridge, "legacy_erc20_bridge_proxy");
         result.add_address(info.validator_timelock, "old_validator_timelock");
 
