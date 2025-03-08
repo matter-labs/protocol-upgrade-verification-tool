@@ -221,7 +221,7 @@ pub struct DeployedAddresses {
 
 #[derive(Debug, Deserialize)]
 pub struct Bridges {
-    shared_bridge_proxy_addr: Address,
+    l1_asset_router_proxy_addr: Address,
     pub l1_nullifier_implementation_addr: Address,
     pub erc20_bridge_implementation_addr: Address,
     pub bridged_standard_erc20_impl: Address,
@@ -256,7 +256,7 @@ impl DeployedAddresses {
         address_verifier.add_address(self.native_token_vault_addr, "native_token_vault");
         address_verifier.add_address(self.validator_timelock_addr, "validator_timelock");
         address_verifier.add_address(
-            self.bridges.shared_bridge_proxy_addr,
+            self.bridges.l1_asset_router_proxy_addr,
             "l1_asset_router_proxy",
         );
         address_verifier.add_address(self.bridgehub.message_root_proxy_addr, "l1_message_root");
@@ -313,7 +313,7 @@ impl DeployedAddresses {
     ) -> Result<()> {
         let l1_ntv_impl_constructor = L1NativeTokenVault::constructorCall::new((
             bridgehub_info.l1_weth_token_address,
-            config.deployed_addresses.bridges.shared_bridge_proxy_addr,
+            config.deployed_addresses.bridges.l1_asset_router_proxy_addr,
             bridgehub_info.shared_bridge,
         ))
         .abi_encode();
@@ -527,7 +527,7 @@ impl DeployedAddresses {
     ) -> Result<()> {
         let ctm_deployer_impl_constructor = CTMDeploymentTracker::constructorCall::new((
             bridgehub_info.bridgehub_addr,
-            config.deployed_addresses.bridges.shared_bridge_proxy_addr,
+            config.deployed_addresses.bridges.l1_asset_router_proxy_addr,
         ))
         .abi_encode();
         let ctm_deployer_init_calldata =
@@ -582,7 +582,7 @@ impl DeployedAddresses {
         result
             .expect_create2_params_proxy_with_bytecode(
                 verifiers,
-                &self.bridges.shared_bridge_proxy_addr,
+                &self.bridges.l1_asset_router_proxy_addr,
                 l1_asset_router_init_calldata,
                 bridgehub_info.transparent_proxy_admin,
                 l1_asset_router_impl_constructor,
@@ -591,7 +591,7 @@ impl DeployedAddresses {
             .await;
 
         let provider = verifiers.network_verifier.get_l1_provider();
-        let l1_asset_router = L1AssetRouter::new(self.bridges.shared_bridge_proxy_addr, provider);
+        let l1_asset_router = L1AssetRouter::new(self.bridges.l1_asset_router_proxy_addr, provider);
         let current_owner = l1_asset_router.owner().call().await?.owner;
         if current_owner != self.l1_transitionary_owner {
             result.report_error(&format!(
@@ -657,7 +657,7 @@ impl DeployedAddresses {
             &self.bridges.erc20_bridge_implementation_addr,
             L1ERC20Bridge::constructorCall::new((
                 bridgehub_info.shared_bridge,
-                self.bridges.shared_bridge_proxy_addr,
+                self.bridges.l1_asset_router_proxy_addr,
                 self.native_token_vault_addr,
                 U256::from(config.era_chain_id),
             ))
