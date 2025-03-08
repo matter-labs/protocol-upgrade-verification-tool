@@ -133,7 +133,7 @@ impl ContractsConfig {
         result.expect_address(
             verifiers,
             &self.l1_legacy_shared_bridge,
-            "old_shared_bridge_proxy",
+            "l1_asset_router_proxy",
         );
 
         let provided_new_protocol_version =

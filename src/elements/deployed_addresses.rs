@@ -205,6 +205,8 @@ const EXPECTED_FACETS: [BasicFacetInfo; 4] = [
 #[derive(Debug, Deserialize)]
 pub struct DeployedAddresses {
     pub(crate) native_token_vault_addr: Address,
+    pub(crate) native_token_vault_implementation_addr: Address,
+
     pub(crate) validator_timelock_addr: Address,
     pub(crate) l2_wrapped_base_token_store_addr: Address,
     pub(crate) l1_bytecodes_supplier_addr: Address,
@@ -212,7 +214,6 @@ pub struct DeployedAddresses {
     pub(crate) validium_l1_da_validator_addr: Address,
     pub(crate) l1_transitionary_owner: Address,
     pub(crate) l1_rollup_da_manager: Address,
-    pub(crate) l1_gateway_upgrade: Address,
     pub(crate) l1_governance_upgrade_timer: Address,
     pub(crate) bridges: Bridges,
     pub(crate) bridgehub: Bridgehub,
@@ -221,8 +222,10 @@ pub struct DeployedAddresses {
 
 #[derive(Debug, Deserialize)]
 pub struct Bridges {
-    l1_asset_router_proxy_addr: Address,
+    pub l1_asset_router_proxy_addr: Address,
+    pub l1_asset_router_implementation_addr: Address,
     pub l1_nullifier_implementation_addr: Address,
+    pub l1_nullifier_proxy_addr: Address,
     pub erc20_bridge_implementation_addr: Address,
     pub bridged_standard_erc20_impl: Address,
     pub bridged_token_beacon: Address,
@@ -231,8 +234,11 @@ pub struct Bridges {
 #[derive(Debug, Deserialize)]
 pub struct Bridgehub {
     ctm_deployment_tracker_proxy_addr: Address,
+    ctm_deployment_tracker_implementation_addr: Address,
+
     bridgehub_implementation_addr: Address,
     message_root_proxy_addr: Address,
+    message_root_implementation_addr: Address,
     // Note, that while the original file may contain impl addresses,
     // we do not include or verify those here since the correctness of the
     // actual implementation behind the proxies above is already checked.
@@ -254,15 +260,32 @@ pub struct StateTransition {
 impl DeployedAddresses {
     pub fn add_to_verifier(&self, address_verifier: &mut AddressVerifier) {
         address_verifier.add_address(self.native_token_vault_addr, "native_token_vault");
+        address_verifier.add_address(
+            self.native_token_vault_implementation_addr,
+            "native_token_vault_implementation_addr",
+        );
         address_verifier.add_address(self.validator_timelock_addr, "validator_timelock");
         address_verifier.add_address(
             self.bridges.l1_asset_router_proxy_addr,
             "l1_asset_router_proxy",
         );
+        address_verifier.add_address(
+            self.bridges.l1_asset_router_implementation_addr,
+            "l1_asset_router_implementation_addr",
+        );
         address_verifier.add_address(self.bridgehub.message_root_proxy_addr, "l1_message_root");
+        address_verifier.add_address(
+            self.bridgehub.message_root_implementation_addr,
+            "l1_message_root_implementation_addr",
+        );
+
         address_verifier.add_address(
             self.bridgehub.ctm_deployment_tracker_proxy_addr,
             "ctm_deployment_tracker",
+        );
+        address_verifier.add_address(
+            self.bridgehub.ctm_deployment_tracker_implementation_addr,
+            "ctm_deployment_tracker_implementation_addr",
         );
         address_verifier.add_address(
             self.bridgehub.bridgehub_implementation_addr,
@@ -275,6 +298,10 @@ impl DeployedAddresses {
         address_verifier.add_address(
             self.bridges.l1_nullifier_implementation_addr,
             "l1_nullifier_implementation_addr",
+        );
+        address_verifier.add_address(
+            self.bridges.l1_nullifier_proxy_addr,
+            "l1_nullifier_proxy_addr",
         );
         address_verifier.add_address(
             self.bridges.erc20_bridge_implementation_addr,
@@ -1017,7 +1044,7 @@ impl DeployedAddresses {
                 bridgehub_info.era_address, era
             ));
         }
-        result.expect_address(verifiers, &l1_nullifier, "old_shared_bridge_proxy");
+        result.expect_address(verifiers, &l1_nullifier, "l1_nullifier_proxy");
         result.expect_address(verifiers, &l1_asset_router, "l1_asset_router_proxy");
         result.expect_address(verifiers, &l1_native_token_vault, "native_token_vault");
 
@@ -1138,12 +1165,6 @@ impl DeployedAddresses {
             &self.bridges.bridged_standard_erc20_impl,
             Vec::new(),
             "l1-contracts/BridgedStandardERC20",
-        );
-        result.expect_create2_params(
-            verifiers,
-            &self.l1_gateway_upgrade,
-            Vec::new(),
-            "l1-contracts/GatewayUpgrade",
         );
 
         result.report_ok("deployed addresses");
