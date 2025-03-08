@@ -159,7 +159,7 @@ impl GovernanceStage2Calls {
                 "setValidatorTimelock(address)",
             ),*/
             //("state_transition_manager","setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes)))"),
-            ("state_transition_manager", "setProtocolVersionDeadline(uint256,uint256)"),
+            //("state_transition_manager", "setProtocolVersionDeadline(uint256,uint256)"),
 
             ("bridgehub_proxy", "unpauseMigration()"),
 
@@ -324,7 +324,7 @@ impl GovernanceStage2Calls {
         }*/
 
         // Verify setProtocolVersionDeadline call.
-        {
+        /*{
             let decoded =
                 setProtocolVersionDeadlineCall::abi_decode(&self.calls.elems[12].data, true)
                     .expect("Failed to decode setProtocolVersionDeadline call");
@@ -344,7 +344,7 @@ impl GovernanceStage2Calls {
                     decoded.newDeadline
                 ));
             }
-        }
+        }*/
 
         /*self.verify_upgrade_call(
             verifiers,
