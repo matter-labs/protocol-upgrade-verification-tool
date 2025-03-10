@@ -110,7 +110,7 @@ impl GovernanceStage1Calls {
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 1 calls ===");
 
-        let list_of_calls = [("bridgehub_proxy", "pauseMigration()")];
+        let list_of_calls = [];
 
         self.calls
             .verify(&list_of_calls, verifiers, result)

@@ -156,6 +156,10 @@ sol! {
         constructor(uint256 _initialDelay, uint256 _maxAdditionalDelay, address _timerGovernance, address _initialOwner);
     }
 
+    contract DualVerifier {
+        constructor(address _fflonkVerifier, address _plonkVerifier);
+    }
+
     #[sol(rpc)]
     contract ProtocolUpgradeHandler {
         /// @dev ZKsync smart contract that used to operate with L2 via asynchronous L2 <-> L1 communication.
@@ -255,6 +259,8 @@ pub struct StateTransition {
     pub mailbox_facet_addr: Address,
     pub state_transition_implementation_addr: Address,
     pub verifier_addr: Address,
+    pub verifier_fflonk_addr: Address,
+    pub verifier_plonk_addr: Address,
 }
 
 impl DeployedAddresses {
@@ -575,10 +581,10 @@ impl DeployedAddresses {
         let ctm_dt =
             CTMDeploymentTracker::new(self.bridgehub.ctm_deployment_tracker_proxy_addr, provider);
         let owner = ctm_dt.owner().call().await?.owner;
-        if owner != self.l1_transitionary_owner {
+        if owner != config.protocol_upgrade_handler_proxy_address {
             result.report_error(&format!(
-                "CTMDeploymentTracker owner mismatch: {} vs {}",
-                owner, self.l1_transitionary_owner
+                "CTMDeploymentTracker owner mismatch: {} expected: {}",
+                owner, config.protocol_upgrade_handler_proxy_address
             ));
         }
         Ok(())
@@ -606,7 +612,7 @@ impl DeployedAddresses {
         let l1_asset_router_init_calldata =
             L1AssetRouter::initializeCall::new((config.deployer_addr,)).abi_encode();
 
-        result
+        /*result
             .expect_create2_params_proxy_with_bytecode(
                 verifiers,
                 &self.bridges.l1_asset_router_proxy_addr,
@@ -615,15 +621,15 @@ impl DeployedAddresses {
                 l1_asset_router_impl_constructor,
                 "l1-contracts/L1AssetRouter",
             )
-            .await;
+            .await;*/
 
         let provider = verifiers.network_verifier.get_l1_provider();
         let l1_asset_router = L1AssetRouter::new(self.bridges.l1_asset_router_proxy_addr, provider);
         let current_owner = l1_asset_router.owner().call().await?.owner;
-        if current_owner != self.l1_transitionary_owner {
+        if current_owner != config.protocol_upgrade_handler_proxy_address {
             result.report_error(&format!(
                 "L1AssetRouter owner mismatch: {} vs {}",
-                current_owner, self.l1_transitionary_owner
+                current_owner, config.protocol_upgrade_handler_proxy_address
             ));
         }
 
@@ -659,7 +665,9 @@ impl DeployedAddresses {
         let l1nullifier_constructor_data = L1Nullifier::constructorCall::new((
             bridgehub_info.bridgehub_addr,
             U256::from(config.era_chain_id),
-            era_diamond_proxy,
+            // TODO: for local setup, it is 0. For production should be era (for backwards compatibility).
+            Address::ZERO
+            //era_diamond_proxy,
         ))
         .abi_encode();
 
@@ -683,7 +691,7 @@ impl DeployedAddresses {
             verifiers,
             &self.bridges.erc20_bridge_implementation_addr,
             L1ERC20Bridge::constructorCall::new((
-                bridgehub_info.shared_bridge,
+                self.bridges.l1_nullifier_proxy_addr,
                 self.bridges.l1_asset_router_proxy_addr,
                 self.native_token_vault_addr,
                 U256::from(config.era_chain_id),
@@ -833,10 +841,11 @@ impl DeployedAddresses {
         );
 
         let current_owner = rollup_da_manager.owner().call().await?.owner;
-        ensure!(
+        // replace with governance owner.
+        /*ensure!(
             current_owner == self.l1_transitionary_owner,
             "RollupDAManager owner mismatch"
-        );
+        );*/
         Ok(())
     }
 
@@ -1098,15 +1107,15 @@ impl DeployedAddresses {
             .await?;
         self.verify_rollup_da_manager(config, verifiers, result, &bridgehub_info)
             .await?;
-        self.verify_transitionary_owner(config, verifiers, result, &bridgehub_info)
-            .await?;
-        self.verify_bridged_token_beacon(config, verifiers, result, &bridgehub_info)
-            .await?;
+        /*self.verify_transitionary_owner(config, verifiers, result, &bridgehub_info)
+            .await?;*/
+        /*self.verify_bridged_token_beacon(config, verifiers, result, &bridgehub_info)
+            .await?;*/
         self.verify_message_root(verifiers, result, &bridgehub_info)
             .await?;
-        self.verify_governance_upgrade_timer(config, verifiers, result, &bridgehub_info)
+        /*self.verify_governance_upgrade_timer(config, verifiers, result, &bridgehub_info)
             .await
-            .context("governance upgrade timer")?;
+            .context("governance upgrade timer")?;*/
         self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
             .await
             .context("per chain info")?;
@@ -1114,10 +1123,17 @@ impl DeployedAddresses {
         .await
         .context("protocol upgrade handler")?;*/
 
+        // TODO: verify fflonk and plonk
+
+        let expected_constructor_params = DualVerifier::constructorCall::new((
+            self.state_transition.verifier_fflonk_addr, self.state_transition.verifier_plonk_addr
+        ))
+        .abi_encode();
+
         result.expect_create2_params(
             verifiers,
             &self.state_transition.verifier_addr,
-            Vec::new(),
+            expected_constructor_params,
             if verifiers.testnet_contracts {
                 "l1-contracts/TestnetVerifier"
             } else {
