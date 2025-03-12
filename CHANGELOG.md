@@ -3,7 +3,7 @@
 
 ## v27 (EVM release)
 
-**Interface changes:**
+**Interface changes (in previous release):**
 * in Bridgehub: `StateTransitionManager` is removed, now it is called ChainTypeManager - 
 * `getAllHyperchainChainIDs` call from STM is now on Bridgehub, and called `getAllZKChainChainIDs`
 
@@ -17,8 +17,9 @@ Added:
 
 **Upgrade**
 
-* stage1 no longer calls `setChainCreationParams`
-* stage2 no longer calls `upgradeAndCall` at the end
+* stage0 will do pauseMigration
+* stage1 will update proxies, do new protocol version and upgrade chain
+* stage2 will unpause migration
 
 
 **Other:**
@@ -26,6 +27,9 @@ Added:
 * Bytecode for create2_and_transfer has changed
 * added more 'context' messages - to help with error debugging
 * verify_protocol_upgrade_handler - needs some rework, as it has different behavior on local network.
+
+
+postugprade calldata is now empty (and added force deployment checks into new version tx data check)
 
 
 

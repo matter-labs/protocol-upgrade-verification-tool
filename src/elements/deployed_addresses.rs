@@ -5,10 +5,8 @@ use crate::{
     utils::{
         address_verifier::AddressVerifier,
         facet_cut_set::{self, FacetCutSet, FacetInfo},
-        network_verifier::Bridgehub as BridgehubSol,
-        network_verifier::BridgehubInfo,
-    },
-    UpgradeOutput,
+        network_verifier::{Bridgehub as BridgehubSol, BridgehubInfo},
+    }, verifiers::VerificationResult, UpgradeOutput
 };
 use alloy::{
     primitives::{Address, U256},
@@ -156,6 +154,10 @@ sol! {
         constructor(uint256 _initialDelay, uint256 _maxAdditionalDelay, address _timerGovernance, address _initialOwner);
     }
 
+    contract DualVerifier {
+        constructor(address _fflonkVerifier, address _plonkVerifier);
+    }
+
     #[sol(rpc)]
     contract ProtocolUpgradeHandler {
         /// @dev ZKsync smart contract that used to operate with L2 via asynchronous L2 <-> L1 communication.
@@ -205,14 +207,13 @@ const EXPECTED_FACETS: [BasicFacetInfo; 4] = [
 #[derive(Debug, Deserialize)]
 pub struct DeployedAddresses {
     pub(crate) native_token_vault_addr: Address,
+    pub(crate) native_token_vault_implementation_addr: Address,
+
     pub(crate) validator_timelock_addr: Address,
     pub(crate) l2_wrapped_base_token_store_addr: Address,
     pub(crate) l1_bytecodes_supplier_addr: Address,
-    pub(crate) rollup_l1_da_validator_addr: Address,
-    pub(crate) validium_l1_da_validator_addr: Address,
     pub(crate) l1_transitionary_owner: Address,
     pub(crate) l1_rollup_da_manager: Address,
-    pub(crate) l1_gateway_upgrade: Address,
     pub(crate) l1_governance_upgrade_timer: Address,
     pub(crate) bridges: Bridges,
     pub(crate) bridgehub: Bridgehub,
@@ -221,18 +222,22 @@ pub struct DeployedAddresses {
 
 #[derive(Debug, Deserialize)]
 pub struct Bridges {
-    shared_bridge_proxy_addr: Address,
+    pub l1_asset_router_proxy_addr: Address,
+    pub l1_asset_router_implementation_addr: Address,
     pub l1_nullifier_implementation_addr: Address,
+    pub l1_nullifier_proxy_addr: Address,
     pub erc20_bridge_implementation_addr: Address,
-    pub bridged_standard_erc20_impl: Address,
     pub bridged_token_beacon: Address,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Bridgehub {
     ctm_deployment_tracker_proxy_addr: Address,
+    ctm_deployment_tracker_implementation_addr: Address,
+
     bridgehub_implementation_addr: Address,
     message_root_proxy_addr: Address,
+    message_root_implementation_addr: Address,
     // Note, that while the original file may contain impl addresses,
     // we do not include or verify those here since the correctness of the
     // actual implementation behind the proxies above is already checked.
@@ -249,20 +254,39 @@ pub struct StateTransition {
     pub mailbox_facet_addr: Address,
     pub state_transition_implementation_addr: Address,
     pub verifier_addr: Address,
+    pub verifier_fflonk_addr: Address,
+    pub verifier_plonk_addr: Address,
 }
 
 impl DeployedAddresses {
     pub fn add_to_verifier(&self, address_verifier: &mut AddressVerifier) {
         address_verifier.add_address(self.native_token_vault_addr, "native_token_vault");
+        address_verifier.add_address(
+            self.native_token_vault_implementation_addr,
+            "native_token_vault_implementation_addr",
+        );
         address_verifier.add_address(self.validator_timelock_addr, "validator_timelock");
         address_verifier.add_address(
-            self.bridges.shared_bridge_proxy_addr,
+            self.bridges.l1_asset_router_proxy_addr,
             "l1_asset_router_proxy",
+        );
+        address_verifier.add_address(
+            self.bridges.l1_asset_router_implementation_addr,
+            "l1_asset_router_implementation_addr",
         );
         address_verifier.add_address(self.bridgehub.message_root_proxy_addr, "l1_message_root");
         address_verifier.add_address(
+            self.bridgehub.message_root_implementation_addr,
+            "l1_message_root_implementation_addr",
+        );
+
+        address_verifier.add_address(
             self.bridgehub.ctm_deployment_tracker_proxy_addr,
             "ctm_deployment_tracker",
+        );
+        address_verifier.add_address(
+            self.bridgehub.ctm_deployment_tracker_implementation_addr,
+            "ctm_deployment_tracker_implementation_addr",
         );
         address_verifier.add_address(
             self.bridgehub.bridgehub_implementation_addr,
@@ -275,6 +299,10 @@ impl DeployedAddresses {
         address_verifier.add_address(
             self.bridges.l1_nullifier_implementation_addr,
             "l1_nullifier_implementation_addr",
+        );
+        address_verifier.add_address(
+            self.bridges.l1_nullifier_proxy_addr,
+            "l1_nullifier_proxy_addr",
         );
         address_verifier.add_address(
             self.bridges.erc20_bridge_implementation_addr,
@@ -313,7 +341,7 @@ impl DeployedAddresses {
     ) -> Result<()> {
         let l1_ntv_impl_constructor = L1NativeTokenVault::constructorCall::new((
             bridgehub_info.l1_weth_token_address,
-            config.deployed_addresses.bridges.shared_bridge_proxy_addr,
+            config.deployed_addresses.bridges.l1_asset_router_proxy_addr,
             bridgehub_info.shared_bridge,
         ))
         .abi_encode();
@@ -343,6 +371,10 @@ impl DeployedAddresses {
         result: &mut crate::verifiers::VerificationResult,
         bridgehub_info: &BridgehubInfo,
     ) -> Result<()> {
+        if self.validator_timelock_addr == Address::ZERO {
+            result.report_warn("ValidatorTimelock address is zero");
+            return Ok(());
+        }
         let execution_delay = if config.l1_chain_id == MAINNET_CHAIN_ID {
             10800
         } else {
@@ -400,6 +432,10 @@ impl DeployedAddresses {
         result: &mut crate::verifiers::VerificationResult,
         bridgehub_info: &BridgehubInfo,
     ) -> Result<()> {
+        if self.l2_wrapped_base_token_store_addr == Address::ZERO {
+            result.report_warn("L2WrappedBaseTokenStore address is zero");
+            return Ok(());
+        }
         result.expect_create2_params(
             verifiers,
             &self.l2_wrapped_base_token_store_addr,
@@ -450,11 +486,11 @@ impl DeployedAddresses {
             verifiers.network_verifier.get_l1_provider(),
         );
 
-        let bb = BridgehubSol::new(
+        let bridgehub_instance = BridgehubSol::new(
             bridgehub_info.bridgehub_addr,
             verifiers.network_verifier.get_l1_provider(),
         );
-        let all_zkchains = bb
+        let all_zkchains = bridgehub_instance
             .getAllZKChainChainIDs()
             .call()
             .await
@@ -462,17 +498,19 @@ impl DeployedAddresses {
             ._0;
 
         for chain in all_zkchains {
-            let l2_wrapped_base_token = l2_wrapped_base_token_store
-                .l2WBaseTokenAddress(chain)
-                .call()
-                .await
-                .context("l2 wrapped base token")?
-                .l2WBaseTokenAddress;
-            if l2_wrapped_base_token == Address::ZERO {
-                result.report_warn(&format!(
-                    "Chain {} does not have an L2 wrapped base token",
-                    chain
-                ));
+            if self.l2_wrapped_base_token_store_addr != Address::ZERO {
+                let l2_wrapped_base_token = l2_wrapped_base_token_store
+                    .l2WBaseTokenAddress(chain)
+                    .call()
+                    .await
+                    .context("l2 wrapped base token")?
+                    .l2WBaseTokenAddress;
+                if l2_wrapped_base_token == Address::ZERO {
+                    result.report_warn(&format!(
+                        "Chain {} does not have an L2 wrapped base token",
+                        chain
+                    ));
+                }
             }
 
             let l2_shared_bridge = l1_legacy_shared_bridge
@@ -505,7 +543,7 @@ impl DeployedAddresses {
     }
 
     fn expected_previous_protocol_version() -> U256 {
-        U256::from(25) * U256::from(2).pow(U256::from(32))
+        U256::from(26) * U256::from(2).pow(U256::from(32))
     }
 
     async fn verify_ctm_deployment_tracker(
@@ -517,7 +555,7 @@ impl DeployedAddresses {
     ) -> Result<()> {
         let ctm_deployer_impl_constructor = CTMDeploymentTracker::constructorCall::new((
             bridgehub_info.bridgehub_addr,
-            config.deployed_addresses.bridges.shared_bridge_proxy_addr,
+            config.deployed_addresses.bridges.l1_asset_router_proxy_addr,
         ))
         .abi_encode();
         let ctm_deployer_init_calldata =
@@ -538,10 +576,12 @@ impl DeployedAddresses {
         let ctm_dt =
             CTMDeploymentTracker::new(self.bridgehub.ctm_deployment_tracker_proxy_addr, provider);
         let owner = ctm_dt.owner().call().await?.owner;
-        ensure!(
-            owner == self.l1_transitionary_owner,
-            "CTMDeploymentTracker owner mismatch"
-        );
+        if owner != config.protocol_upgrade_handler_proxy_address {
+            result.report_error(&format!(
+                "CTMDeploymentTracker owner mismatch: {} expected: {}",
+                owner, config.protocol_upgrade_handler_proxy_address
+            ));
+        }
         Ok(())
     }
 
@@ -570,7 +610,7 @@ impl DeployedAddresses {
         result
             .expect_create2_params_proxy_with_bytecode(
                 verifiers,
-                &self.bridges.shared_bridge_proxy_addr,
+                &self.bridges.l1_asset_router_proxy_addr,
                 l1_asset_router_init_calldata,
                 bridgehub_info.transparent_proxy_admin,
                 l1_asset_router_impl_constructor,
@@ -579,12 +619,14 @@ impl DeployedAddresses {
             .await;
 
         let provider = verifiers.network_verifier.get_l1_provider();
-        let l1_asset_router = L1AssetRouter::new(self.bridges.shared_bridge_proxy_addr, provider);
+        let l1_asset_router = L1AssetRouter::new(self.bridges.l1_asset_router_proxy_addr, provider);
         let current_owner = l1_asset_router.owner().call().await?.owner;
-        ensure!(
-            current_owner == self.l1_transitionary_owner,
-            "L1AssetRouter owner mismatch"
-        );
+        if current_owner != config.protocol_upgrade_handler_proxy_address {
+            result.report_error(&format!(
+                "L1AssetRouter owner mismatch: {} vs {}",
+                current_owner, config.protocol_upgrade_handler_proxy_address
+            ));
+        }
 
         let legacy_bridge = l1_asset_router.legacyBridge().call().await?.legacyBridge;
         ensure!(
@@ -618,6 +660,7 @@ impl DeployedAddresses {
         let l1nullifier_constructor_data = L1Nullifier::constructorCall::new((
             bridgehub_info.bridgehub_addr,
             U256::from(config.era_chain_id),
+            // TODO: for local setup, it is 0. For production should be era (for backwards compatibility).
             era_diamond_proxy,
         ))
         .abi_encode();
@@ -636,14 +679,13 @@ impl DeployedAddresses {
         config: &UpgradeOutput,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
-        bridgehub_info: &BridgehubInfo,
     ) -> Result<()> {
         result.expect_create2_params(
             verifiers,
             &self.bridges.erc20_bridge_implementation_addr,
             L1ERC20Bridge::constructorCall::new((
-                bridgehub_info.shared_bridge,
-                self.bridges.shared_bridge_proxy_addr,
+                self.bridges.l1_nullifier_proxy_addr,
+                self.bridges.l1_asset_router_proxy_addr,
                 self.native_token_vault_addr,
                 U256::from(config.era_chain_id),
             ))
@@ -762,135 +804,10 @@ impl DeployedAddresses {
         Ok(())
     }
 
-    async fn verify_rollup_da_manager(
-        &self,
-        config: &UpgradeOutput,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        _bridgehub_info: &BridgehubInfo,
-    ) -> Result<()> {
-        result.expect_create2_params(
-            verifiers,
-            &self.l1_rollup_da_manager,
-            Vec::new(),
-            "l1-contracts/RollupDAManager",
-        );
-
-        let provider = verifiers.network_verifier.get_l1_provider();
-        let rollup_da_manager = RollupDAManager::new(self.l1_rollup_da_manager, provider);
-        let is_rollup_pair_allowed = rollup_da_manager
-            .isPairAllowed(
-                self.rollup_l1_da_validator_addr,
-                config.contracts_config.expected_rollup_l2_da_validator,
-            )
-            .call()
-            .await?
-            ._0;
-        ensure!(
-            is_rollup_pair_allowed,
-            "Rollup pair not allowed in RollupDAManager"
-        );
-
-        let current_owner = rollup_da_manager.owner().call().await?.owner;
-        ensure!(
-            current_owner == self.l1_transitionary_owner,
-            "RollupDAManager owner mismatch"
-        );
-        Ok(())
-    }
-
-    async fn verify_transitionary_owner(
-        &self,
-        config: &UpgradeOutput,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        _bridgehub_info: &BridgehubInfo,
-    ) -> Result<()> {
-        result.expect_create2_params(
-            verifiers,
-            &self.l1_transitionary_owner,
-            TransitionaryOwner::constructorCall::new((
-                config.protocol_upgrade_handler_proxy_address,
-            ))
-            .abi_encode(),
-            "l1-contracts/TransitionaryOwner",
-        );
-        Ok(())
-    }
-
-    async fn verify_bridged_token_beacon(
-        &self,
-        _config: &UpgradeOutput,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        _bridgehub_info: &BridgehubInfo,
-    ) -> Result<()> {
-        result.expect_create2_params(
-            verifiers,
-            &self.bridges.bridged_token_beacon,
-            BridgedTokenBeacon::constructorCall::new((self.bridges.bridged_standard_erc20_impl,))
-                .abi_encode(),
-            "l1-contracts/UpgradeableBeacon",
-        );
-        Ok(())
-    }
-
-    async fn verify_message_root(
-        &self,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        bridgehub_info: &BridgehubInfo,
-    ) -> Result<()> {
-        let message_root_impl_constructor =
-            MessageRoot::constructorCall::new((bridgehub_info.bridgehub_addr,)).abi_encode();
-        let message_root_init_calldata = MessageRoot::initializeCall::new(()).abi_encode();
-
-        result
-            .expect_create2_params_proxy_with_bytecode(
-                verifiers,
-                &self.bridgehub.message_root_proxy_addr,
-                message_root_init_calldata,
-                bridgehub_info.transparent_proxy_admin,
-                message_root_impl_constructor,
-                "l1-contracts/MessageRoot",
-            )
-            .await;
-        Ok(())
-    }
-
-    async fn verify_governance_upgrade_timer(
-        &self,
-        config: &UpgradeOutput,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        bridgehub_info: &BridgehubInfo,
-    ) -> Result<()> {
-        let initial_delay = if config.era_chain_id == 300 || config.l1_chain_id == 1 {
-            2 * 7 * 24 * 3600
-        } else {
-            24 * 3600
-        };
-        const MAX_INITIAL_DELAY: u32 = 1209600;
-        let expected_constructor_params = GovernanceUpgradeTimer::constructorCall::new((
-            U256::from(initial_delay),
-            U256::from(MAX_INITIAL_DELAY),
-            config.protocol_upgrade_handler_proxy_address,
-            bridgehub_info.ecosystem_admin,
-        ))
-        .abi_encode();
-
-        result.expect_create2_params(
-            verifiers,
-            &self.l1_governance_upgrade_timer,
-            expected_constructor_params,
-            "l1-contracts/GovernanceUpgradeTimer",
-        );
-        Ok(())
-    }
-
     pub async fn get_expected_facet_cuts(
         &self,
         verifiers: &crate::verifiers::Verifiers,
+        result: &mut VerificationResult,
     ) -> anyhow::Result<(FacetCutSet, FacetCutSet)> {
         let bridgehub_addr = verifiers.bridgehub_address;
         let bridgehub_info = verifiers
@@ -926,6 +843,10 @@ impl DeployedAddresses {
                 .get_code_at(address)
                 .await
                 .context(format!("Failed to retrieve the bytecode for {}", address))?;
+
+            if bytecode.len() == 0 {
+                result.report_warn(&format!("No bytecode for facet {}", facet.name));
+            }
             let info: Vec<_> =
                 evmole::contract_info(evmole::ContractInfoArgs::new(&bytecode.0).with_selectors())
                     .functions
@@ -946,76 +867,19 @@ impl DeployedAddresses {
         Ok((facets_to_remove, facets_to_add))
     }
 
-    pub async fn verify_protocol_upgrade_handler_impl(
-        &self,
-        config: &UpgradeOutput,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        bridgehub_info: &BridgehubInfo,
-    ) -> anyhow::Result<()> {
-        let protocol_upgrade_handler_impl = ProtocolUpgradeHandler::new(
-            config.protocol_upgrade_handler_impl_address,
-            verifiers.network_verifier.get_l1_provider(),
-        );
-
-        let bridgehub = protocol_upgrade_handler_impl
-            .BRIDGE_HUB()
-            .call()
-            .await
-            .unwrap()
-            .BRIDGE_HUB;
-        let chain_type_manager = protocol_upgrade_handler_impl
-            .CHAIN_TYPE_MANAGER()
-            .call()
-            .await
-            .unwrap()
-            .CHAIN_TYPE_MANAGER;
-        let era = protocol_upgrade_handler_impl
-            .ZKSYNC_ERA()
-            .call()
-            .await
-            .unwrap()
-            .ZKSYNC_ERA;
-        let l1_nullifier = protocol_upgrade_handler_impl
-            .L1_NULLIFIER()
-            .call()
-            .await
-            .unwrap()
-            .L1_NULLIFIER;
-        let l1_asset_router = protocol_upgrade_handler_impl
-            .L1_ASSET_ROUTER()
-            .call()
-            .await
-            .unwrap()
-            .L1_ASSET_ROUTER;
-        let l1_native_token_vault = protocol_upgrade_handler_impl
-            .L1_NATIVE_TOKEN_VAULT()
-            .call()
-            .await
-            .unwrap()
-            .L1_NATIVE_TOKEN_VAULT;
-
-        result.expect_address(verifiers, &bridgehub, "bridgehub_proxy");
-        result.expect_address(verifiers, &chain_type_manager, "state_transition_manager");
-        if bridgehub_info.era_address != era {
-            result.report_error(&format!(
-                "Incorrect era address. Expected {}, received: {}",
-                bridgehub_info.era_address, era
-            ));
-        }
-        result.expect_address(verifiers, &l1_nullifier, "old_shared_bridge_proxy");
-        result.expect_address(verifiers, &l1_asset_router, "l1_asset_router_proxy");
-        result.expect_address(verifiers, &l1_native_token_vault, "native_token_vault");
-
-        Ok(())
-    }
-
     pub async fn verify(
         &self,
         config: &UpgradeOutput,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
     ) -> anyhow::Result<()> {
+        // Here we should verify all the addresses that we're deploying in a given upgrade.
+        // In case of v27, they are:
+        // * stm / ctm
+        // * bridgehub
+        // * l1 nullifier
+        // * l1 asset router
+        // * l1 native token vault
         let bridgehub_addr = verifiers.bridgehub_address;
         let bridgehub_info = verifiers
             .network_verifier
@@ -1025,17 +889,23 @@ impl DeployedAddresses {
         self.verify_ntv(config, verifiers, result, &bridgehub_info)
             .await?;
         self.verify_validator_timelock(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("validator timelock")?;
         self.verify_wrapped_base_token_store(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("wrapped_basen_token")?;
         self.verify_ctm_deployment_tracker(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("ctm tracker")?;
         self.verify_l1_asset_router(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("l1 asset")?;
         self.verify_l1_nullifier(config, verifiers, result, &bridgehub_info)
-            .await?;
-        self.verify_l1_erc20_bridge(config, verifiers, result, &bridgehub_info)
-            .await?;
+            .await
+            .context("l1 nullifier")?;
+        self.verify_l1_erc20_bridge(config, verifiers, result)
+            .await
+            .context("l1_erc20_bridge")?;
         self.verify_bridgehub_impl(config, verifiers, result)
             .await?;
         self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info)
@@ -1048,28 +918,25 @@ impl DeployedAddresses {
             .await?;
         self.verify_mailbox_facet(config, verifiers, result, &bridgehub_info)
             .await?;
-        self.verify_rollup_da_manager(config, verifiers, result, &bridgehub_info)
-            .await?;
-        self.verify_transitionary_owner(config, verifiers, result, &bridgehub_info)
-            .await?;
-        self.verify_bridged_token_beacon(config, verifiers, result, &bridgehub_info)
-            .await?;
-        self.verify_message_root(verifiers, result, &bridgehub_info)
-            .await?;
-        self.verify_governance_upgrade_timer(config, verifiers, result, &bridgehub_info)
-            .await
-            .context("governance upgrade timer")?;
+
+
+
         self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
             .await
             .context("per chain info")?;
-        /*self.verify_protocol_upgrade_handler_impl(config, verifiers, result, &bridgehub_info)
-        .await
-        .context("protocol upgrade handler")?;*/
+
+
+        // TODO: verify fflonk and plonk
+
+        let expected_constructor_params = DualVerifier::constructorCall::new((
+            self.state_transition.verifier_fflonk_addr, self.state_transition.verifier_plonk_addr
+        ))
+        .abi_encode();
 
         result.expect_create2_params(
             verifiers,
             &self.state_transition.verifier_addr,
-            Vec::new(),
+            expected_constructor_params,
             if verifiers.testnet_contracts {
                 "l1-contracts/TestnetVerifier"
             } else {
@@ -1094,36 +961,7 @@ impl DeployedAddresses {
             Vec::new(),
             "l1-contracts/DiamondInit",
         );
-        result.expect_create2_params(
-            verifiers,
-            &self.l1_bytecodes_supplier_addr,
-            Vec::new(),
-            "l1-contracts/BytecodesSupplier",
-        );
-        result.expect_create2_params(
-            verifiers,
-            &self.rollup_l1_da_validator_addr,
-            Vec::new(),
-            "da-contracts/RollupL1DAValidator",
-        );
-        result.expect_create2_params(
-            verifiers,
-            &self.validium_l1_da_validator_addr,
-            Vec::new(),
-            "l1-contracts/ValidiumL1DAValidator",
-        );
-        result.expect_create2_params(
-            verifiers,
-            &self.bridges.bridged_standard_erc20_impl,
-            Vec::new(),
-            "l1-contracts/BridgedStandardERC20",
-        );
-        result.expect_create2_params(
-            verifiers,
-            &self.l1_gateway_upgrade,
-            Vec::new(),
-            "l1-contracts/GatewayUpgrade",
-        );
+ 
 
         result.report_ok("deployed addresses");
         Ok(())

@@ -2,8 +2,7 @@ use alloy::primitives::{Address, FixedBytes, U256};
 use anyhow::Context;
 use call_list::CallList;
 use deployed_addresses::DeployedAddresses;
-use governance_stage1_calls::GovernanceStage1Calls;
-use governance_stage2_calls::GovernanceStage2Calls;
+use governance_stage_calls::{GovernanceStage0Calls, GovernanceStage1Calls, GovernanceStage2Calls};
 use initialize_data_new_chain::{FeeParams, PubdataPricingMode};
 use protocol_version::ProtocolVersion;
 use serde::Deserialize;
@@ -19,10 +18,8 @@ pub mod call_list;
 pub mod deployed_addresses;
 pub mod fixed_force_deployment;
 pub mod force_deployment;
-pub mod governance_stage1_calls;
-pub mod governance_stage2_calls;
+pub mod governance_stage_calls;
 pub mod initialize_data_new_chain;
-pub mod post_upgrade_calldata;
 pub mod protocol_version;
 pub mod set_new_version_upgrade;
 
@@ -33,17 +30,25 @@ pub struct UpgradeOutput {
     pub(crate) create2_factory_salt: FixedBytes<32>,
     pub(crate) deployer_addr: Address,
     pub(crate) era_chain_id: u64,
-    pub(crate) governance_stage1_calls: String,
-    pub(crate) governance_stage2_calls: String,
+
+    pub(crate) governance_calls: GovernanceCalls,
+
     pub(crate) l1_chain_id: u64,
 
     pub(crate) protocol_upgrade_handler_proxy_address: Address,
-    pub(crate) protocol_upgrade_handler_impl_address: Address,
 
+    #[serde(rename = "contracts_newConfig")]
     pub(crate) contracts_config: ContractsConfig,
     pub(crate) deployed_addresses: DeployedAddresses,
 
     pub(crate) transactions: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GovernanceCalls {
+    pub(crate) governance_stage0_calls: String,
+    pub(crate) governance_stage1_calls: String,
+    pub(crate) governance_stage2_calls: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,7 +131,7 @@ impl ContractsConfig {
         result.expect_address(
             verifiers,
             &self.l1_legacy_shared_bridge,
-            "old_shared_bridge_proxy",
+            "l1_asset_router_proxy",
         );
 
         let provided_new_protocol_version =
@@ -210,7 +215,7 @@ impl UpgradeOutput {
             .context("checking deployed addresses")?;
         let (facets_to_remove, facets_to_add) = self
             .deployed_addresses
-            .get_expected_facet_cuts(verifiers)
+            .get_expected_facet_cuts(verifiers, result)
             .await
             .context("checking facets")?;
 
@@ -218,28 +223,47 @@ impl UpgradeOutput {
             .expect_deployed_bytecode(verifiers, &self.create2_factory_addr, "Create2Factory")
             .await;
 
-        let stage1 = GovernanceStage1Calls {
-            calls: CallList::parse(&self.governance_stage1_calls),
+        let stage0 = GovernanceStage0Calls {
+            calls: CallList::parse(&self.governance_calls.governance_stage0_calls),
         };
 
-        stage1
+        stage0
             .verify(
-                &self.deployed_addresses,
                 verifiers,
                 result,
-                facets_to_remove.merge(facets_to_add.clone()),
+            )
+            .await
+            .context("stage0")?;
+
+        let stage1 = GovernanceStage1Calls {
+            calls: CallList::parse(&self.governance_calls.governance_stage1_calls),
+        };
+
+        let expected_upgrade_facets = facets_to_remove.merge(facets_to_add.clone()).clone();
+        
+        let (expected_chain_creation_data, expected_force_deployments) = stage1
+            .verify(
+                verifiers,
+                result,
+                facets_to_add,
+                &self.deployed_addresses,
+                expected_upgrade_facets,
                 &self.chain_upgrade_diamond_cut,
             )
             .await
             .context("stage1")?;
 
         let stage2 = GovernanceStage2Calls {
-            calls: CallList::parse(&self.governance_stage2_calls),
+            calls: CallList::parse(&self.governance_calls.governance_stage2_calls),
         };
-        let (expected_chain_creation_data, expected_force_deployments) = stage2
-            .verify(verifiers, result, facets_to_add)
-            .await
-            .context("stage2")?;
+
+        stage2
+        .verify(
+            verifiers,
+            result,
+        )
+        .await
+        .context("stage2")?;
 
         self.contracts_config
             .verify(

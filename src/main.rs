@@ -8,10 +8,10 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
-// Current top of draft-release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "e85a685b377f72ec9c723cd9d941b42e29974373";
-// Current top of evm-emulator/integration branch
-const DEFAULT_ERA_COMMIT: &str = "8d396ae490cc124bd2c705dc1174de23f53cccfb";
+// Current top of release-27 branch
+const DEFAULT_CONTRACTS_COMMIT: &str = "61fb329ac42edbc0f632cb3bb90748a2a0f3a9ed";
+// Current commit after v27 merge to main branch
+const DEFAULT_ERA_COMMIT: &str = "659edaaf3fad253bf85b3a960393c812c884eec6";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.27.0";
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.26.0";
@@ -92,12 +92,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.display_upgrade_data.unwrap_or_default() {
         println!(
+            "Stage0 encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+        );
+
+        println!(
             "Stage1 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_stage1_calls)
+            encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
         );
         println!(
             "Stage2 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_stage2_calls)
+            encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
         );
     }
 
