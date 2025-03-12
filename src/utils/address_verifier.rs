@@ -73,6 +73,10 @@ impl AddressVerifier {
         result.add_address(info.validator_timelock, "old_validator_timelock");
         result.add_address(info.native_token_vault, "native_token_vault");
 
+        result.add_address(
+            info.l1_nullifier,
+            "l1_nullifier_proxy_addr",
+        );
         result
     }
 

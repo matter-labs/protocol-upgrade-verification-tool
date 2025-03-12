@@ -6,7 +6,9 @@ use crate::{
         address_verifier::AddressVerifier,
         facet_cut_set::{self, FacetCutSet, FacetInfo},
         network_verifier::{Bridgehub as BridgehubSol, BridgehubInfo},
-    }, verifiers::VerificationResult, UpgradeOutput
+    },
+    verifiers::VerificationResult,
+    UpgradeOutput,
 };
 use alloy::{
     primitives::{Address, U256},
@@ -224,15 +226,10 @@ pub struct Bridges {
     pub l1_asset_router_proxy_addr: Address,
     pub l1_asset_router_implementation_addr: Address,
     pub l1_nullifier_implementation_addr: Address,
-    pub l1_nullifier_proxy_addr: Address,
-    pub bridged_token_beacon: Address,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Bridgehub {
-    ctm_deployment_tracker_proxy_addr: Address,
-    ctm_deployment_tracker_implementation_addr: Address,
-
     bridgehub_implementation_addr: Address,
     message_root_proxy_addr: Address,
     message_root_implementation_addr: Address,
@@ -281,14 +278,6 @@ impl DeployedAddresses {
         );
 
         address_verifier.add_address(
-            self.bridgehub.ctm_deployment_tracker_proxy_addr,
-            "ctm_deployment_tracker",
-        );
-        address_verifier.add_address(
-            self.bridgehub.ctm_deployment_tracker_implementation_addr,
-            "ctm_deployment_tracker_implementation_addr",
-        );
-        address_verifier.add_address(
             self.bridgehub.bridgehub_implementation_addr,
             "bridgehub_implementation_addr",
         );
@@ -299,10 +288,6 @@ impl DeployedAddresses {
         address_verifier.add_address(
             self.bridges.l1_nullifier_implementation_addr,
             "l1_nullifier_implementation_addr",
-        );
-        address_verifier.add_address(
-            self.bridges.l1_nullifier_proxy_addr,
-            "l1_nullifier_proxy_addr",
         );
 
         address_verifier.add_address(self.l1_rollup_da_manager, "rollup_da_manager");
@@ -339,14 +324,17 @@ impl DeployedAddresses {
         let l1_ntv_impl_constructor = L1NativeTokenVault::constructorCall::new((
             bridgehub_info.l1_weth_token_address,
             config.deployed_addresses.bridges.l1_asset_router_proxy_addr,
-            bridgehub_info.shared_bridge,
+            bridgehub_info.l1_nullifier,
         ))
         .abi_encode();
-       
 
-        result.expect_create2_params(verifiers, &self.native_token_vault_implementation_addr, l1_ntv_impl_constructor, "l1-contracts/L1NativeTokenVault");
+        result.expect_create2_params(
+            verifiers,
+            &self.native_token_vault_implementation_addr,
+            l1_ntv_impl_constructor,
+            "l1-contracts/L1NativeTokenVault",
+        );
 
-        
         Ok(())
     }
 
@@ -532,45 +520,6 @@ impl DeployedAddresses {
         U256::from(26) * U256::from(2).pow(U256::from(32))
     }
 
-    async fn verify_ctm_deployment_tracker(
-        &self,
-        config: &UpgradeOutput,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        bridgehub_info: &BridgehubInfo,
-    ) -> Result<()> {
-        let ctm_deployer_impl_constructor = CTMDeploymentTracker::constructorCall::new((
-            bridgehub_info.bridgehub_addr,
-            config.deployed_addresses.bridges.l1_asset_router_proxy_addr,
-        ))
-        .abi_encode();
-        let ctm_deployer_init_calldata =
-            CTMDeploymentTracker::initializeCall::new((config.deployer_addr,)).abi_encode();
-
-        result
-            .expect_create2_params_proxy_with_bytecode(
-                verifiers,
-                &self.bridgehub.ctm_deployment_tracker_proxy_addr,
-                ctm_deployer_init_calldata,
-                bridgehub_info.transparent_proxy_admin,
-                ctm_deployer_impl_constructor,
-                "l1-contracts/CTMDeploymentTracker",
-            )
-            .await;
-
-        let provider = verifiers.network_verifier.get_l1_provider();
-        let ctm_dt =
-            CTMDeploymentTracker::new(self.bridgehub.ctm_deployment_tracker_proxy_addr, provider);
-        let owner = ctm_dt.owner().call().await?.owner;
-        if owner != config.protocol_upgrade_handler_proxy_address {
-            result.report_error(&format!(
-                "CTMDeploymentTracker owner mismatch: {} expected: {}",
-                owner, config.protocol_upgrade_handler_proxy_address
-            ));
-        }
-        Ok(())
-    }
-
     async fn verify_l1_asset_router(
         &self,
         config: &UpgradeOutput,
@@ -585,24 +534,26 @@ impl DeployedAddresses {
         let l1_asset_router_impl_constructor = L1AssetRouter::constructorCall::new((
             bridgehub_info.l1_weth_token_address,
             bridgehub_info.bridgehub_addr,
-            bridgehub_info.shared_bridge,
+            bridgehub_info.l1_nullifier,
             U256::from(config.era_chain_id),
-            era_diamond_proxy,
+            if verifiers.testnet_contracts {
+                Address::ZERO
+            } else {
+                era_diamond_proxy
+            },
         ))
         .abi_encode();
         let l1_asset_router_init_calldata =
             L1AssetRouter::initializeCall::new((config.deployer_addr,)).abi_encode();
 
-        result
-            .expect_create2_params_proxy_with_bytecode(
-                verifiers,
-                &self.bridges.l1_asset_router_proxy_addr,
-                l1_asset_router_init_calldata,
-                bridgehub_info.transparent_proxy_admin,
-                l1_asset_router_impl_constructor,
-                "l1-contracts/L1AssetRouter",
-            )
-            .await;
+        // FIXME: proxy should be taken from bridgehub.
+        result.expect_create2_params(
+            verifiers,
+            &self.bridges.l1_asset_router_implementation_addr,
+            l1_asset_router_impl_constructor,
+            "l1-contracts/L1AssetRouter",
+        );
+
 
         let provider = verifiers.network_verifier.get_l1_provider();
         let l1_asset_router = L1AssetRouter::new(self.bridges.l1_asset_router_proxy_addr, provider);
@@ -648,7 +599,11 @@ impl DeployedAddresses {
             bridgehub_info.bridgehub_addr,
             U256::from(config.era_chain_id),
             // TODO: for local setup, it is 0. For production should be era (for backwards compatibility).
-            era_diamond_proxy,
+            if verifiers.testnet_contracts {
+                Address::ZERO
+            } else {
+                era_diamond_proxy
+            },
         ))
         .abi_encode();
 
@@ -860,9 +815,6 @@ impl DeployedAddresses {
         self.verify_wrapped_base_token_store(config, verifiers, result, &bridgehub_info)
             .await
             .context("wrapped_basen_token")?;
-        self.verify_ctm_deployment_tracker(config, verifiers, result, &bridgehub_info)
-            .await
-            .context("ctm tracker")?;
         self.verify_l1_asset_router(config, verifiers, result, &bridgehub_info)
             .await
             .context("l1 asset")?;
@@ -882,8 +834,6 @@ impl DeployedAddresses {
         self.verify_mailbox_facet(config, verifiers, result, &bridgehub_info)
             .await?;
 
-
-
         self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
             .await
             .context("per chain info")?;
@@ -892,18 +842,19 @@ impl DeployedAddresses {
             verifiers,
             &self.state_transition.verifier_plonk_addr,
             Vec::new(),
-            "l1-contracts/L1VerifierPlonk"    
+            "l1-contracts/L1VerifierPlonk",
         );
 
         result.expect_create2_params(
             verifiers,
             &self.state_transition.verifier_fflonk_addr,
             Vec::new(),
-            "l1-contracts/L1VerifierFflonk"    
+            "l1-contracts/L1VerifierFflonk",
         );
 
         let expected_constructor_params = DualVerifier::constructorCall::new((
-            self.state_transition.verifier_fflonk_addr, self.state_transition.verifier_plonk_addr
+            self.state_transition.verifier_fflonk_addr,
+            self.state_transition.verifier_plonk_addr,
         ))
         .abi_encode();
 
@@ -935,7 +886,6 @@ impl DeployedAddresses {
             Vec::new(),
             "l1-contracts/DiamondInit",
         );
- 
 
         result.report_ok("deployed addresses");
         Ok(())
