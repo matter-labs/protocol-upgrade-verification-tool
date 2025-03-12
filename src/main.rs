@@ -92,6 +92,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.display_upgrade_data.unwrap_or_default() {
         println!(
+            "Stage0 encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+        );
+
+        println!(
             "Stage1 encoded upgrade data = {}",
             encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
         );
