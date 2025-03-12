@@ -90,13 +90,13 @@ impl FixedForceDeploymentsData {
         result.expect_address(
             verifiers,
             &self.l2SharedBridgeLegacyImpl,
-            "l2_shared_bridge_legacy_impl",
+            "zero",
         );
 
         result.expect_address(
             verifiers,
             &self.l2BridgedStandardERC20Impl,
-            "erc20_bridged_standard",
+            "zero",
         );
 
         if self.dangerousTestOnlyForcedBeacon != Address::ZERO {

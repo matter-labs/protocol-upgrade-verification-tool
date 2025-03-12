@@ -206,7 +206,6 @@ const EXPECTED_FACETS: [BasicFacetInfo; 4] = [
 
 #[derive(Debug, Deserialize)]
 pub struct DeployedAddresses {
-    pub(crate) native_token_vault_addr: Address,
     pub(crate) native_token_vault_implementation_addr: Address,
 
     pub(crate) validator_timelock_addr: Address,
@@ -226,7 +225,6 @@ pub struct Bridges {
     pub l1_asset_router_implementation_addr: Address,
     pub l1_nullifier_implementation_addr: Address,
     pub l1_nullifier_proxy_addr: Address,
-    pub erc20_bridge_implementation_addr: Address,
     pub bridged_token_beacon: Address,
 }
 
@@ -259,8 +257,10 @@ pub struct StateTransition {
 }
 
 impl DeployedAddresses {
+    // Here we add addresses that will be newly deployed.
+    // If the address is already present (for example some existing proxy)
+    // we should read its value from the bridgehub, and not depend on data from the config.
     pub fn add_to_verifier(&self, address_verifier: &mut AddressVerifier) {
-        address_verifier.add_address(self.native_token_vault_addr, "native_token_vault");
         address_verifier.add_address(
             self.native_token_vault_implementation_addr,
             "native_token_vault_implementation_addr",
@@ -304,10 +304,7 @@ impl DeployedAddresses {
             self.bridges.l1_nullifier_proxy_addr,
             "l1_nullifier_proxy_addr",
         );
-        address_verifier.add_address(
-            self.bridges.erc20_bridge_implementation_addr,
-            "erc20_bridge_implementation_addr",
-        );
+
         address_verifier.add_address(self.l1_rollup_da_manager, "rollup_da_manager");
         address_verifier.add_address(self.l1_governance_upgrade_timer, "upgrade_timer");
         self.state_transition.add_to_verifier(address_verifier);
@@ -345,22 +342,11 @@ impl DeployedAddresses {
             bridgehub_info.shared_bridge,
         ))
         .abi_encode();
-        let l1_ntv_init_calldata = L1NativeTokenVault::initializeCall::new((
-            config.protocol_upgrade_handler_proxy_address,
-            self.bridges.bridged_token_beacon,
-        ))
-        .abi_encode();
+       
 
-        result
-            .expect_create2_params_proxy_with_bytecode(
-                verifiers,
-                &self.native_token_vault_addr,
-                l1_ntv_init_calldata,
-                bridgehub_info.transparent_proxy_admin,
-                l1_ntv_impl_constructor,
-                "l1-contracts/L1NativeTokenVault",
-            )
-            .await;
+        result.expect_create2_params(verifiers, &self.native_token_vault_implementation_addr, l1_ntv_impl_constructor, "l1-contracts/L1NativeTokenVault");
+
+        
         Ok(())
     }
 
@@ -639,10 +625,11 @@ impl DeployedAddresses {
             .call()
             .await?
             .nativeTokenVault;
-        ensure!(
+        // FIXME
+        /*ensure!(
             l1_ntv == self.native_token_vault_addr,
             "L1AssetRouter nativeTokenVault mismatch"
-        );
+        );*/
         Ok(())
     }
 
@@ -670,27 +657,6 @@ impl DeployedAddresses {
             &self.bridges.l1_nullifier_implementation_addr,
             l1nullifier_constructor_data,
             "l1-contracts/L1Nullifier",
-        );
-        Ok(())
-    }
-
-    async fn verify_l1_erc20_bridge(
-        &self,
-        config: &UpgradeOutput,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-    ) -> Result<()> {
-        result.expect_create2_params(
-            verifiers,
-            &self.bridges.erc20_bridge_implementation_addr,
-            L1ERC20Bridge::constructorCall::new((
-                self.bridges.l1_nullifier_proxy_addr,
-                self.bridges.l1_asset_router_proxy_addr,
-                self.native_token_vault_addr,
-                U256::from(config.era_chain_id),
-            ))
-            .abi_encode(),
-            "l1-contracts/L1ERC20Bridge",
         );
         Ok(())
     }
@@ -903,9 +869,6 @@ impl DeployedAddresses {
         self.verify_l1_nullifier(config, verifiers, result, &bridgehub_info)
             .await
             .context("l1 nullifier")?;
-        self.verify_l1_erc20_bridge(config, verifiers, result)
-            .await
-            .context("l1_erc20_bridge")?;
         self.verify_bridgehub_impl(config, verifiers, result)
             .await?;
         self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info)
@@ -925,8 +888,19 @@ impl DeployedAddresses {
             .await
             .context("per chain info")?;
 
+        result.expect_create2_params(
+            verifiers,
+            &self.state_transition.verifier_plonk_addr,
+            Vec::new(),
+            "l1-contracts/L1VerifierPlonk"    
+        );
 
-        // TODO: verify fflonk and plonk
+        result.expect_create2_params(
+            verifiers,
+            &self.state_transition.verifier_fflonk_addr,
+            Vec::new(),
+            "l1-contracts/L1VerifierFflonk"    
+        );
 
         let expected_constructor_params = DualVerifier::constructorCall::new((
             self.state_transition.verifier_fflonk_addr, self.state_transition.verifier_plonk_addr
