@@ -125,7 +125,6 @@ const EXPECTED_BYTECODES: [&str; 42] = [
     "EvmEmulator.yul",
     "Identity.yul",
     "EvmGasManager.yul",
-    //"l1-contracts/BeaconProxy",
     "l1-contracts/BridgedStandardERC20",
     "l1-contracts/Bridgehub",
     "l1-contracts/L2AssetRouter",
@@ -133,7 +132,6 @@ const EXPECTED_BYTECODES: [&str; 42] = [
     "l1-contracts/L2SharedBridgeLegacy",
     "l1-contracts/L2WrappedBaseToken",
     "l1-contracts/MessageRoot",
-    //"l1-contracts/UpgradeableBeacon",
     "l2-contracts/RollupL2DAValidator",
     "l2-contracts/ValidiumL2DAValidator",
     "system-contracts/AccountCodeStorage",
@@ -150,14 +148,12 @@ const EXPECTED_BYTECODES: [&str; 42] = [
     "system-contracts/KnownCodesStorage",
     "system-contracts/L1Messenger",
     "system-contracts/L2BaseToken",
-    //"system-contracts/L2GatewayUpgrade",
     "system-contracts/L2GenesisUpgrade",
     "system-contracts/MsgValueSimulator",
     "system-contracts/NonceHolder",
     "system-contracts/PubdataChunkPublisher",
     "system-contracts/SloadContract",
     "system-contracts/SystemContext",
-    //"system-contracts/TransparentUpgradeableProxy",
 ];
 
 impl ProposedUpgrade {

@@ -24,10 +24,7 @@ impl AddressVerifier {
         };
 
         // Firstly, we initialize some constant addresses from the config.
-        /*result.add_address(
-            config.protocol_upgrade_handler_impl_address,
-            "new_protocol_upgrade_handler_impl",
-        );*/
+
         result.add_address(
             config.protocol_upgrade_handler_proxy_address,
             "protocol_upgrade_handler_proxy",

@@ -486,11 +486,11 @@ impl DeployedAddresses {
             verifiers.network_verifier.get_l1_provider(),
         );
 
-        let bb = BridgehubSol::new(
+        let bridgehub_instance = BridgehubSol::new(
             bridgehub_info.bridgehub_addr,
             verifiers.network_verifier.get_l1_provider(),
         );
-        let all_zkchains = bb
+        let all_zkchains = bridgehub_instance
             .getAllZKChainChainIDs()
             .call()
             .await
@@ -661,7 +661,6 @@ impl DeployedAddresses {
             bridgehub_info.bridgehub_addr,
             U256::from(config.era_chain_id),
             // TODO: for local setup, it is 0. For production should be era (for backwards compatibility).
-            //Address::ZERO
             era_diamond_proxy,
         ))
         .abi_encode();
