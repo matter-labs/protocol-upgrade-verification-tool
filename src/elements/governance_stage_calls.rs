@@ -2,13 +2,11 @@ use super::{
     call_list::{Call, CallList},
     deployed_addresses::DeployedAddresses,
     fixed_force_deployment::FixedForceDeploymentsData,
-    governance_stage1_calls::verity_facet_cuts,
-    protocol_version::ProtocolVersion,
-    set_new_version_upgrade::setNewVersionUpgradeCall,
+    
+    set_new_version_upgrade::{self, setNewVersionUpgradeCall},
 };
 use crate::{
     elements::initialize_data_new_chain::InitializeDataNewChain,
-    get_expected_old_protocol_version,
     utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
     verifiers::Verifiers,
 };
@@ -20,6 +18,13 @@ use alloy::{
 };
 use anyhow::Context;
 
+pub struct GovernanceStage0Calls {
+    pub calls: CallList,
+}
+
+pub struct GovernanceStage1Calls {
+    pub calls: CallList,
+}
 pub struct GovernanceStage2Calls {
     pub calls: CallList,
 }
@@ -78,7 +83,7 @@ sol! {
     function facets() external view returns (Facet[] memory result);
 }
 
-impl GovernanceStage2Calls {
+impl GovernanceStage1Calls {
     /// Verifies an upgrade call by decoding its data and comparing the proxy and implementation addresses.
     pub fn verify_upgrade_call(
         &self,
@@ -119,7 +124,7 @@ impl GovernanceStage2Calls {
         Ok(())
     }
 
-    /// Verifies all the governance stage 2 calls.
+    /// Verifies all the governance stage 1 calls.
     /// Returns a pair of expected diamond cut data as well as expected fixed force deployments data.
     pub async fn verify(
         &self,
@@ -130,7 +135,17 @@ impl GovernanceStage2Calls {
         expected_upgrade_facets: FacetCutSet,
         expected_chain_upgrade_diamond_cut: &str,
     ) -> anyhow::Result<(String, String)> {
-        result.print_info("== Gov stage 2 calls ===");
+        result.print_info("== Gov stage 1 calls ===");
+
+        // Stage1 is where most of the upgrade happens.
+        // It usually consists of 3 parts:
+        // * upgrading proxies (we deploy a new implementation and point existing proxy to it)
+        // * upgrading chain creation parameters (telling the system how the new chains should look like)
+        // * saving the information on how to upgrade existing chains (set new version upgrade)
+
+        // Optionally for some upgrades we might have additional contract calls
+        // (for example when we added a new type of bridge, we also included a call to bridgehub to set its address etc)
+
 
         let list_of_calls = [
             // Proxy upgrades
@@ -139,11 +154,7 @@ impl GovernanceStage2Calls {
             ("transparent_proxy_admin", "upgrade(address,address)"),
             ("transparent_proxy_admin", "upgrade(address,address)"),
             ("transparent_proxy_admin", "upgrade(address,address)"),
-            ("transparent_proxy_admin", "upgrade(address,address)"),
-            ("transparent_proxy_admin", "upgrade(address,address)"),
-            ("transparent_proxy_admin", "upgrade(address,address)"),
-            ("bridgehub_proxy", "pauseMigration()"),
-            // index = 9
+            // index = 5
             (
                 "state_transition_manager",
                 "setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes),bytes))",
@@ -151,29 +162,10 @@ impl GovernanceStage2Calls {
 
             ("state_transition_manager",
             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
-            ("upgrade_timer", "startTimer()"),
-
-
-            /*(
-                "state_transition_manager",
-                "setValidatorTimelock(address)",
-            ),*/
-            //("state_transition_manager","setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes)))"),
-            //("state_transition_manager", "setProtocolVersionDeadline(uint256,uint256)"),
-
-            ("bridgehub_proxy", "unpauseMigration()"),
-
-
-
-            //("bridgehub_proxy", "setAddresses(address,address,address)"),
-//            ("old_shared_bridge_proxy", "setL1NativeTokenVault(address)"),
-            //("old_shared_bridge_proxy", "setL1AssetRouter(address)"),
-            //("upgrade_timer", "checkDeadline()"),
-            /*(
-                "protocol_upgrade_handler_transparent_proxy_admin",
-                "upgradeAndCall(address,address,bytes)",
-            ),*/
         ];
+        const SET_NEW_VERSION_INDEX: usize = 6;
+        const SET_CHAIN_CREATION_INDEX: usize = 5;
+
 
         self.calls.verify(&list_of_calls, verifiers, result)?;
 
@@ -187,7 +179,6 @@ impl GovernanceStage2Calls {
             None,
         )?;
 
-        // Compute the selector once so that its lifetime is extended.
         self.verify_upgrade_call(
             verifiers,
             result,
@@ -210,14 +201,6 @@ impl GovernanceStage2Calls {
             verifiers,
             result,
             &self.calls.elems[3],
-            "legacy_erc20_bridge_proxy",
-            "erc20_bridge_implementation_addr",
-            None,
-        )?;
-        self.verify_upgrade_call(
-            verifiers,
-            result,
-            &self.calls.elems[4],
             "l1_asset_router_proxy",
             "l1_asset_router_implementation_addr",
             None,
@@ -225,31 +208,16 @@ impl GovernanceStage2Calls {
         self.verify_upgrade_call(
             verifiers,
             result,
-            &self.calls.elems[5],
+            &self.calls.elems[4],
             "native_token_vault",
             "native_token_vault_implementation_addr",
             None,
         )?;
-        self.verify_upgrade_call(
-            verifiers,
-            result,
-            &self.calls.elems[6],
-            "ctm_deployment_tracker",
-            "ctm_deployment_tracker_implementation_addr",
-            None,
-        )?;
-        self.verify_upgrade_call(
-            verifiers,
-            result,
-            &self.calls.elems[7],
-            "l1_message_root",
-            "l1_message_root_implementation_addr",
-            None,
-        )?;
+        
 
         // Verify setNewVersionUpgrade
         {
-            let calldata = &self.calls.elems[10].data;
+            let calldata = &self.calls.elems[SET_NEW_VERSION_INDEX].data;
             let data = setNewVersionUpgradeCall::abi_decode(calldata, true).unwrap();
 
             if data.oldProtocolVersionDeadline != U256::MAX {
@@ -299,7 +267,7 @@ impl GovernanceStage2Calls {
 
         // Verify setChainCreationParams call.
         let (chain_creation_diamond_cut, force_deployments) = {
-            let decoded = setChainCreationParamsCall::abi_decode(&self.calls.elems[9].data, true)
+            let decoded = setChainCreationParamsCall::abi_decode(&self.calls.elems[SET_CHAIN_CREATION_INDEX].data, true)
                 .expect("Failed to decode setChainCreationParams call");
             decoded
                 ._chainCreationParams
@@ -317,47 +285,6 @@ impl GovernanceStage2Calls {
                 hex::encode(forceDeploymentsData),
             )
         };
-
-        // Verify setAddresses call.
-        /*{
-            let decoded = setAddressesCall::abi_decode(&self.calls.elems[5].data, true)
-                .expect("Failed to decode setAddresses call");
-            result.expect_address(verifiers, &decoded._assetRouter, "l1_asset_router_proxy");
-            result.expect_address(verifiers, &decoded._l1CtmDeployer, "ctm_deployment_tracker");
-            result.expect_address(verifiers, &decoded._messageRoot, "l1_message_root");
-        }*/
-
-        // Verify setProtocolVersionDeadline call.
-        /*{
-            let decoded =
-                setProtocolVersionDeadlineCall::abi_decode(&self.calls.elems[12].data, true)
-                    .expect("Failed to decode setProtocolVersionDeadline call");
-            let pv = ProtocolVersion::from(decoded.protocolVersion);
-            let expected_old = get_expected_old_protocol_version();
-
-            if pv != expected_old {
-                result.report_warn(&format!(
-                    "Invalid protocol version: {} - expected {}",
-                    pv, expected_old
-                ));
-            }
-
-            if decoded.newDeadline != U256::ZERO {
-                result.report_error(&format!(
-                    "Expected deadline to be 0, but got {}",
-                    decoded.newDeadline
-                ));
-            }
-        }*/
-
-        /*self.verify_upgrade_call(
-            verifiers,
-            result,
-            &self.calls.elems[10],
-            "protocol_upgrade_handler_proxy",
-            "new_protocol_upgrade_handler_impl",
-            Some(""),
-        )?;*/
 
         Ok((chain_creation_diamond_cut, force_deployments))
     }
@@ -477,4 +404,90 @@ pub async fn verify_chain_creation_diamond_cut(
     initialize_data_new_chain.verify(verifiers, result).await?;
 
     Ok(())
+}
+
+
+
+pub async fn verity_facet_cuts(
+    facet_cuts: &[set_new_version_upgrade::FacetCut],
+    result: &mut crate::verifiers::VerificationResult,
+    expected_upgrade_facets: FacetCutSet,
+) {
+    // We ensure two invariants here:
+    // - Firstly we use `Remove` operations only. This is mainly for ensuring that
+    // the upgrade will pass.
+    // - Secondly, we ensure that the set of operations is identical.
+    let mut used_add = false;
+    let mut proposed_facet_cuts = FacetCutSet::new();
+    facet_cuts.iter().for_each(|facet| {
+        let action = match facet.action {
+            set_new_version_upgrade::Action::Add => {
+                used_add = true;
+                facet_cut_set::Action::Add
+            }
+            set_new_version_upgrade::Action::Remove => {
+                assert!(!used_add, "Unexpected `Remove` operation after `Add`");
+                facet_cut_set::Action::Remove
+            }
+            set_new_version_upgrade::Action::Replace => panic!("Replace unexpected"),
+            set_new_version_upgrade::Action::__Invalid => panic!("Invalid unexpected"),
+        };
+
+        proposed_facet_cuts.add_facet(FacetInfo {
+            facet: facet.facet,
+            action,
+            is_freezable: facet.isFreezable,
+            selectors: facet.selectors.iter().map(|x| x.0).collect(),
+        });
+    });
+
+    if proposed_facet_cuts != expected_upgrade_facets {
+        result.report_error(&format!(
+            "Incorrect facet cuts. Expected {:#?}\nReceived: {:#?}",
+            expected_upgrade_facets, proposed_facet_cuts
+        ));
+    }
+}
+
+impl GovernanceStage0Calls {
+    /// Stage0 is executed before the main upgrade even starts.
+    pub(crate) async fn verify(
+        &self,
+        verifiers: &crate::verifiers::Verifiers,
+        result: &mut crate::verifiers::VerificationResult,
+    ) -> anyhow::Result<()> {
+        result.print_info("== Gov stage 0 calls ===");
+
+        let list_of_calls = [
+            ("bridgehub_proxy", "pauseMigration()"),
+        ];
+        // If this is just a single call without any params, we don't have to check
+        // anything else.
+
+        self.calls
+            .verify(&list_of_calls, verifiers, result)
+            .context("calls")?;
+        Ok(())
+    }
+}
+impl GovernanceStage2Calls {
+    /// Stage2 is executed after all the chains have upgraded.
+    pub(crate) async fn verify(
+        &self,
+        verifiers: &crate::verifiers::Verifiers,
+        result: &mut crate::verifiers::VerificationResult,
+    ) -> anyhow::Result<()> {
+        result.print_info("== Gov stage 2 calls ===");
+
+        let list_of_calls = [
+            ("bridgehub_proxy", "unpauseMigration()"),
+        ];
+        // If this is just a single call without any params, we don't have to check
+        // anything else.
+
+        self.calls
+            .verify(&list_of_calls, verifiers, result)
+            .context("calls")?;
+        Ok(())
+    }
 }
