@@ -87,17 +87,9 @@ impl FixedForceDeploymentsData {
             "l1-contracts/MessageRoot",
         );
 
-        result.expect_address(
-            verifiers,
-            &self.l2SharedBridgeLegacyImpl,
-            "zero",
-        );
+        result.expect_address(verifiers, &self.l2SharedBridgeLegacyImpl, "zero");
 
-        result.expect_address(
-            verifiers,
-            &self.l2BridgedStandardERC20Impl,
-            "zero",
-        );
+        result.expect_address(verifiers, &self.l2BridgedStandardERC20Impl, "zero");
 
         if self.dangerousTestOnlyForcedBeacon != Address::ZERO {
             result.report_error("dangerousTestOnlyForcedBeacon must be 0");

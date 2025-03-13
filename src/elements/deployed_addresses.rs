@@ -547,9 +547,9 @@ impl DeployedAddresses {
             "l1-contracts/L1AssetRouter",
         );
 
-
         let provider = verifiers.network_verifier.get_l1_provider();
-        let l1_asset_router = L1AssetRouter::new(bridgehub_info.l1_asset_router_proxy_addr, provider);
+        let l1_asset_router =
+            L1AssetRouter::new(bridgehub_info.l1_asset_router_proxy_addr, provider);
         let current_owner = l1_asset_router.owner().call().await?.owner;
         if current_owner != config.protocol_upgrade_handler_proxy_address {
             result.report_error(&format!(

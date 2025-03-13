@@ -214,20 +214,14 @@ impl UpgradeOutput {
             calls: CallList::parse(&self.governance_calls.governance_stage0_calls),
         };
 
-        stage0
-            .verify(
-                verifiers,
-                result,
-            )
-            .await
-            .context("stage0")?;
+        stage0.verify(verifiers, result).await.context("stage0")?;
 
         let stage1 = GovernanceStage1Calls {
             calls: CallList::parse(&self.governance_calls.governance_stage1_calls),
         };
 
         let expected_upgrade_facets = facets_to_remove.merge(facets_to_add.clone()).clone();
-        
+
         let (expected_chain_creation_data, expected_force_deployments) = stage1
             .verify(
                 verifiers,
@@ -244,13 +238,7 @@ impl UpgradeOutput {
             calls: CallList::parse(&self.governance_calls.governance_stage2_calls),
         };
 
-        stage2
-        .verify(
-            verifiers,
-            result,
-        )
-        .await
-        .context("stage2")?;
+        stage2.verify(verifiers, result).await.context("stage2")?;
 
         self.contracts_config
             .verify(

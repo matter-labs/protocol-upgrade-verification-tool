@@ -154,7 +154,7 @@ impl VerificationResult {
         address: &Address,
         expected: &str,
     ) -> bool {
-        // Zero is special, as we (potentially) might have multiple things 
+        // Zero is special, as we (potentially) might have multiple things
         // pointing at 0 (for example if given contract is not updated).
         if address == &Address::ZERO {
             let expected_address = verifiers.address_verifier.name_to_address.get(expected);
@@ -163,14 +163,14 @@ impl VerificationResult {
                     if expected_address == &Address::ZERO {
                         return true;
                     } else {
-                    self.report_error(&format!(
-                        "Expected {} to be 0 address - but got address {} at {}",
-                        expected,
-                        expected_address,
-                        Location::caller()
-                    ));
-                    return false;
-                }
+                        self.report_error(&format!(
+                            "Expected {} to be 0 address - but got address {} at {}",
+                            expected,
+                            expected_address,
+                            Location::caller()
+                        ));
+                        return false;
+                    }
                 }
                 None => {
                     self.report_error(&format!(

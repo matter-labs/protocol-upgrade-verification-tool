@@ -237,7 +237,7 @@ impl NetworkVerifier {
             era_address,
             native_token_vault,
             l1_nullifier,
-            l1_asset_router_proxy_addr
+            l1_asset_router_proxy_addr,
         }
     }
 }
