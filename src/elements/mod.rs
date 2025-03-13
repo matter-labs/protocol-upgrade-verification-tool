@@ -61,8 +61,6 @@ pub(crate) struct ContractsConfig {
     diamond_init_priority_tx_max_pubdata: u32,
     // todo: maybe convert to enum rightaway
     diamond_init_pubdata_pricing_mode: u32,
-    expected_rollup_l2_da_validator: Address,
-    expected_validium_l2_da_validator: Address,
     force_deployments_data: String,
     l1_legacy_shared_bridge: Address,
     new_protocol_version: u64,
@@ -108,17 +106,6 @@ impl ContractsConfig {
                 verifiers.fee_param_verifier.fee_params, provided_fee_params
             ));
         }
-
-        result.expect_address(
-            verifiers,
-            &self.expected_rollup_l2_da_validator,
-            "rollup_l2_da_validator",
-        );
-        result.expect_address(
-            verifiers,
-            &self.expected_validium_l2_da_validator,
-            "validium_l2_da_validator",
-        );
 
         if expected_force_deployments != self.force_deployments_data[2..] {
             result.report_error(&format!(

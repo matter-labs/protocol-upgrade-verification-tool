@@ -26,8 +26,6 @@ Added:
 
 * Bytecode for create2_and_transfer has changed
 * added more 'context' messages - to help with error debugging
-* verify_protocol_upgrade_handler - needs some rework, as it has different behavior on local network.
-
 
 postugprade calldata is now empty (and added force deployment checks into new version tx data check)
 

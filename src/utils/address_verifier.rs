@@ -25,6 +25,7 @@ impl AddressVerifier {
 
         // Firstly, we initialize some constant addresses from the config.
 
+        result.add_address(Address::ZERO, "zero");
         result.add_address(
             config.protocol_upgrade_handler_proxy_address,
             "protocol_upgrade_handler_proxy",
@@ -70,7 +71,13 @@ impl AddressVerifier {
         result.add_address(info.shared_bridge, "l1_asset_router_proxy");
         result.add_address(info.legacy_bridge, "legacy_erc20_bridge_proxy");
         result.add_address(info.validator_timelock, "old_validator_timelock");
+        result.add_address(info.native_token_vault, "native_token_vault");
 
+        result.add_address(
+            info.l1_nullifier,
+            "l1_nullifier_proxy_addr",
+        );
+        result.add_address(info.l1_asset_router_proxy_addr, "l1_asset_router_proxy");
         result
     }
 
