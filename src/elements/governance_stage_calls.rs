@@ -299,10 +299,13 @@ impl GovernanceStage1Calls {
             ));
         }
 
-        if decoded.l2_da_addr != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"] {
+        if decoded.l2_da_addr
+            != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"]
+        {
             result.report_error(&format!(
                 "Expected l2_da_addr to be {}, but got {}",
-                verifiers.address_verifier.name_to_address["rollup_l2_da_validator"], decoded.l2_da_addr
+                verifiers.address_verifier.name_to_address["rollup_l2_da_validator"],
+                decoded.l2_da_addr
             ));
         }
 
