@@ -209,6 +209,8 @@ pub struct DeployedAddresses {
     pub(crate) l1_bytecodes_supplier_addr: Address,
     pub(crate) l1_transitionary_owner: Address,
     pub(crate) l1_rollup_da_manager: Address,
+    pub(crate) rollup_l1_da_validator_addr: Address,
+    pub(crate) validium_l1_da_validator_addr: Address,
     pub(crate) l1_governance_upgrade_timer: Address,
     pub(crate) bridges: Bridges,
     pub(crate) bridgehub: Bridgehub,
@@ -490,7 +492,7 @@ impl DeployedAddresses {
             bridgehub_info.bridgehub_addr,
             bridgehub_info.l1_nullifier,
             U256::from(config.era_chain_id),
-            era_diamond_proxy
+            era_diamond_proxy,
         ))
         .abi_encode();
 
@@ -544,7 +546,7 @@ impl DeployedAddresses {
         let l1nullifier_constructor_data = L1Nullifier::constructorCall::new((
             bridgehub_info.bridgehub_addr,
             U256::from(config.era_chain_id),
-            era_diamond_proxy
+            era_diamond_proxy,
         ))
         .abi_encode();
 

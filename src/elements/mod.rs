@@ -230,6 +230,7 @@ impl UpgradeOutput {
                 &self.deployed_addresses,
                 expected_upgrade_facets,
                 &self.chain_upgrade_diamond_cut,
+                &self.contracts_config,
             )
             .await
             .context("stage1")?;

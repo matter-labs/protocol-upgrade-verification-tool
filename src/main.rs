@@ -9,9 +9,9 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "61fb329ac42edbc0f632cb3bb90748a2a0f3a9ed";
-// Current commit after v27 merge to main branch
-const DEFAULT_ERA_COMMIT: &str = "659edaaf3fad253bf85b3a960393c812c884eec6";
+const DEFAULT_CONTRACTS_COMMIT: &str = "4a12df0ae7844c3603b12fdaa2e8347bf76881b9";
+// Current commit after v27 merge to main branch (PR 3713)
+const DEFAULT_ERA_COMMIT: &str = "9cbacb86634f00cfabb55f94a73b5c564c74bf36";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.27.0";
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.26.0";

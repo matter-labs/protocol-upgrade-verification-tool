@@ -6,6 +6,7 @@ use super::{
 };
 use crate::{
     elements::initialize_data_new_chain::InitializeDataNewChain,
+    elements::ContractsConfig,
     get_expected_new_protocol_version, get_expected_old_protocol_version,
     utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
     verifiers::Verifiers,
@@ -37,6 +38,7 @@ sol! {
     function setL1AssetRouter(address _l1AssetRouter);
     function setValidatorTimelock(address addr);
     function setProtocolVersionDeadline(uint256 protocolVersion, uint256 newDeadline);
+    function updateDAPair(address l1_da_addr, address l2_da_addr, bool is_active);
 
     #[derive(Debug, PartialEq)]
     enum Action {
@@ -134,6 +136,7 @@ impl GovernanceStage1Calls {
         deployed_addresses: &DeployedAddresses,
         expected_upgrade_facets: FacetCutSet,
         expected_chain_upgrade_diamond_cut: &str,
+        config: &ContractsConfig,
     ) -> anyhow::Result<(String, String)> {
         result.print_info("== Gov stage 1 calls ===");
 
@@ -161,6 +164,7 @@ impl GovernanceStage1Calls {
 
             ("state_transition_manager",
             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
+            ("rollup_da_manager", "updateDAPair(address,address,bool)")
         ];
         const SET_NEW_VERSION_INDEX: usize = 6;
         const SET_CHAIN_CREATION_INDEX: usize = 5;
@@ -284,6 +288,26 @@ impl GovernanceStage1Calls {
                 hex::encode(forceDeploymentsData),
             )
         };
+
+        // Verify rollup_da_manager call
+        let decoded = updateDAPairCall::abi_decode(&self.calls.elems[7].data, true)
+            .expect("Failed to decode updateDAPair call");
+        if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
+            result.report_error(&format!(
+                "Expected l1_da_addr to be {}, but got {}",
+                deployed_addresses.rollup_l1_da_validator_addr, decoded.l1_da_addr
+            ));
+        }
+
+        if decoded.l2_da_addr
+            != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"]
+        {
+            result.report_error(&format!(
+                "Expected l2_da_addr to be {}, but got {}",
+                verifiers.address_verifier.name_to_address["rollup_l2_da_validator"],
+                decoded.l2_da_addr
+            ));
+        }
 
         Ok((chain_creation_diamond_cut, force_deployments))
     }
