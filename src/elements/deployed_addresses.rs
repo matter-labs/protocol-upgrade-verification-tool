@@ -438,14 +438,6 @@ impl DeployedAddresses {
         result: &mut crate::verifiers::VerificationResult,
         bridgehub_info: &BridgehubInfo,
     ) -> Result<()> {
-        let provider = verifiers.network_verifier.get_l1_provider();
-        let l2_wrapped_base_token_store =
-            L2WrappedBaseTokenStore::new(self.l2_wrapped_base_token_store_addr, provider);
-        let l1_legacy_shared_bridge = L1SharedBridgeLegacy::new(
-            bridgehub_info.shared_bridge,
-            verifiers.network_verifier.get_l1_provider(),
-        );
-
         let bridgehub_instance = BridgehubSol::new(
             bridgehub_info.bridgehub_addr,
             verifiers.network_verifier.get_l1_provider(),
@@ -458,34 +450,6 @@ impl DeployedAddresses {
             ._0;
 
         for chain in all_zkchains {
-            if self.l2_wrapped_base_token_store_addr != Address::ZERO {
-                let l2_wrapped_base_token = l2_wrapped_base_token_store
-                    .l2WBaseTokenAddress(chain)
-                    .call()
-                    .await
-                    .context("l2 wrapped base token")?
-                    .l2WBaseTokenAddress;
-                if l2_wrapped_base_token == Address::ZERO {
-                    result.report_warn(&format!(
-                        "Chain {} does not have an L2 wrapped base token",
-                        chain
-                    ));
-                }
-            }
-
-            let l2_shared_bridge = l1_legacy_shared_bridge
-                .l2BridgeAddress(chain)
-                .call()
-                .await
-                .context("l2 bridge address")?
-                .l2SharedBridgeAddress;
-            if l2_shared_bridge == Address::ZERO {
-                result.report_warn(&format!(
-                    "Chain {} does not have an L2 shared bridge",
-                    chain
-                ));
-            }
-
             let getters = GettersFacet::new(
                 bridgehub_instance
                     .getZKChain(chain)
@@ -526,11 +490,7 @@ impl DeployedAddresses {
             bridgehub_info.bridgehub_addr,
             bridgehub_info.l1_nullifier,
             U256::from(config.era_chain_id),
-            if verifiers.testnet_contracts {
-                Address::ZERO
-            } else {
-                era_diamond_proxy
-            },
+            era_diamond_proxy
         ))
         .abi_encode();
 
@@ -584,12 +544,7 @@ impl DeployedAddresses {
         let l1nullifier_constructor_data = L1Nullifier::constructorCall::new((
             bridgehub_info.bridgehub_addr,
             U256::from(config.era_chain_id),
-            // TODO: for local setup, it is 0. For production should be era (for backwards compatibility).
-            if verifiers.testnet_contracts {
-                Address::ZERO
-            } else {
-                era_diamond_proxy
-            },
+            era_diamond_proxy
         ))
         .abi_encode();
 
