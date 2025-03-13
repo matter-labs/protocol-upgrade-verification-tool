@@ -6,7 +6,9 @@ use crate::{
         address_verifier::AddressVerifier,
         facet_cut_set::{self, FacetCutSet, FacetInfo},
         network_verifier::{Bridgehub as BridgehubSol, BridgehubInfo},
-    }, verifiers::VerificationResult, UpgradeOutput
+    },
+    verifiers::VerificationResult,
+    UpgradeOutput,
 };
 use alloy::{
     primitives::{Address, U256},
@@ -921,17 +923,15 @@ impl DeployedAddresses {
         self.verify_mailbox_facet(config, verifiers, result, &bridgehub_info)
             .await?;
 
-
-
         self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
             .await
             .context("per chain info")?;
 
-
         // TODO: verify fflonk and plonk
 
         let expected_constructor_params = DualVerifier::constructorCall::new((
-            self.state_transition.verifier_fflonk_addr, self.state_transition.verifier_plonk_addr
+            self.state_transition.verifier_fflonk_addr,
+            self.state_transition.verifier_plonk_addr,
         ))
         .abi_encode();
 
@@ -963,7 +963,6 @@ impl DeployedAddresses {
             Vec::new(),
             "l1-contracts/DiamondInit",
         );
- 
 
         result.report_ok("deployed addresses");
         Ok(())

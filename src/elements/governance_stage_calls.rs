@@ -2,13 +2,13 @@ use super::{
     call_list::{Call, CallList},
     deployed_addresses::DeployedAddresses,
     fixed_force_deployment::FixedForceDeploymentsData,
-    
     set_new_version_upgrade::{self, setNewVersionUpgradeCall},
 };
 use crate::{
     elements::initialize_data_new_chain::InitializeDataNewChain,
+    elements::ContractsConfig,
     utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
-    verifiers::Verifiers, elements::ContractsConfig
+    verifiers::Verifiers,
 };
 use alloy::{
     hex,
@@ -148,7 +148,6 @@ impl GovernanceStage1Calls {
         // Optionally for some upgrades we might have additional contract calls
         // (for example when we added a new type of bridge, we also included a call to bridgehub to set its address etc)
 
-
         let list_of_calls = [
             // Proxy upgrades
             ("transparent_proxy_admin", "upgrade(address,address)"),
@@ -168,7 +167,6 @@ impl GovernanceStage1Calls {
         ];
         const SET_NEW_VERSION_INDEX: usize = 6;
         const SET_CHAIN_CREATION_INDEX: usize = 5;
-
 
         self.calls.verify(&list_of_calls, verifiers, result)?;
 
@@ -216,7 +214,6 @@ impl GovernanceStage1Calls {
             "native_token_vault_implementation_addr",
             None,
         )?;
-        
 
         // Verify setNewVersionUpgrade
         {
@@ -270,8 +267,11 @@ impl GovernanceStage1Calls {
 
         // Verify setChainCreationParams call.
         let (chain_creation_diamond_cut, force_deployments) = {
-            let decoded = setChainCreationParamsCall::abi_decode(&self.calls.elems[SET_CHAIN_CREATION_INDEX].data, true)
-                .expect("Failed to decode setChainCreationParams call");
+            let decoded = setChainCreationParamsCall::abi_decode(
+                &self.calls.elems[SET_CHAIN_CREATION_INDEX].data,
+                true,
+            )
+            .expect("Failed to decode setChainCreationParams call");
             decoded
                 ._chainCreationParams
                 .verify(verifiers, result, expected_chain_creation_facets)
@@ -290,7 +290,8 @@ impl GovernanceStage1Calls {
         };
 
         // Verify rollup_da_manager call
-        let decoded = updateDAPairCall::abi_decode(&self.calls.elems[7].data, true).expect("Failed to decode updateDAPair call");
+        let decoded = updateDAPairCall::abi_decode(&self.calls.elems[7].data, true)
+            .expect("Failed to decode updateDAPair call");
         if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
             result.report_error(&format!(
                 "Expected l1_da_addr to be {}, but got {}",
@@ -425,8 +426,6 @@ pub async fn verify_chain_creation_diamond_cut(
     Ok(())
 }
 
-
-
 pub async fn verity_facet_cuts(
     facet_cuts: &[set_new_version_upgrade::FacetCut],
     result: &mut crate::verifiers::VerificationResult,
@@ -477,9 +476,7 @@ impl GovernanceStage0Calls {
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 0 calls ===");
 
-        let list_of_calls = [
-            ("bridgehub_proxy", "pauseMigration()"),
-        ];
+        let list_of_calls = [("bridgehub_proxy", "pauseMigration()")];
         // If this is just a single call without any params, we don't have to check
         // anything else.
 
@@ -498,9 +495,7 @@ impl GovernanceStage2Calls {
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 2 calls ===");
 
-        let list_of_calls = [
-            ("bridgehub_proxy", "unpauseMigration()"),
-        ];
+        let list_of_calls = [("bridgehub_proxy", "unpauseMigration()")];
         // If this is just a single call without any params, we don't have to check
         // anything else.
 
