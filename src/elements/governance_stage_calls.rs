@@ -8,7 +8,7 @@ use crate::{
     elements::initialize_data_new_chain::InitializeDataNewChain,
     get_expected_new_protocol_version, get_expected_old_protocol_version,
     utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
-    verifiers::Verifiers,
+    verifiers::Verifiers, elements::ContractsConfig
 };
 use alloy::{
     hex,
@@ -135,6 +135,7 @@ impl GovernanceStage1Calls {
         deployed_addresses: &DeployedAddresses,
         expected_upgrade_facets: FacetCutSet,
         expected_chain_upgrade_diamond_cut: &str,
+        config: &ContractsConfig,
     ) -> anyhow::Result<(String, String)> {
         result.print_info("== Gov stage 1 calls ===");
 
@@ -289,17 +290,17 @@ impl GovernanceStage1Calls {
 
         // Verify rollup_da_manager call
         let decoded = updateDAPairCall::abi_decode(&self.calls.elems[7].data, true).expect("Failed to decode updateDAPair call");
-        if decoded.l1_da_addr != deployed_addresses.l1_rollup_da_manager {
+        if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
             result.report_error(&format!(
                 "Expected l1_da_addr to be {}, but got {}",
-                deployed_addresses.l1_rollup_da_manager, decoded.l1_da_addr
+                deployed_addresses.rollup_l1_da_validator_addr, decoded.l1_da_addr
             ));
         }
 
-        if decoded.l2_da_addr != deployed_addresses.l2_rollup_da_manager {
+        if decoded.l2_da_addr != config.expected_rollup_l2_da_validator {
             result.report_error(&format!(
                 "Expected l2_da_addr to be {}, but got {}",
-                deployed_addresses.l2_rollup_da_manager, decoded.l2_da_addr
+                config.expected_rollup_l2_da_validator, decoded.l2_da_addr
             ));
         }
 
