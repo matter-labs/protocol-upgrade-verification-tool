@@ -342,16 +342,12 @@ impl ChainCreationParams {
         )
         .await?;
 
-        if self.forceDeploymentsData.is_empty() {
-            result.report_error("Force deployments data is empty");
-        } else {
-            let fixed_force_deployments_data =
-                FixedForceDeploymentsData::abi_decode(&self.forceDeploymentsData, true)
-                    .expect("Failed to decode FixedForceDeploymentsData");
-            fixed_force_deployments_data
-                .verify(verifiers, result)
-                .await?;
-        }
+        let fixed_force_deployments_data =
+            FixedForceDeploymentsData::abi_decode(&self.forceDeploymentsData, true)
+                .expect("Failed to decode FixedForceDeploymentsData");
+        fixed_force_deployments_data
+            .verify(verifiers, result)
+            .await?;
 
         Ok(())
     }

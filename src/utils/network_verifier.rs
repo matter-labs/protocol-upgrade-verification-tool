@@ -27,7 +27,7 @@ sol! {
     }
 
     #[sol(rpc)]
-    contract L1SharedBridge {
+    contract L1AssetRouter {
         function legacyBridge() public returns (address);
         function L1_WETH_TOKEN() public returns (address);
         function L1_NULLIFIER() public returns (address);
@@ -190,7 +190,7 @@ impl NetworkVerifier {
 
         let shared_bridge_address = bridgehub.sharedBridge().call().await.unwrap().sharedBridge;
 
-        let shared_bridge = L1SharedBridge::new(shared_bridge_address, self.get_l1_provider());
+        let shared_bridge = L1AssetRouter::new(shared_bridge_address, self.get_l1_provider());
 
         let era_chain_id = self.get_era_chain_id();
 

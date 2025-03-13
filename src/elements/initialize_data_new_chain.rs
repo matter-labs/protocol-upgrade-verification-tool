@@ -66,6 +66,11 @@ impl InitializeDataNewChain {
             &self.l2DefaultAccountBytecodeHash,
             "system-contracts/DefaultAccount",
         );
+        result.expect_zk_bytecode(
+            verifiers,
+            &self.l2EvmEmulatorBytecodeHash,
+            "EvmEmulator.yul",
+        );
 
         if self.priorityTxMaxGasLimit != U256::from(MAX_PRIORITY_TX_GAS_LIMIT) {
             result.report_warn(&format!(
