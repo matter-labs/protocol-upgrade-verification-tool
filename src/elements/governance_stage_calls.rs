@@ -6,9 +6,10 @@ use super::{
 };
 use crate::{
     elements::initialize_data_new_chain::InitializeDataNewChain,
+    elements::ContractsConfig,
     get_expected_new_protocol_version, get_expected_old_protocol_version,
     utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
-    verifiers::Verifiers, elements::ContractsConfig
+    verifiers::Verifiers,
 };
 use alloy::{
     hex,
@@ -289,7 +290,8 @@ impl GovernanceStage1Calls {
         };
 
         // Verify rollup_da_manager call
-        let decoded = updateDAPairCall::abi_decode(&self.calls.elems[7].data, true).expect("Failed to decode updateDAPair call");
+        let decoded = updateDAPairCall::abi_decode(&self.calls.elems[7].data, true)
+            .expect("Failed to decode updateDAPair call");
         if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
             result.report_error(&format!(
                 "Expected l1_da_addr to be {}, but got {}",
