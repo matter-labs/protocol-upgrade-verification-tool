@@ -14,7 +14,7 @@ use alloy::{
     primitives::{Address, U256},
     providers::Provider,
     sol,
-    sol_types::{SolCall, SolConstructor},
+    sol_types::SolConstructor,
 };
 use serde::Deserialize;
 
@@ -223,7 +223,6 @@ pub struct DeployedAddresses {
 
 #[derive(Debug, Deserialize)]
 pub struct Bridges {
-    pub l1_asset_router_proxy_addr: Address,
     pub l1_asset_router_implementation_addr: Address,
     pub l1_nullifier_implementation_addr: Address,
 }
@@ -263,10 +262,7 @@ impl DeployedAddresses {
             "native_token_vault_implementation_addr",
         );
         address_verifier.add_address(self.validator_timelock_addr, "validator_timelock");
-        address_verifier.add_address(
-            self.bridges.l1_asset_router_proxy_addr,
-            "l1_asset_router_proxy",
-        );
+
         address_verifier.add_address(
             self.bridges.l1_asset_router_implementation_addr,
             "l1_asset_router_implementation_addr",
@@ -316,14 +312,14 @@ impl StateTransition {
 impl DeployedAddresses {
     async fn verify_ntv(
         &self,
-        config: &UpgradeOutput,
+        _config: &UpgradeOutput,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         bridgehub_info: &BridgehubInfo,
     ) -> Result<()> {
         let l1_ntv_impl_constructor = L1NativeTokenVault::constructorCall::new((
             bridgehub_info.l1_weth_token_address,
-            config.deployed_addresses.bridges.l1_asset_router_proxy_addr,
+            bridgehub_info.l1_asset_router_proxy_addr,
             bridgehub_info.l1_nullifier,
         ))
         .abi_encode();
@@ -543,10 +539,7 @@ impl DeployedAddresses {
             },
         ))
         .abi_encode();
-        let l1_asset_router_init_calldata =
-            L1AssetRouter::initializeCall::new((config.deployer_addr,)).abi_encode();
 
-        // FIXME: proxy should be taken from bridgehub.
         result.expect_create2_params(
             verifiers,
             &self.bridges.l1_asset_router_implementation_addr,
@@ -556,7 +549,7 @@ impl DeployedAddresses {
 
 
         let provider = verifiers.network_verifier.get_l1_provider();
-        let l1_asset_router = L1AssetRouter::new(self.bridges.l1_asset_router_proxy_addr, provider);
+        let l1_asset_router = L1AssetRouter::new(bridgehub_info.l1_asset_router_proxy_addr, provider);
         let current_owner = l1_asset_router.owner().call().await?.owner;
         if current_owner != config.protocol_upgrade_handler_proxy_address {
             result.report_error(&format!(
@@ -576,11 +569,10 @@ impl DeployedAddresses {
             .call()
             .await?
             .nativeTokenVault;
-        // FIXME
-        /*ensure!(
-            l1_ntv == self.native_token_vault_addr,
+        ensure!(
+            l1_ntv == bridgehub_info.native_token_vault,
             "L1AssetRouter nativeTokenVault mismatch"
-        );*/
+        );
         Ok(())
     }
 
