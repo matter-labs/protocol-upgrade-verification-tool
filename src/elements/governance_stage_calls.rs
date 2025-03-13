@@ -6,6 +6,7 @@ use super::{
 };
 use crate::{
     elements::initialize_data_new_chain::InitializeDataNewChain,
+    get_expected_new_protocol_version, get_expected_old_protocol_version,
     utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
     verifiers::Verifiers,
 };
@@ -218,6 +219,13 @@ impl GovernanceStage1Calls {
 
             if data.oldProtocolVersionDeadline != U256::MAX {
                 result.report_error("Wrong old protocol version deadline for stage1 call");
+            }
+
+            if data.newProtocolVersion != get_expected_new_protocol_version().into() {
+                result.report_error("Wrong new protocol version for stage1 call");
+            }
+            if data.oldProtocolVersion != get_expected_old_protocol_version().into() {
+                result.report_error("Wrong old protocol version for stage1 call");
             }
 
             let diamond_cut = data.diamondCut;

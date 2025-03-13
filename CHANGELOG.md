@@ -1,6 +1,5 @@
 # Changelog
 
-
 ## v27 (EVM release)
 
 **Interface changes (in previous release):**
@@ -27,8 +26,7 @@ Added:
 * Bytecode for create2_and_transfer has changed
 * added more 'context' messages - to help with error debugging
 
-postugprade calldata is now empty (and added force deployment checks into new version tx data check)
-
+post-upgrade calldata is now empty (and added force deployment checks into new version tx data check)
 
 
 ## v26 (Gateway release) 

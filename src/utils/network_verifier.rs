@@ -23,6 +23,7 @@ sol! {
         function getHyperchain(uint256 _chainId) external view returns (address chainAddress);
         function getAllZKChainChainIDs() external view returns (uint256[] memory);
         function assetRouter() external view returns (address);
+        function getZKChain(uint256 _chainId) external view returns (address chainAddress);
     }
 
     #[sol(rpc)]

@@ -93,12 +93,6 @@ sol! {
     }
 
     #[sol(rpc)]
-    contract StateTransitionManagerLegacy {
-        function getAllHyperchainChainIDs() public view override returns (uint256[] memory);
-        function getHyperchain(uint256 _chainId) public view override returns (address chainAddress);
-    }
-
-    #[sol(rpc)]
     contract L1SharedBridgeLegacy {
         function l2BridgeAddress(uint256 chainId) public view override returns (address l2SharedBridgeAddress);
     }
@@ -451,10 +445,6 @@ impl DeployedAddresses {
             bridgehub_info.shared_bridge,
             verifiers.network_verifier.get_l1_provider(),
         );
-        let stm = StateTransitionManagerLegacy::new(
-            bridgehub_info.stm_address,
-            verifiers.network_verifier.get_l1_provider(),
-        );
 
         let bridgehub_instance = BridgehubSol::new(
             bridgehub_info.bridgehub_addr,
@@ -497,7 +487,11 @@ impl DeployedAddresses {
             }
 
             let getters = GettersFacet::new(
-                stm.getHyperchain(chain).call().await?.chainAddress,
+                bridgehub_instance
+                    .getZKChain(chain)
+                    .call()
+                    .await?
+                    .chainAddress,
                 verifiers.network_verifier.get_l1_provider(),
             );
             let protocol_version = getters.getProtocolVersion().call().await?._0;
@@ -758,7 +752,7 @@ impl DeployedAddresses {
                 .context(format!("Failed to retrieve the bytecode for {}", address))?;
 
             if bytecode.len() == 0 {
-                result.report_warn(&format!("No bytecode for facet {}", facet.name));
+                result.report_error(&format!("No bytecode for facet {}", facet.name));
             }
             let info: Vec<_> =
                 evmole::contract_info(evmole::ContractInfoArgs::new(&bytecode.0).with_selectors())
@@ -857,7 +851,7 @@ impl DeployedAddresses {
             if verifiers.testnet_contracts {
                 "l1-contracts/TestnetVerifier"
             } else {
-                "l1-contracts/Verifier"
+                "l1-contracts/DualVerifier"
             },
         );
         result.expect_create2_params(
