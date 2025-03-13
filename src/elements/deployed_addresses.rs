@@ -209,6 +209,7 @@ pub struct DeployedAddresses {
     pub(crate) l1_bytecodes_supplier_addr: Address,
     pub(crate) l1_transitionary_owner: Address,
     pub(crate) l1_rollup_da_manager: Address,
+    pub(crate) l2_rollup_da_manager: Address,
     pub(crate) l1_governance_upgrade_timer: Address,
     pub(crate) bridges: Bridges,
     pub(crate) bridgehub: Bridgehub,
@@ -281,6 +282,7 @@ impl DeployedAddresses {
         );
 
         address_verifier.add_address(self.l1_rollup_da_manager, "rollup_da_manager");
+        address_verifier.add_address(self.l2_rollup_da_manager, "l2_rollup_da_manager");
         address_verifier.add_address(self.l1_governance_upgrade_timer, "upgrade_timer");
         self.state_transition.add_to_verifier(address_verifier);
     }
