@@ -136,7 +136,7 @@ impl GovernanceStage1Calls {
         deployed_addresses: &DeployedAddresses,
         expected_upgrade_facets: FacetCutSet,
         expected_chain_upgrade_diamond_cut: &str,
-        config: &ContractsConfig,
+        _config: &ContractsConfig,
     ) -> anyhow::Result<(String, String)> {
         result.print_info("== Gov stage 1 calls ===");
 
@@ -150,6 +150,7 @@ impl GovernanceStage1Calls {
         // (for example when we added a new type of bridge, we also included a call to bridgehub to set its address etc)
 
         let list_of_calls = [
+            ("bridgehub_proxy", "pauseMigration()"),
             // Proxy upgrades
             ("transparent_proxy_admin", "upgrade(address,address)"),
             ("transparent_proxy_admin", "upgrade(address,address)"),
@@ -164,10 +165,12 @@ impl GovernanceStage1Calls {
 
             ("state_transition_manager",
             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
-            ("rollup_da_manager", "updateDAPair(address,address,bool)")
+            ("rollup_da_manager", "updateDAPair(address,address,bool)"),
+            ("bridgehub_proxy", "unpauseMigration()")
         ];
-        const SET_NEW_VERSION_INDEX: usize = 6;
-        const SET_CHAIN_CREATION_INDEX: usize = 5;
+        const SET_NEW_VERSION_INDEX: usize = 7;
+        const SET_CHAIN_CREATION_INDEX: usize = 6;
+        const SET_DA_PAIR_INDEX: usize = 8;
 
         self.calls.verify(&list_of_calls, verifiers, result)?;
 
@@ -290,7 +293,7 @@ impl GovernanceStage1Calls {
         };
 
         // Verify rollup_da_manager call
-        let decoded = updateDAPairCall::abi_decode(&self.calls.elems[7].data, true)
+        let decoded = updateDAPairCall::abi_decode(&self.calls.elems[SET_DA_PAIR_INDEX].data, true)
             .expect("Failed to decode updateDAPair call");
         if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
             result.report_error(&format!(
@@ -475,7 +478,9 @@ impl GovernanceStage0Calls {
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 0 calls ===");
 
-        let list_of_calls = [("bridgehub_proxy", "pauseMigration()")];
+        // In v27 we'll do the pause/unpause inside stage1
+        let list_of_calls = [];
+        //("bridgehub_proxy", "pauseMigration()")];
         // If this is just a single call without any params, we don't have to check
         // anything else.
 
@@ -494,7 +499,9 @@ impl GovernanceStage2Calls {
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 2 calls ===");
 
-        let list_of_calls = [("bridgehub_proxy", "unpauseMigration()")];
+        // In v27 we'll do the pause/unpause inside stage1
+        let list_of_calls = [];
+        //("bridgehub_proxy", "unpauseMigration()")];
         // If this is just a single call without any params, we don't have to check
         // anything else.
 

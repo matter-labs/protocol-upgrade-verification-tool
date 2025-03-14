@@ -210,7 +210,6 @@ pub struct DeployedAddresses {
     pub(crate) l1_transitionary_owner: Address,
     pub(crate) l1_rollup_da_manager: Address,
     pub(crate) rollup_l1_da_validator_addr: Address,
-    pub(crate) validium_l1_da_validator_addr: Address,
     pub(crate) l1_governance_upgrade_timer: Address,
     pub(crate) bridges: Bridges,
     pub(crate) bridgehub: Bridgehub,
