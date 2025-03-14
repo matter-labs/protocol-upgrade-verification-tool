@@ -9,7 +9,7 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "4a12df0ae7844c3603b12fdaa2e8347bf76881b9";
+const DEFAULT_CONTRACTS_COMMIT: &str = "13cc1366fd348772ccfac5a585c4e4701a5dfe45";
 // Current commit after v27 merge to main branch (PR 3713)
 const DEFAULT_ERA_COMMIT: &str = "9cbacb86634f00cfabb55f94a73b5c564c74bf36";
 
