@@ -295,11 +295,7 @@ impl ProposedUpgrade {
             &self.defaultAccountHash,
             "system-contracts/DefaultAccount",
         );
-        result.expect_zk_bytecode(
-            verifiers, 
-            &self.evmEmulatorHash, 
-            "EvmEmulator.yul"
-        );
+        result.expect_zk_bytecode(verifiers, &self.evmEmulatorHash, "EvmEmulator.yul");
 
         let verifier_name = verifiers
             .address_verifier
