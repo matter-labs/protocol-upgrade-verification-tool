@@ -172,8 +172,14 @@ impl GovernanceStage1Calls {
             ("bridgehub_proxy", "unpauseMigration()")
         ];
         const STAGE_0_SHIFT: usize = 1;
-        const SET_NEW_VERSION_INDEX: usize = 6 + STAGE_0_SHIFT;
+        const UPGRADE_CTM: usize = 0 + STAGE_0_SHIFT;
+        const UPGRADE_BRIDGEHUB: usize = 1 + STAGE_0_SHIFT;
+        const UPGRADE_L1_NULLIFIER: usize = 2 + STAGE_0_SHIFT;
+        const UPGRADE_L1_ASSET_ROUTER: usize = 3 + STAGE_0_SHIFT;
+        const UPGRADE_NATIVE_TOKEN_VAULT: usize = 4 + STAGE_0_SHIFT;
         const SET_CHAIN_CREATION_INDEX: usize = 5 + STAGE_0_SHIFT;
+        const SET_NEW_VERSION_INDEX: usize = 6 + STAGE_0_SHIFT;
+        const UPDATE_ROLLUP_DA_PAIR: usize = 7 + STAGE_0_SHIFT;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 2.
@@ -184,7 +190,7 @@ impl GovernanceStage1Calls {
         self.verify_upgrade_call(
             verifiers,
             result,
-            &self.calls.elems[0 + STAGE_0_SHIFT],
+            &self.calls.elems[UPGRADE_CTM],
             "state_transition_manager",
             "state_transition_implementation_addr",
             None,
@@ -193,7 +199,7 @@ impl GovernanceStage1Calls {
         self.verify_upgrade_call(
             verifiers,
             result,
-            &self.calls.elems[1 + STAGE_0_SHIFT],
+            &self.calls.elems[UPGRADE_BRIDGEHUB],
             "bridgehub_proxy",
             "bridgehub_implementation_addr",
             None,
@@ -202,7 +208,7 @@ impl GovernanceStage1Calls {
         self.verify_upgrade_call(
             verifiers,
             result,
-            &self.calls.elems[2 + STAGE_0_SHIFT],
+            &self.calls.elems[UPGRADE_L1_NULLIFIER],
             "l1_nullifier_proxy_addr",
             "l1_nullifier_implementation_addr",
             None,
@@ -211,7 +217,7 @@ impl GovernanceStage1Calls {
         self.verify_upgrade_call(
             verifiers,
             result,
-            &self.calls.elems[3 + STAGE_0_SHIFT],
+            &self.calls.elems[UPGRADE_L1_ASSET_ROUTER],
             "l1_asset_router_proxy",
             "l1_asset_router_implementation_addr",
             None,
@@ -219,7 +225,7 @@ impl GovernanceStage1Calls {
         self.verify_upgrade_call(
             verifiers,
             result,
-            &self.calls.elems[4 + STAGE_0_SHIFT],
+            &self.calls.elems[UPGRADE_NATIVE_TOKEN_VAULT],
             "native_token_vault",
             "native_token_vault_implementation_addr",
             None,
@@ -299,8 +305,9 @@ impl GovernanceStage1Calls {
         };
 
         // Verify rollup_da_manager call
-        let decoded = updateDAPairCall::abi_decode(&self.calls.elems[7 + STAGE_0_SHIFT].data, true)
-            .expect("Failed to decode updateDAPair call");
+        let decoded =
+            updateDAPairCall::abi_decode(&self.calls.elems[UPDATE_ROLLUP_DA_PAIR].data, true)
+                .expect("Failed to decode updateDAPair call");
         if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
             result.report_error(&format!(
                 "Expected l1_da_addr to be {}, but got {}",
@@ -482,15 +489,7 @@ impl GovernanceStage0Calls {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
     ) -> anyhow::Result<()> {
-        // result.print_info("== Gov stage 0 calls ===");
-
-        // let list_of_calls = [("bridgehub_proxy", "pauseMigration()")];
-        // // If this is just a single call without any params, we don't have to check
-        // // anything else.
-
-        // self.calls
-        //     .verify(&list_of_calls, verifiers, result)
-        //     .context("calls")?;
+        result.print_info("== Gov stage 0 calls ===");
         Ok(())
     }
 }
@@ -501,15 +500,7 @@ impl GovernanceStage2Calls {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
     ) -> anyhow::Result<()> {
-        // result.print_info("== Gov stage 2 calls ===");
-
-        // let list_of_calls = [("bridgehub_proxy", "unpauseMigration()")];
-        // // If this is just a single call without any params, we don't have to check
-        // // anything else.
-
-        // self.calls
-        //     .verify(&list_of_calls, verifiers, result)
-        //     .context("calls")?;
+        result.print_info("== Gov stage 2 calls ===");
         Ok(())
     }
 }
