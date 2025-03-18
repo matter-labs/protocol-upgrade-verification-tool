@@ -1,16 +1,15 @@
-# Protocol Upgrade Verification Tool
+# Protocol Upgrade Verification Tool v27
 
 Tool to analyze the zkSync upgrades.
 
-**This is a version for v27 upgrade.**
-
+**This is a version for $${\color{red} v27}$$ upgrade.**
 
 **IMPORTANT**
 
 There will be a specific version of this tool, for each release.
 So make sure that you pick the correct branch, as new versions of the tool will NOT support verifying older releases.
 
-
+**For earlier version - please pick the proper github tag.**
 
 
 First, you need to get the gateway_ecosystem_upgrade_output.yaml file.
