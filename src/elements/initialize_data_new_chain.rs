@@ -33,6 +33,7 @@ sol! {
         VerifierParams verifierParams;
         bytes32 l2BootloaderBytecodeHash;
         bytes32 l2DefaultAccountBytecodeHash;
+        bytes32 l2EvmEmulatorBytecodeHash;
         uint256 priorityTxMaxGasLimit;
         FeeParams feeParams;
         address blobVersionedHashRetriever;
@@ -64,6 +65,11 @@ impl InitializeDataNewChain {
             verifiers,
             &self.l2DefaultAccountBytecodeHash,
             "system-contracts/DefaultAccount",
+        );
+        result.expect_zk_bytecode(
+            verifiers,
+            &self.l2EvmEmulatorBytecodeHash,
+            "EvmEmulator.yul",
         );
 
         if self.priorityTxMaxGasLimit != U256::from(MAX_PRIORITY_TX_GAS_LIMIT) {

@@ -1,13 +1,15 @@
-# Protocol Upgrade Verification Tool
+# Protocol Upgrade Verification Tool v27
 
 Tool to analyze the zkSync upgrades.
+
+**This is a version for $${\color{red} v27}$$ upgrade.**
 
 **IMPORTANT**
 
 There will be a specific version of this tool, for each release.
 So make sure that you pick the correct branch, as new versions of the tool will NOT support verifying older releases.
 
-
+**For earlier version - please pick the proper github tag.**
 
 
 First, you need to get the gateway_ecosystem_upgrade_output.yaml file.
@@ -25,6 +27,12 @@ To conduct the full verification, you need to provide:
 
 ```
 cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output.yaml --l1-rpc http://localhost:8545 --contracts-commit a80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 99c3905a9e92416e76d37b0858da7f6c7e123e0b --era-chain-id 270 --testnet-contracts  --bridgehub-address 0xb244E9B485fc872e3242960b786dB5189f6A6d2A
+```
+
+### Stage verification
+
+```
+cargo run -- --ecosystem-yaml data/stage_ecosystem_upgrade_output.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE
 ```
 
 ### Mainnet verification

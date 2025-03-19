@@ -19,14 +19,20 @@ sol! {
         address public sharedBridge;
         address public admin;
         address public owner;
-        mapping(uint256 _chainId => address) public stateTransitionManager;
+        mapping(uint256 _chainId => address) public chainTypeManager;
         function getHyperchain(uint256 _chainId) external view returns (address chainAddress);
+        function getAllZKChainChainIDs() external view returns (uint256[] memory);
+        function assetRouter() external view returns (address);
+        function getZKChain(uint256 _chainId) external view returns (address chainAddress);
     }
 
     #[sol(rpc)]
-    contract L1SharedBridge {
+    contract L1AssetRouter {
         function legacyBridge() public returns (address);
         function L1_WETH_TOKEN() public returns (address);
+        function L1_NULLIFIER() public returns (address);
+
+        function nativeTokenVault() public returns (address);
     }
 
     #[sol(rpc)]
@@ -52,6 +58,9 @@ pub struct BridgehubInfo {
     pub bridgehub_addr: Address,
     pub validator_timelock: Address,
     pub era_address: Address,
+    pub native_token_vault: Address,
+    pub l1_nullifier: Address,
+    pub l1_asset_router_proxy_addr: Address,
 }
 
 pub struct NetworkVerifier {
@@ -181,12 +190,12 @@ impl NetworkVerifier {
 
         let shared_bridge_address = bridgehub.sharedBridge().call().await.unwrap().sharedBridge;
 
-        let shared_bridge = L1SharedBridge::new(shared_bridge_address, self.get_l1_provider());
+        let shared_bridge = L1AssetRouter::new(shared_bridge_address, self.get_l1_provider());
 
         let era_chain_id = self.get_era_chain_id();
 
         let stm_address = bridgehub
-            .stateTransitionManager(era_chain_id.try_into().unwrap())
+            .chainTypeManager(era_chain_id.try_into().unwrap())
             .call()
             .await
             .unwrap()
@@ -212,6 +221,11 @@ impl NetworkVerifier {
         let legacy_bridge = shared_bridge.legacyBridge().call().await.unwrap()._0;
         let l1_weth_token_address = shared_bridge.L1_WETH_TOKEN().call().await.unwrap()._0;
 
+        let native_token_vault = shared_bridge.nativeTokenVault().call().await.unwrap()._0;
+        let l1_nullifier = shared_bridge.L1_NULLIFIER().call().await.unwrap()._0;
+
+        let l1_asset_router_proxy_addr = bridgehub.assetRouter().call().await.unwrap()._0;
+
         BridgehubInfo {
             shared_bridge: shared_bridge_address,
             legacy_bridge,
@@ -222,6 +236,9 @@ impl NetworkVerifier {
             bridgehub_addr,
             validator_timelock,
             era_address,
+            native_token_vault,
+            l1_nullifier,
+            l1_asset_router_proxy_addr,
         }
     }
 }

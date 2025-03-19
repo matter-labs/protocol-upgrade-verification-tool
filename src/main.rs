@@ -8,11 +8,13 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
-const DEFAULT_CONTRACTS_COMMIT: &str = "6badcb8a9b6114c6dd10d3b172a96812250604b0";
-const DEFAULT_ERA_COMMIT: &str = "99c3905a9e92416e76d37b0858da7f6c7e123e0b";
+// Current top of release-27 branch
+const DEFAULT_CONTRACTS_COMMIT: &str = "13cc1366fd348772ccfac5a585c4e4701a5dfe45";
+// Current commit after v27 merge to main branch (PR 3713)
+const DEFAULT_ERA_COMMIT: &str = "9cbacb86634f00cfabb55f94a73b5c564c74bf36";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.26.0";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.25.0";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.27.0";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.26.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
@@ -90,12 +92,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.display_upgrade_data.unwrap_or_default() {
         println!(
+            "Stage0 encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+        );
+
+        println!(
             "Stage1 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_stage1_calls)
+            encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
         );
         println!(
             "Stage2 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_stage2_calls)
+            encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
         );
     }
 

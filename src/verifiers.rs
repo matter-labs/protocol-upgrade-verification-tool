@@ -154,17 +154,30 @@ impl VerificationResult {
         address: &Address,
         expected: &str,
     ) -> bool {
-        let actual = verifiers.address_verifier.name_or_unknown(address);
-        if actual != expected {
-            self.report_error(&format!(
-                "Expected address {}, got {} at {}",
-                expected,
-                actual,
-                Location::caller()
-            ));
-            false
-        } else {
-            true
+        let expected_address = verifiers.address_verifier.name_to_address.get(expected);
+        match expected_address {
+            Some(expected_address) => {
+                if expected_address == address {
+                    true
+                } else {
+                    self.report_error(&format!(
+                        "Expected {} to be {} address - but got address {} at {}",
+                        expected,
+                        address,
+                        expected_address,
+                        Location::caller()
+                    ));
+                    false
+                }
+            }
+            None => {
+                self.report_error(&format!(
+                    "Expected contract {} doesn't have any address set at {}",
+                    expected,
+                    Location::caller()
+                ));
+                false
+            }
         }
     }
 
