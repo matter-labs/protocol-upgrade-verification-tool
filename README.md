@@ -35,6 +35,13 @@ cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output.yaml --l1-rp
 cargo run -- --ecosystem-yaml data/stage_ecosystem_upgrade_output.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE
 ```
 
+### Testnet verification
+
+```
+cargo run -- --ecosystem-yaml data/v27-testnet-output.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 300 --testnet-contracts  --bridgehub-address 0x35A54c8C757806eB6820629bc82d90E056394C92
+```
+
+
 ### Mainnet verification
 
 ```
