@@ -45,15 +45,15 @@ cargo run -- --ecosystem-yaml data/v27-testnet-output.yaml --l1-rpc https://1rpc
 ### Mainnet verification
 
 ```
-cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output_mainnet.yaml --l1-rpc <your-l1-rpc> --contracts-commit a80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 99c3905a9e92416e76d37b0858da7f6c7e123e0b  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213
+cargo run -- --ecosystem-yaml data/v27-mainnet-output.yaml --l1-rpc <your-l1-rpc> --contracts-commit 90769297e5324b8c9cfaa10eaf146816ad8dcc8b --era-commit 0d2bb67af441758690c195380d6f6d137967f19a  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213
 ```
 
 #### Tally upgrade data
 
-You should provide `--display-upgrade-data true` to the command to also display the `UpgradeData` for both stage1 and stage2 calls, i.e:
+You should provide `--display-upgrade-data true` to the command to also display the `UpgradeData` for all stages of calls, i.e:
 
 ```
-cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output_mainnet.yaml --l1-rpc <your-l1-rpc> --contracts-commit a80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 99c3905a9e92416e76d37b0858da7f6c7e123e0b  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --display-upgrade-data true
+cargo run -- --ecosystem-yaml data/v27-mainnet-output.yaml --l1-rpc <your-l1-rpc> --contracts-commit 90769297e5324b8c9cfaa10eaf146816ad8dcc8b --era-commit 0d2bb67af441758690c195380d6f6d137967f19a  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --display-upgrade-data true
 ```
 
 These encoded `UpgradeData` structs should be the content that is sent to L1.
