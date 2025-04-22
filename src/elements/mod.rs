@@ -220,7 +220,6 @@ impl UpgradeOutput {
             .verify(
                 verifiers,
                 result,
-                &self.contracts_config,
                 self.gateway_chain_id,
             )
             .await
