@@ -37,12 +37,12 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             address_from_short_hex("0"),
             false,
         ),
-        ("Ecrecover.yul".into(), address_from_short_hex("1"), false),
-        ("SHA256.yul".into(), address_from_short_hex("2"), false),
-        ("Identity.yul".into(), address_from_short_hex("4"), false),
-        ("EcAdd.yul".into(), address_from_short_hex("6"), false),
-        ("EcMul.yul".into(), address_from_short_hex("7"), false),
-        ("EcPairing.yul".into(), address_from_short_hex("8"), false),
+        ("Ecrecover".into(), address_from_short_hex("1"), false),
+        ("SHA256".into(), address_from_short_hex("2"), false),
+        ("Identity".into(), address_from_short_hex("4"), false),
+        ("EcAdd".into(), address_from_short_hex("6"), false),
+        ("EcMul".into(), address_from_short_hex("7"), false),
+        ("EcPairing".into(), address_from_short_hex("8"), false),
         // Note: deploy `EmptyContract` into the bootloader address.
         (
             "system-contracts/EmptyContract".into(),
@@ -100,11 +100,7 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             address_from_short_hex("800c"),
             false,
         ),
-        (
-            "EventWriter.yul".into(),
-            address_from_short_hex("800d"),
-            false,
-        ),
+        ("EventWriter".into(), address_from_short_hex("800d"), false),
         (
             "system-contracts/Compressor".into(),
             address_from_short_hex("800e"),
@@ -115,18 +111,10 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             address_from_short_hex("800f"),
             false,
         ),
+        ("Keccak256".into(), address_from_short_hex("8010"), false),
+        ("CodeOracle".into(), address_from_short_hex("8012"), false),
         (
-            "Keccak256.yul".into(),
-            address_from_short_hex("8010"),
-            false,
-        ),
-        (
-            "CodeOracle.yul".into(),
-            address_from_short_hex("8012"),
-            false,
-        ),
-        (
-            "EvmGasManager.yul".into(),
+            "EvmGasManager".into(),
             address_from_short_hex("8013"),
             false,
         ),
@@ -140,11 +128,7 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             address_from_short_hex("8015"),
             false,
         ),
-        (
-            "P256Verify.yul".into(),
-            address_from_short_hex("100"),
-            false,
-        ),
+        ("P256Verify".into(), address_from_short_hex("100"), false),
         (
             "system-contracts/PubdataChunkPublisher".into(),
             address_from_short_hex("8011"),
@@ -165,6 +149,7 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             address_from_short_hex("10006"),
             false,
         ),
+        ("Modexp".into(), address_from_short_hex("5"), false),
         (
             "l1-contracts/Bridgehub".into(),
             address_from_short_hex("10002"),

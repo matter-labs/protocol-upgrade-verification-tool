@@ -111,20 +111,21 @@ sol! {
 
 impl upgradeCall {} // Placeholder implementation.
 
-const EXPECTED_BYTECODES: [&str; 42] = [
-    "CodeOracle.yul",
-    "EcAdd.yul",
-    "EcMul.yul",
-    "EcPairing.yul",
-    "Ecrecover.yul",
-    "EventWriter.yul",
-    "Keccak256.yul",
-    "P256Verify.yul",
-    "SHA256.yul",
-    "proved_batch.yul",
-    "EvmEmulator.yul",
-    "Identity.yul",
-    "EvmGasManager.yul",
+const EXPECTED_BYTECODES: [&str; 43] = [
+    "Bootloader",
+    "CodeOracle",
+    "EcAdd",
+    "EcMul",
+    "EcPairing",
+    "Modexp",
+    "Ecrecover",
+    "EventWriter",
+    "Keccak256",
+    "P256Verify",
+    "SHA256",
+    "EvmEmulator",
+    "Identity",
+    "EvmGasManager",
     "l1-contracts/BridgedStandardERC20",
     "l1-contracts/Bridgehub",
     "l1-contracts/L2AssetRouter",
@@ -289,13 +290,13 @@ impl ProposedUpgrade {
             .await
             .context("upgrade tx")?;
 
-        result.expect_zk_bytecode(verifiers, &self.bootloaderHash, "proved_batch.yul");
+        result.expect_zk_bytecode(verifiers, &self.bootloaderHash, "Bootloader");
         result.expect_zk_bytecode(
             verifiers,
             &self.defaultAccountHash,
             "system-contracts/DefaultAccount",
         );
-        result.expect_zk_bytecode(verifiers, &self.evmEmulatorHash, "EvmEmulator.yul");
+        result.expect_zk_bytecode(verifiers, &self.evmEmulatorHash, "EvmEmulator");
 
         let verifier_name = verifiers
             .address_verifier
