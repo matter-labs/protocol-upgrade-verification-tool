@@ -5,7 +5,7 @@ use super::{
     set_new_version_upgrade::{self, setNewVersionUpgradeCall},
 };
 use crate::{
-    elements::{initialize_data_new_chain::InitializeDataNewChain, ContractsConfig},
+    elements::initialize_data_new_chain::InitializeDataNewChain,
     get_expected_new_protocol_version, get_expected_old_protocol_version,
     utils::{
         address_from_short_hex,
@@ -38,6 +38,8 @@ sol! {
     function approve(address spender, uint256 allowance);
 
     function pauseMigration();
+    
+    function unpauseMigration();
 
     function requestL2TransactionDirect(
         L2TransactionRequestDirect calldata _request
@@ -161,7 +163,6 @@ impl GovernanceStage1Calls {
         deployed_addresses: &DeployedAddresses,
         expected_upgrade_facets: FacetCutSet,
         expected_chain_upgrade_diamond_cut: &str,
-        config: &ContractsConfig,
     ) -> anyhow::Result<(String, String)> {
         result.print_info("== Gov stage 1 calls ===");
 
@@ -572,6 +573,63 @@ impl GovernanceStage2Calls {
         result: &mut crate::verifiers::VerificationResult,
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 2 calls ===");
+        
+        // Stage2 is where we create the upgrade on gateway and unpause migration
+        // on gateway and unpause migration on l1
+
+        let list_of_calls = [
+            // Approve base token
+            ("gateway_base_token", "approve(address,uint256)"),
+            // Set new version for upgrade
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // New chain creation params
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // Unpause gateway
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // Unpause L1 migration
+            ("bridgehub_proxy", "unpauseMigration()"),
+        ];
+        const APPROVE_BASE_TOKEN: usize = 0;
+        const GATEWAY_SET_NEW_VERSION: usize = 1;
+        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 2;
+        const GATEWAY_UNPAUSE_MIGRATION: usize = 3;
+        const UNPAUSE_MIGRATION: usize = 4;
+
+        // For calls without any params, we don't have to check
+        // anything else. This is true for stage 0 and stage 1.
+        self.calls.verify(&list_of_calls, verifiers, result)?;
+
+        // Verify Approve base token
+        {
+            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
+            let data =
+                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+
+            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
+        }
+
+        // Verify Set new version for upgrade
+        {
+            let calldata = &self.calls.elems[GATEWAY_SET_NEW_VERSION].data;
+        }
+
+        // Verify New chain creation params
+        {
+            let calldata = &self.calls.elems[GATEWAY_NEW_CHAIN_CREATION_PARAMS].data;
+        }
+
+        // Verify Unpause gateway
+        {
+            let calldata = &self.calls.elems[GATEWAY_UNPAUSE_MIGRATION].data;
+        }
+
+        // Verify Unpause L1 migration
+        {
+            let calldata = &self.calls.elems[UNPAUSE_MIGRATION].data;
+            unpauseMigrationCall::abi_decode(&calldata, true)
+                .expect("Failed to decode unpauseMigration Call on L1");
+        }
+
         Ok(())
     }
 }
