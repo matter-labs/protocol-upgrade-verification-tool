@@ -75,6 +75,9 @@ impl AddressVerifier {
 
         result.add_address(info.l1_nullifier, "l1_nullifier_proxy_addr");
         result.add_address(info.l1_asset_router_proxy_addr, "l1_asset_router_proxy");
+
+        result.add_address(info.gateway_base_token_addr, "gateway_base_token");
+
         result
     }
 

@@ -35,6 +35,8 @@ pub struct UpgradeOutput {
 
     pub(crate) l1_chain_id: u64,
 
+    pub(crate) gateway_chain_id: u64,
+
     pub(crate) protocol_upgrade_handler_proxy_address: Address,
 
     #[serde(rename = "contracts_newConfig")]
@@ -214,7 +216,15 @@ impl UpgradeOutput {
             calls: CallList::parse(&self.governance_calls.governance_stage0_calls),
         };
 
-        stage0.verify(verifiers, result).await.context("stage0")?;
+        stage0
+            .verify(
+                verifiers,
+                result,
+                &self.contracts_config,
+                self.gateway_chain_id,
+            )
+            .await
+            .context("stage0")?;
 
         let stage1 = GovernanceStage1Calls {
             calls: CallList::parse(&self.governance_calls.governance_stage1_calls),

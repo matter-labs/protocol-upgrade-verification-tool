@@ -5,10 +5,12 @@ use super::{
     set_new_version_upgrade::{self, setNewVersionUpgradeCall},
 };
 use crate::{
-    elements::initialize_data_new_chain::InitializeDataNewChain,
-    elements::ContractsConfig,
+    elements::{initialize_data_new_chain::InitializeDataNewChain, ContractsConfig},
     get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
+    utils::{
+        address_from_short_hex,
+        facet_cut_set::{self, FacetCutSet, FacetInfo},
+    },
     verifiers::Verifiers,
 };
 use alloy::{
@@ -18,6 +20,29 @@ use alloy::{
     sol_types::{SolCall, SolValue},
 };
 use anyhow::Context;
+
+sol! {
+    #[derive(Debug)]
+    struct L2TransactionRequestDirect {
+        uint256 chainId;
+        uint256 mintValue;
+        address l2Contract;
+        uint256 l2Value;
+        bytes l2Calldata;
+        uint256 l2GasLimit;
+        uint256 l2GasPerPubdataByteLimit;
+        bytes[] factoryDeps;
+        address refundRecipient;
+    }
+
+    function approve(address spender, uint256 allowance);
+
+    function pauseMigration();
+
+    function requestL2TransactionDirect(
+        L2TransactionRequestDirect calldata _request
+    ) external payable returns (bytes32 canonicalTxHash);
+}
 
 pub struct GovernanceStage0Calls {
     pub calls: CallList,
@@ -150,9 +175,6 @@ impl GovernanceStage1Calls {
         // (for example when we added a new type of bridge, we also included a call to bridgehub to set its address etc)
 
         let list_of_calls = [
-            // stage 0
-            ("bridgehub_proxy", "pauseMigration()"),
-            // stage 1 proper
             // Proxy upgrades
             ("transparent_proxy_admin", "upgrade(address,address)"),
             ("transparent_proxy_admin", "upgrade(address,address)"),
@@ -168,18 +190,15 @@ impl GovernanceStage1Calls {
             ("state_transition_manager",
             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
             ("rollup_da_manager", "updateDAPair(address,address,bool)"),
-            // stage 2
-            ("bridgehub_proxy", "unpauseMigration()")
         ];
-        const STAGE_0_SHIFT: usize = 1;
-        const UPGRADE_CTM: usize = 0 + STAGE_0_SHIFT;
-        const UPGRADE_BRIDGEHUB: usize = 1 + STAGE_0_SHIFT;
-        const UPGRADE_L1_NULLIFIER: usize = 2 + STAGE_0_SHIFT;
-        const UPGRADE_L1_ASSET_ROUTER: usize = 3 + STAGE_0_SHIFT;
-        const UPGRADE_NATIVE_TOKEN_VAULT: usize = 4 + STAGE_0_SHIFT;
-        const SET_CHAIN_CREATION_INDEX: usize = 5 + STAGE_0_SHIFT;
-        const SET_NEW_VERSION_INDEX: usize = 6 + STAGE_0_SHIFT;
-        const UPDATE_ROLLUP_DA_PAIR: usize = 7 + STAGE_0_SHIFT;
+        const UPGRADE_CTM: usize = 0;
+        const UPGRADE_BRIDGEHUB: usize = 1;
+        const UPGRADE_L1_NULLIFIER: usize = 2;
+        const UPGRADE_L1_ASSET_ROUTER: usize = 3;
+        const UPGRADE_NATIVE_TOKEN_VAULT: usize = 4;
+        const SET_CHAIN_CREATION_INDEX: usize = 5;
+        const SET_NEW_VERSION_INDEX: usize = 6;
+        const UPDATE_ROLLUP_DA_PAIR: usize = 7;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 2.
@@ -488,11 +507,64 @@ impl GovernanceStage0Calls {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
+        contract_config: &ContractsConfig,
+        gateway_chain_id: u64,
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 0 calls ===");
+
+        // Stage 0 handles pausing migration on L1 and on Gateway
+        let list_of_calls = [
+            ("bridgehub_proxy", "pauseMigration()"),
+            ("gateway_base_token", "approve(address,uint256)"),
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+        ];
+        const PAUSE_L1_MIGRATION: usize = 0;
+        const APPROVE_BASE_TOKEN: usize = 1;
+        const PAUSE_GATEWAY_MIGRATION: usize = 2;
+
+        // For calls without any params, we don't have to check
+        // anything else. This is true for stage 1 and stage 2.
+        self.calls.verify(&list_of_calls, verifiers, result)?;
+
+        // Verify pauseMigration
+        {
+            let calldata = &self.calls.elems[PAUSE_L1_MIGRATION].data;
+            pauseMigrationCall::abi_decode(&calldata, true)
+                .expect("Failed to decode pauseMigration Call on L1");
+        }
+
+        // Verify approve base token
+        {
+            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
+            let data =
+                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+
+            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
+        }
+
+        // Verify L1 -> Gateway Pause Migration
+        {
+            let calldata = &self.calls.elems[PAUSE_GATEWAY_MIGRATION].data;
+            let data = requestL2TransactionDirectCall::abi_decode(&calldata, true)
+                .expect("Failed to decode L2 -> GW pauseMigration");
+
+            if data._request.chainId != U256::from(gateway_chain_id) {
+                result.report_error("Wrong gateway chain id for stage0 pauseMigration");
+            }
+
+            pauseMigrationCall::abi_decode(&data._request.l2Calldata, true)
+                .expect("Failed to decode pauseMigration Call on GW");
+
+            // Call should be to bridgehub
+            if data._request.l2Contract != address_from_short_hex("10002") {
+                result.report_error("Gateway Bridgehub Contract Incorrect");
+            }
+        }
+
         Ok(())
     }
 }
+
 impl GovernanceStage2Calls {
     /// Stage2 is executed after all the chains have upgraded.
     pub(crate) async fn verify(

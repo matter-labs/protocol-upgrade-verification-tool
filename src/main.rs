@@ -9,12 +9,12 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "13cc1366fd348772ccfac5a585c4e4701a5dfe45";
+const DEFAULT_CONTRACTS_COMMIT: &str = "97ee65bff5865c50b321d81f7e0e08f860e81a4b";
 // Current commit after v27 merge to main branch (PR 3713)
-const DEFAULT_ERA_COMMIT: &str = "9cbacb86634f00cfabb55f94a73b5c564c74bf36";
+const DEFAULT_ERA_COMMIT: &str = "386e85b9b7d8b8944a316bec5face9bead89acec";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.27.0";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.26.0";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.28.0";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.27.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
@@ -79,6 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &args.contracts_commit,
         args.l1_rpc,
         args.era_chain_id,
+        config.gateway_chain_id,
         &config,
     )
     .await;
