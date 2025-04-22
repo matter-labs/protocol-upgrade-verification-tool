@@ -507,7 +507,6 @@ impl GovernanceStage0Calls {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
-        contract_config: &ContractsConfig,
         gateway_chain_id: u64,
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 0 calls ===");
