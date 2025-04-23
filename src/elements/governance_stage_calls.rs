@@ -38,7 +38,7 @@ sol! {
     function approve(address spender, uint256 allowance);
 
     function pauseMigration();
-    
+
     function unpauseMigration();
 
     function requestL2TransactionDirect(
@@ -159,11 +159,12 @@ impl GovernanceStage1Calls {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
+        gateway_chain_id: u64,
         expected_chain_creation_facets: FacetCutSet,
         deployed_addresses: &DeployedAddresses,
         expected_upgrade_facets: FacetCutSet,
         expected_chain_upgrade_diamond_cut: &str,
-    ) -> anyhow::Result<(String, String)> {
+    ) -> anyhow::Result<(String, String, String, String)> {
         result.print_info("== Gov stage 1 calls ===");
 
         // Stage1 is where most of the upgrade happens.
@@ -191,6 +192,14 @@ impl GovernanceStage1Calls {
             ("state_transition_manager",
             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
             ("rollup_da_manager", "updateDAPair(address,address,bool)"),
+            // Approve base token
+            ("gateway_base_token", "approve(address,uint256)"),
+            // Set new version for upgrade
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // New chain creation params
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // Upgrade CTM
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
         ];
         const UPGRADE_CTM: usize = 0;
         const UPGRADE_BRIDGEHUB: usize = 1;
@@ -200,6 +209,10 @@ impl GovernanceStage1Calls {
         const SET_CHAIN_CREATION_INDEX: usize = 5;
         const SET_NEW_VERSION_INDEX: usize = 6;
         const UPDATE_ROLLUP_DA_PAIR: usize = 7;
+        const APPROVE_BASE_TOKEN: usize = 8;
+        const GATEWAY_SET_NEW_VERSION: usize = 9;
+        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 10;
+        const GATEWAY_UPGRADE_CTM: usize = 11;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 2.
@@ -281,7 +294,12 @@ impl GovernanceStage1Calls {
             // should match state_transiton.default_upgrade
             result.expect_address(verifiers, &diamond_cut.initAddress, "default_upgrade");
 
-            verity_facet_cuts(&diamond_cut.facetCuts, result, expected_upgrade_facets).await;
+            verity_facet_cuts(
+                &diamond_cut.facetCuts,
+                result,
+                expected_upgrade_facets.clone(),
+            )
+            .await;
 
             let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
                 &diamond_cut.initCalldata,
@@ -301,7 +319,7 @@ impl GovernanceStage1Calls {
         }
 
         // Verify setChainCreationParams call.
-        let (chain_creation_diamond_cut, force_deployments) = {
+        let (l1_chain_creation_diamond_cut, l1_force_deployments) = {
             let decoded = setChainCreationParamsCall::abi_decode(
                 &self.calls.elems[SET_CHAIN_CREATION_INDEX].data,
                 true,
@@ -309,7 +327,7 @@ impl GovernanceStage1Calls {
             .expect("Failed to decode setChainCreationParams call");
             decoded
                 ._chainCreationParams
-                .verify(verifiers, result, expected_chain_creation_facets)
+                .verify(verifiers, result, expected_chain_creation_facets.clone())
                 .await?;
 
             let ChainCreationParams {
@@ -325,27 +343,154 @@ impl GovernanceStage1Calls {
         };
 
         // Verify rollup_da_manager call
-        let decoded =
-            updateDAPairCall::abi_decode(&self.calls.elems[UPDATE_ROLLUP_DA_PAIR].data, true)
-                .expect("Failed to decode updateDAPair call");
-        if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
-            result.report_error(&format!(
-                "Expected l1_da_addr to be {}, but got {}",
-                deployed_addresses.rollup_l1_da_validator_addr, decoded.l1_da_addr
-            ));
-        }
-
-        if decoded.l2_da_addr
-            != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"]
         {
-            result.report_error(&format!(
-                "Expected l2_da_addr to be {}, but got {}",
-                verifiers.address_verifier.name_to_address["rollup_l2_da_validator"],
-                decoded.l2_da_addr
-            ));
+            let decoded =
+                updateDAPairCall::abi_decode(&self.calls.elems[UPDATE_ROLLUP_DA_PAIR].data, true)
+                    .expect("Failed to decode updateDAPair call");
+            if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
+                result.report_error(&format!(
+                    "Expected l1_da_addr to be {}, but got {}",
+                    deployed_addresses.rollup_l1_da_validator_addr, decoded.l1_da_addr
+                ));
+            }
+
+            if decoded.l2_da_addr
+                != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"]
+            {
+                result.report_error(&format!(
+                    "Expected l2_da_addr to be {}, but got {}",
+                    verifiers.address_verifier.name_to_address["rollup_l2_da_validator"],
+                    decoded.l2_da_addr
+                ));
+            }
         }
 
-        Ok((chain_creation_diamond_cut, force_deployments))
+        // Verify Approve base token
+        {
+            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
+            let data =
+                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+
+            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
+        }
+
+        // Verify Gateway Set new version for upgrade
+        {
+            let calldata = &self.calls.elems[GATEWAY_SET_NEW_VERSION].data;
+            let data = requestL2TransactionDirectCall::abi_decode(&calldata, true)
+                .expect("Failed to decode L2 -> GW setNewVersion");
+
+            if data._request.chainId != U256::from(gateway_chain_id) {
+                result.report_error("Wrong gateway chain id for stage1 setNewVersion");
+            }
+
+            let l2_data = setNewVersionUpgradeCall::abi_decode(&data._request.l2Calldata, true)
+                .expect("Failed to decode setNewVersion Inner");
+
+            if l2_data.oldProtocolVersionDeadline != U256::MAX {
+                result.report_error("Wrong old protocol version deadline for stage1 call");
+            }
+
+            if l2_data.newProtocolVersion != get_expected_new_protocol_version().into() {
+                result.report_error("Wrong new protocol version for stage1 call");
+            }
+
+            if l2_data.oldProtocolVersion != get_expected_old_protocol_version().into() {
+                result.report_error("Wrong old protocol version for stage1 call");
+            }
+
+            let diamond_cut = l2_data.diamondCut;
+            if alloy::hex::encode(diamond_cut.abi_encode())
+                != expected_chain_upgrade_diamond_cut[2..]
+            {
+                result.report_error(&format!(
+                    "Invalid chain upgrade diamond cut. Expected: {}\n Received: {}",
+                    expected_chain_upgrade_diamond_cut,
+                    alloy::hex::encode(diamond_cut.abi_encode())
+                ));
+            }
+
+            verity_facet_cuts(&diamond_cut.facetCuts, result, expected_upgrade_facets).await;
+
+            let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
+                &diamond_cut.initCalldata,
+                true,
+            )
+            .unwrap();
+
+            upgrade
+                ._proposedUpgrade
+                .verify(
+                    verifiers,
+                    result,
+                    deployed_addresses.l1_bytecodes_supplier_addr,
+                )
+                .await
+                .context("proposed upgrade")?;
+        }
+
+        // Verify Gateway New chain creation params
+        let (gw_chain_creation_diamond_cut, gw_force_deployments) = {
+            let calldata = &self.calls.elems[GATEWAY_NEW_CHAIN_CREATION_PARAMS].data;
+            let data = requestL2TransactionDirectCall::abi_decode(&calldata, true)
+                .expect("Failed to decode L2 -> GW newCreationParams");
+
+            if data._request.chainId != U256::from(gateway_chain_id) {
+                result.report_error("Wrong gateway chain id for stage1 newCreationParams");
+            }
+
+            let l2_data = setChainCreationParamsCall::abi_decode(&data._request.l2Calldata, true)
+                .expect("Failed to decode setChainCreationParams");
+
+            l2_data
+                ._chainCreationParams
+                .verify(verifiers, result, expected_chain_creation_facets)
+                .await?;
+
+            let ChainCreationParams {
+                diamondCut,
+                forceDeploymentsData,
+                ..
+            } = l2_data._chainCreationParams;
+
+            (
+                hex::encode(diamondCut.abi_encode()),
+                hex::encode(forceDeploymentsData),
+            )
+        };
+
+        // Gateway verify CTM upgrade
+        {
+            let calldata = &self.calls.elems[GATEWAY_UPGRADE_CTM].data;
+            let data = requestL2TransactionDirectCall::abi_decode(&calldata, true)
+                .expect("Failed to decode L2 -> GW newCreationParams");
+
+            if data._request.chainId != U256::from(gateway_chain_id) {
+                result.report_error("Wrong gateway chain id for stage1 newCreationParams");
+            }
+
+            let call = Call {
+                target: data._request.l2Contract,
+                value: data._request.l2Value,
+                data: data._request.l2Calldata,
+            };
+
+            self.verify_upgrade_call(
+                verifiers,
+                result,
+                &call,
+                "gateway_ctm_proxy",
+                "gateway_ctm_impl",
+                None,
+            )?;
+        }
+
+        Ok((
+            l1_chain_creation_diamond_cut,
+            l1_force_deployments,
+            gw_chain_creation_diamond_cut,
+            gw_force_deployments,
+        ))
     }
 }
 
@@ -559,6 +704,7 @@ impl GovernanceStage0Calls {
             if data._request.l2Contract != address_from_short_hex("10002") {
                 result.report_error("Gateway Bridgehub Contract Incorrect");
             }
+            result.expect_address(verifiers, &data._request.l2Contract, "l2_bridgehub");
         }
 
         Ok(())
@@ -571,29 +717,24 @@ impl GovernanceStage2Calls {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
+        gateway_chain_id: u64,
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 2 calls ===");
-        
+
         // Stage2 is where we create the upgrade on gateway and unpause migration
         // on gateway and unpause migration on l1
 
         let list_of_calls = [
             // Approve base token
             ("gateway_base_token", "approve(address,uint256)"),
-            // Set new version for upgrade
-            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
-            // New chain creation params
-            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
             // Unpause gateway
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
             // Unpause L1 migration
             ("bridgehub_proxy", "unpauseMigration()"),
         ];
         const APPROVE_BASE_TOKEN: usize = 0;
-        const GATEWAY_SET_NEW_VERSION: usize = 1;
-        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 2;
-        const GATEWAY_UNPAUSE_MIGRATION: usize = 3;
-        const UNPAUSE_MIGRATION: usize = 4;
+        const GATEWAY_UNPAUSE_MIGRATION: usize = 1;
+        const UNPAUSE_MIGRATION: usize = 2;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 1.
@@ -608,19 +749,17 @@ impl GovernanceStage2Calls {
             result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
         }
 
-        // Verify Set new version for upgrade
-        {
-            let calldata = &self.calls.elems[GATEWAY_SET_NEW_VERSION].data;
-        }
-
-        // Verify New chain creation params
-        {
-            let calldata = &self.calls.elems[GATEWAY_NEW_CHAIN_CREATION_PARAMS].data;
-        }
-
-        // Verify Unpause gateway
+        // Verify Unpause gateway migration
         {
             let calldata = &self.calls.elems[GATEWAY_UNPAUSE_MIGRATION].data;
+            let data = requestL2TransactionDirectCall::abi_decode(&calldata, true)
+                .expect("Failed to decode L2 -> GW unpauseMigration");
+
+            if data._request.chainId != U256::from(gateway_chain_id) {
+                result.report_error("Wrong gateway chain id for stage0 pauseMigration");
+            }
+            unpauseMigrationCall::abi_decode(&data._request.l2Calldata, true)
+                .expect("Failed to decode unpauseMigration Call on GW");
         }
 
         // Verify Unpause L1 migration

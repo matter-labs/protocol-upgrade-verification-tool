@@ -3,7 +3,8 @@ use alloy::primitives::{map::HashMap, Address};
 use crate::UpgradeOutput;
 
 use super::{
-    apply_l2_to_l1_alias, bytecode_verifier::BytecodeVerifier, network_verifier::NetworkVerifier,
+    address_from_short_hex, apply_l2_to_l1_alias, bytecode_verifier::BytecodeVerifier,
+    network_verifier::NetworkVerifier,
 };
 
 pub struct AddressVerifier {
@@ -77,6 +78,8 @@ impl AddressVerifier {
         result.add_address(info.l1_asset_router_proxy_addr, "l1_asset_router_proxy");
 
         result.add_address(info.gateway_base_token_addr, "gateway_base_token");
+
+        result.add_address(address_from_short_hex("10002"), "l2_bridgehub");
 
         result
     }

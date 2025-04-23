@@ -217,11 +217,7 @@ impl UpgradeOutput {
         };
 
         stage0
-            .verify(
-                verifiers,
-                result,
-                self.gateway_chain_id,
-            )
+            .verify(verifiers, result, self.gateway_chain_id)
             .await
             .context("stage0")?;
 
@@ -231,13 +227,19 @@ impl UpgradeOutput {
 
         let expected_upgrade_facets = facets_to_remove.merge(facets_to_add.clone()).clone();
 
-        let (expected_chain_creation_data, expected_force_deployments) = stage1
+        let (
+            l1_expected_chain_creation_data,
+            l1_expected_force_deployments,
+            gw_expected_chain_creation_data,
+            gw_expected_force_deployments,
+        ) = stage1
             .verify(
                 verifiers,
                 result,
-                facets_to_add,
+                self.gateway_chain_id,
+                facets_to_add.clone(),
                 &self.deployed_addresses,
-                expected_upgrade_facets,
+                expected_upgrade_facets.clone(),
                 &self.chain_upgrade_diamond_cut,
             )
             .await
@@ -247,14 +249,26 @@ impl UpgradeOutput {
             calls: CallList::parse(&self.governance_calls.governance_stage2_calls),
         };
 
-        stage2.verify(verifiers, result).await.context("stage2")?;
+        stage2
+            .verify(verifiers, result, self.gateway_chain_id)
+            .await
+            .context("stage2")?;
 
         self.contracts_config
             .verify(
                 verifiers,
                 result,
-                expected_chain_creation_data,
-                expected_force_deployments,
+                l1_expected_chain_creation_data,
+                l1_expected_force_deployments,
+            )
+            .await;
+
+        self.contracts_config
+            .verify(
+                verifiers,
+                result,
+                gw_expected_chain_creation_data,
+                gw_expected_force_deployments,
             )
             .await;
 
