@@ -14,8 +14,7 @@ Added:
 
 **Other:**
 
-* Bytecode for create2_and_transfer has changed
-* added more 'context' messages - to help with error debugging
+* Calls at the beginning of each stage were added so we can ensure they're run in order
 
 post-upgrade calldata is now empty (and added force deployment checks into new version tx data check)
 
