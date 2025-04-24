@@ -14,7 +14,8 @@ ignore = [
     # all below caused by StructOpt which we still use and we should move to clap v4 instead
     "RUSTSEC-2021-0145",
     "RUSTSEC-2021-0139",
-    "RUSTSEC-2024-0388", # `derivative` is unmaintained, crypto dependenicies (boojum, circuit_encodings and others) rely on it
+    "RUSTSEC-2024-0388", # `derivative` is unmaintained, crypto dependenicies (boojum, circuit_encodings and others) rely on it,
+    "RUSTSEC-2024-0436" # paste not being maintained but needed for alloy
 ]
 
 [licenses]
@@ -28,7 +29,6 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "Zlib",
-    "OpenSSL",
     "Apache-2.0 WITH LLVM-exception",
     "0BSD",
     "BSL-1.0",
