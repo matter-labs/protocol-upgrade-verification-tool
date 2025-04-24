@@ -200,6 +200,25 @@ const EXPECTED_FACETS: [BasicFacetInfo; 4] = [
     },
 ];
 
+const EXPECTED_GATEWAY_FACETS: [BasicFacetInfo; 4] = [
+    BasicFacetInfo {
+        name: "gateway_admin_facet_addr",
+        is_freezable: false,
+    },
+    BasicFacetInfo {
+        name: "gateway_getters_facet_addr",
+        is_freezable: false,
+    },
+    BasicFacetInfo {
+        name: "gateway_mailbox_facet_addr",
+        is_freezable: true,
+    },
+    BasicFacetInfo {
+        name: "gateway_executor_facet_addr",
+        is_freezable: true,
+    },
+];
+
 #[derive(Debug, Deserialize)]
 pub struct DeployedAddresses {
     pub(crate) native_token_vault_implementation_addr: Address,
@@ -215,6 +234,7 @@ pub struct DeployedAddresses {
     pub(crate) bridges: Bridges,
     pub(crate) bridgehub: Bridgehub,
     pub(crate) state_transition: StateTransition,
+    pub(crate) upgrade_stage_validator: Address,
 }
 
 #[derive(Debug, Deserialize)]
@@ -284,6 +304,7 @@ impl DeployedAddresses {
 
         address_verifier.add_address(self.l1_rollup_da_manager, "rollup_da_manager");
         address_verifier.add_address(self.l1_governance_upgrade_timer, "upgrade_timer");
+        address_verifier.add_address(self.upgrade_stage_validator, "upgrade_stage_validator");
         self.state_transition.add_to_verifier(address_verifier);
     }
 }
@@ -672,18 +693,27 @@ impl DeployedAddresses {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut VerificationResult,
+        is_gateway: bool,
     ) -> anyhow::Result<(FacetCutSet, FacetCutSet)> {
-        let bridgehub_addr = verifiers.bridgehub_address;
+        let (provider, bridgehub_addr) = if is_gateway {
+            (
+                &verifiers.network_verifier.get_gw_provider(),
+                verifiers.gateway_bridgehub_address,
+            )
+        } else {
+            (
+                &verifiers.network_verifier.get_l1_provider(),
+                verifiers.bridgehub_address,
+            )
+        };
+
         let bridgehub_info = verifiers
             .network_verifier
-            .get_bridgehub_info(bridgehub_addr)
+            .get_bridgehub_info(bridgehub_addr, is_gateway)
             .await;
 
         let mut facets_to_remove = FacetCutSet::new();
-        let getters_facet = GettersFacet::new(
-            bridgehub_info.era_address,
-            verifiers.network_verifier.get_l1_provider(),
-        );
+        let getters_facet = GettersFacet::new(bridgehub_info.era_address, provider);
         let current_facets = getters_facet.facets().call().await?.result;
         for f in current_facets {
             // Note, that when deleting facets, their address must be provided as zero.
@@ -695,15 +725,21 @@ impl DeployedAddresses {
             });
         }
 
+        let expected_facets = if is_gateway {
+            &EXPECTED_GATEWAY_FACETS
+        } else {
+            &EXPECTED_FACETS
+        };
+
         let mut facets_to_add = FacetCutSet::new();
-        let l1_provider = verifiers.network_verifier.get_l1_provider();
-        for facet in &EXPECTED_FACETS {
+        // let l1_provider = verifiers.network_verifier.get_l1_provider();
+        for facet in expected_facets {
             let address = *verifiers
                 .address_verifier
                 .name_to_address
                 .get(facet.name)
                 .unwrap_or_else(|| panic!("{} not found", facet.name));
-            let bytecode = l1_provider
+            let bytecode = provider
                 .get_code_at(address)
                 .await
                 .context(format!("Failed to retrieve the bytecode for {}", address))?;
@@ -747,7 +783,7 @@ impl DeployedAddresses {
         let bridgehub_addr = verifiers.bridgehub_address;
         let bridgehub_info = verifiers
             .network_verifier
-            .get_bridgehub_info(bridgehub_addr)
+            .get_bridgehub_info(bridgehub_addr, false)
             .await;
 
         self.verify_ntv(config, verifiers, result, &bridgehub_info)

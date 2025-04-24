@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use crate::UpgradeOutput;
 
 use super::bytecode_verifier::BytecodeVerifier;
-use super::compute_create2_address_evm;
+use super::{address_from_short_hex, compute_create2_address_evm};
 
 sol! {
     #[sol(rpc)]
@@ -70,6 +70,7 @@ pub struct NetworkVerifier {
     pub l2_chain_id: u64,
     pub l1_chain_id: u64,
     pub gateway_chain_id: u64,
+    pub gw_provider: RootProvider<Http<Client>>,
 
     // todo: maybe merge into one struct.
     pub create2_known_bytecodes: HashMap<Address, String>,
@@ -81,12 +82,19 @@ impl NetworkVerifier {
         l1_rpc: String,
         l2_chain_id: u64,
         gateway_chain_id: u64,
+        gateway_rpc: String,
         bytecode_verifier: &BytecodeVerifier,
         config: &UpgradeOutput,
     ) -> Self {
         let mut create2_constructor_params = HashMap::new();
         let mut create2_known_bytecodes = HashMap::new();
         let l1_provider = ProviderBuilder::new().on_http(l1_rpc.parse().unwrap());
+        let gw_provider = ProviderBuilder::new().on_http(gateway_rpc.parse().unwrap());
+
+        if gw_provider.get_chain_id().await.unwrap() != gateway_chain_id {
+            panic!("Incorrect gateway provider")
+        }
+
         println!(
             "Adding {} transactions from create2",
             config.transactions.len()
@@ -123,6 +131,7 @@ impl NetworkVerifier {
             l1_provider,
             l2_chain_id,
             gateway_chain_id,
+            gw_provider,
             create2_constructor_params,
             create2_known_bytecodes,
         }
@@ -184,6 +193,10 @@ impl NetworkVerifier {
         self.l1_provider.clone()
     }
 
+    pub fn get_gw_provider(&self) -> RootProvider<Http<Client>> {
+        self.gw_provider.clone()
+    }
+
     pub async fn get_proxy_admin(&self, addr: Address) -> Address {
         let addr_as_bytes = self
             .storage_at(
@@ -194,24 +207,38 @@ impl NetworkVerifier {
         Address::from_slice(&addr_as_bytes[12..])
     }
 
-    pub async fn get_bridgehub_info(&self, bridgehub_addr: Address) -> BridgehubInfo {
-        let bridgehub = Bridgehub::new(bridgehub_addr, self.get_l1_provider());
+    pub async fn get_bridgehub_info(
+        &self,
+        bridgehub_addr: Address,
+        is_gateway: bool,
+    ) -> BridgehubInfo {
+        let provider = if is_gateway {
+            &self.get_gw_provider()
+        } else {
+            &self.get_l1_provider()
+        };
+
+        let bridgehub = Bridgehub::new(bridgehub_addr, provider);
 
         let shared_bridge_address = bridgehub.sharedBridge().call().await.unwrap().sharedBridge;
 
-        let shared_bridge = L1AssetRouter::new(shared_bridge_address, self.get_l1_provider());
+        let shared_bridge = L1AssetRouter::new(shared_bridge_address, provider);
 
-        let era_chain_id = self.get_era_chain_id();
+        let chain_id = if is_gateway {
+            self.get_era_chain_id()
+        } else {
+            self.get_gateway_chain_id()
+        };
 
         let stm_address = bridgehub
-            .chainTypeManager(era_chain_id.try_into().unwrap())
+            .chainTypeManager(chain_id.try_into().unwrap())
             .call()
             .await
             .unwrap()
             ._0;
-        let chain_type_manager = ChainTypeManager::new(stm_address, self.get_l1_provider());
+        let chain_type_manager = ChainTypeManager::new(stm_address, provider);
         let era_address = chain_type_manager
-            .getHyperchain(U256::from(era_chain_id))
+            .getHyperchain(U256::from(chain_id))
             .call()
             .await
             .unwrap()
@@ -227,20 +254,46 @@ impl NetworkVerifier {
 
         let transparent_proxy_admin = self.get_proxy_admin(bridgehub_addr).await;
 
-        let legacy_bridge = shared_bridge.legacyBridge().call().await.unwrap()._0;
-        let l1_weth_token_address = shared_bridge.L1_WETH_TOKEN().call().await.unwrap()._0;
+        let legacy_bridge = if is_gateway {
+            Address::ZERO
+        } else {
+            shared_bridge.legacyBridge().call().await.unwrap()._0
+        };
 
-        let native_token_vault = shared_bridge.nativeTokenVault().call().await.unwrap()._0;
-        let l1_nullifier = shared_bridge.L1_NULLIFIER().call().await.unwrap()._0;
+        let l1_weth_token_address = if is_gateway {
+            Address::ZERO
+        } else {
+            shared_bridge.L1_WETH_TOKEN().call().await.unwrap()._0
+        };
 
-        let l1_asset_router_proxy_addr = bridgehub.assetRouter().call().await.unwrap()._0;
+        let native_token_vault = if is_gateway {
+            address_from_short_hex("1004")
+        } else {
+            shared_bridge.nativeTokenVault().call().await.unwrap()._0
+        };
 
-        let gateway_base_token_addr = bridgehub
-            .baseToken(U256::from(self.get_gateway_chain_id()))
-            .call()
-            .await
-            .unwrap()
-            ._0;
+        let l1_nullifier = if is_gateway {
+            Address::ZERO
+        } else {
+            shared_bridge.L1_NULLIFIER().call().await.unwrap()._0
+        };
+
+        let l1_asset_router_proxy_addr = if is_gateway {
+            Address::ZERO
+        } else {
+            bridgehub.assetRouter().call().await.unwrap()._0
+        };
+
+        let gateway_base_token_addr = if is_gateway {
+            Address::ZERO
+        } else {
+            bridgehub
+                .baseToken(U256::from(self.get_gateway_chain_id()))
+                .call()
+                .await
+                .unwrap()
+                ._0
+        };
 
         BridgehubInfo {
             shared_bridge: shared_bridge_address,

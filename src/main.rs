@@ -47,6 +47,10 @@ struct Args {
     #[clap(long)]
     l1_rpc: String,
 
+    // GW RPC
+    #[clap(long)]
+    gw_rpc: String,
+
     // If L2 RPC is not available, you can provide l2 chain id instead.
     #[clap(long)]
     era_chain_id: u64,
@@ -78,6 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &args.era_commit,
         &args.contracts_commit,
         args.l1_rpc,
+        args.gw_rpc,
         args.era_chain_id,
         config.gateway_chain_id,
         &config,

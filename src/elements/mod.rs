@@ -44,6 +44,8 @@ pub struct UpgradeOutput {
     pub(crate) deployed_addresses: DeployedAddresses,
 
     pub(crate) transactions: Vec<String>,
+
+    pub(crate) gateway: Gateway,
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,6 +74,27 @@ pub(crate) struct ContractsConfig {
     recursion_circuits_set_vks_hash: FixedBytes<32>,
     recursion_leaf_level_vk_hash: FixedBytes<32>,
     recursion_node_level_vk_hash: FixedBytes<32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct Gateway {
+    pub diamond_cut_data: String,
+    pub gateway_state_transition: GatewayStateTransition,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct GatewayStateTransition {
+    pub admin_facet_addr: Address,
+    pub chain_type_manager_implementation_addr: Address,
+    pub chain_type_manager_proxy: Address,
+    pub diamond_init_addr: Address,
+    pub executor_facet_addr: Address,
+    pub genesis_upgrade_addr: Address,
+    pub getters_facet_addr: Address,
+    pub mailbox_facet_addr: Address,
+    pub verifier_addr: Address,
+    pub verifier_fflonk_addr: Address,
+    pub verifier_plonk_addr: Address,
 }
 
 impl ContractsConfig {
@@ -202,11 +225,17 @@ impl UpgradeOutput {
             .verify(self, verifiers, result)
             .await
             .context("checking deployed addresses")?;
-        let (facets_to_remove, facets_to_add) = self
+        let (l1_facets_to_remove, l1_facets_to_add) = self
             .deployed_addresses
-            .get_expected_facet_cuts(verifiers, result)
+            .get_expected_facet_cuts(verifiers, result, false)
             .await
             .context("checking facets")?;
+
+        let (gw_facets_to_remove, gw_facets_to_add) = self
+            .deployed_addresses
+            .get_expected_facet_cuts(verifiers, result, true)
+            .await
+            .context("checking gw facets")?;
 
         result
             .expect_deployed_bytecode(verifiers, &self.create2_factory_addr, "Create2Factory")
@@ -225,7 +254,11 @@ impl UpgradeOutput {
             calls: CallList::parse(&self.governance_calls.governance_stage1_calls),
         };
 
-        let expected_upgrade_facets = facets_to_remove.merge(facets_to_add.clone()).clone();
+        let l1_expected_upgrade_facets =
+            l1_facets_to_remove.merge(l1_facets_to_add.clone()).clone();
+
+        let gw_expected_upgrade_facets =
+            gw_facets_to_remove.merge(gw_facets_to_add.clone()).clone();
 
         let (
             l1_expected_chain_creation_data,
@@ -237,10 +270,13 @@ impl UpgradeOutput {
                 verifiers,
                 result,
                 self.gateway_chain_id,
-                facets_to_add.clone(),
+                l1_facets_to_add.clone(),
+                gw_facets_to_add.clone(),
                 &self.deployed_addresses,
-                expected_upgrade_facets.clone(),
+                l1_expected_upgrade_facets.clone(),
                 &self.chain_upgrade_diamond_cut,
+                gw_expected_upgrade_facets.clone(),
+                &self.gateway.diamond_cut_data,
             )
             .await
             .context("stage1")?;

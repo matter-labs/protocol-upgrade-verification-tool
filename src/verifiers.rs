@@ -11,9 +11,9 @@ use std::panic::Location;
 
 use crate::{
     utils::{
-        address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier,
-        fee_param_verifier::FeeParamVerifier, get_contents_from_github,
-        network_verifier::NetworkVerifier,
+        address_from_short_hex, address_verifier::AddressVerifier,
+        bytecode_verifier::BytecodeVerifier, fee_param_verifier::FeeParamVerifier,
+        get_contents_from_github, network_verifier::NetworkVerifier,
     },
     UpgradeOutput,
 };
@@ -31,6 +31,7 @@ pub struct Verifiers {
     pub network_verifier: NetworkVerifier,
     pub genesis_config: GenesisConfig,
     pub fee_param_verifier: FeeParamVerifier,
+    pub gateway_bridgehub_address: Address,
 }
 
 impl Verifiers {
@@ -41,6 +42,7 @@ impl Verifiers {
         era_commit: &str,
         contracts_commit: &str,
         l1_rpc: String,
+        gw_rpc: String,
         era_chain_id: u64,
         gateway_chain_id: u64,
         config: &UpgradeOutput,
@@ -50,6 +52,7 @@ impl Verifiers {
             l1_rpc,
             era_chain_id,
             gateway_chain_id,
+            gw_rpc,
             &bytecode_verifier,
             config,
         )
@@ -82,6 +85,7 @@ impl Verifiers {
                 .await
                 .expect("Failed to init"),
             fee_param_verifier,
+            gateway_bridgehub_address: address_from_short_hex("10002"),
         }
     }
 
@@ -89,7 +93,7 @@ impl Verifiers {
     pub async fn append_addresses(&mut self) -> anyhow::Result<()> {
         let info = self
             .network_verifier
-            .get_bridgehub_info(self.bridgehub_address)
+            .get_bridgehub_info(self.bridgehub_address, false)
             .await;
 
         self.address_verifier
