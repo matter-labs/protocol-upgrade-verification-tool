@@ -414,6 +414,13 @@ impl GovernanceStage1Calls {
             }
 
             let diamond_cut = l2_data.diamondCut;
+
+            result.expect_address(
+                verifiers,
+                &diamond_cut.initAddress,
+                "gateway_default_upgrade_addr",
+            );
+
             if alloy::hex::encode(diamond_cut.abi_encode())
                 != gw_expected_chain_upgrade_diamond_cut[2..]
             {
@@ -635,7 +642,7 @@ pub async fn verify_chain_creation_diamond_cut(
 
     if expected_chain_creation_facets != proposed_facet_cut {
         result.report_error(&format!(
-            "Invalid chain creation facet cut. Expected: {:?}\nReceived: {:?}",
+            "Invalid chain creation facet cut. Expected: {:#?}\nReceived: {:#?}",
             expected_chain_creation_facets, proposed_facet_cut
         ));
     }
@@ -691,7 +698,7 @@ pub async fn verity_facet_cuts(
 
     if proposed_facet_cuts != expected_upgrade_facets {
         result.report_error(&format!(
-            "Incorrect facet cuts. Expected {:?}\nReceived: {:?}",
+            "Incorrect facet cuts. Expected {:#?}\nReceived: {:#?}",
             expected_upgrade_facets, proposed_facet_cuts
         ));
     }

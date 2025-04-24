@@ -9,9 +9,8 @@ Added:
 **Upgrade**
 
 * stage0 will do pauseMigration on L1 and on Gateway
-* stage1 will upgrade proxies, update protocol version, upgrade gateway, and force deploy ecosystem/system contracts
-* stage2 will unpauseMigration on L1 and Gateway, update protocol version on gateway
-
+* stage1 will upgrade proxies, update protocol version, upgrade gateway, update protocol version / chain creation params on gateway, and force deploy ecosystem/system contracts
+* stage2 will unpauseMigration on L1 and Gateway, 
 
 **Other:**
 

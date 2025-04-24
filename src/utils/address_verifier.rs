@@ -64,9 +64,7 @@ impl AddressVerifier {
         );
 
         // Now, we append the bridgehub info
-        let info = network_verifier
-            .get_bridgehub_info(bridgehub_addr, false)
-            .await;
+        let info = network_verifier.get_bridgehub_info(bridgehub_addr).await;
 
         result.add_address(bridgehub_addr, "bridgehub_proxy");
         result.add_address(info.stm_address, "state_transition_manager");
@@ -105,6 +103,10 @@ impl AddressVerifier {
         result.add_address(
             config.gateway.gateway_state_transition.diamond_init_addr,
             "gateway_diamond_init_addr",
+        );
+        result.add_address(
+            config.gateway.gateway_state_transition.default_upgrade_addr,
+            "gateway_default_upgrade_addr",
         );
         result.add_address(
             config.gateway.gateway_state_transition.executor_facet_addr,
