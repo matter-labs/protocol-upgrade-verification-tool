@@ -7,10 +7,7 @@ use super::{
 use crate::{
     elements::initialize_data_new_chain::InitializeDataNewChain,
     get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::{
-        address_from_short_hex,
-        facet_cut_set::{self, FacetCutSet, FacetInfo},
-    },
+    utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
     verifiers::Verifiers,
 };
 use alloy::{
@@ -160,10 +157,13 @@ impl GovernanceStage1Calls {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         gateway_chain_id: u64,
-        expected_chain_creation_facets: FacetCutSet,
+        l1_expected_chain_creation_facets: FacetCutSet,
+        gw_expected_chain_creation_facets: FacetCutSet,
         deployed_addresses: &DeployedAddresses,
-        expected_upgrade_facets: FacetCutSet,
-        expected_chain_upgrade_diamond_cut: &str,
+        l1_expected_upgrade_facets: FacetCutSet,
+        l1_expected_chain_upgrade_diamond_cut: &str,
+        gw_expected_upgrade_facets: FacetCutSet,
+        gw_expected_chain_upgrade_diamond_cut: &str,
     ) -> anyhow::Result<(String, String, String, String)> {
         result.print_info("== Gov stage 1 calls ===");
 
@@ -178,7 +178,7 @@ impl GovernanceStage1Calls {
 
         let list_of_calls = [
             // Check that migrations are paused
-            ("check_migration_pause_state", "requireMigrationsPaused()"),
+            ("upgrade_stage_validator", "checkMigrationsPaused()"),
             // Proxy upgrades
             ("transparent_proxy_admin", "upgrade(address,address)"),
             ("transparent_proxy_admin", "upgrade(address,address)"),
@@ -198,8 +198,12 @@ impl GovernanceStage1Calls {
             ("gateway_base_token", "approve(address,uint256)"),
             // Set new version for upgrade
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // Approve base token
+            ("gateway_base_token", "approve(address,uint256)"),
             // New chain creation params
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // Approve base token
+            ("gateway_base_token", "approve(address,uint256)"),
             // Upgrade CTM
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
         ];
@@ -211,10 +215,12 @@ impl GovernanceStage1Calls {
         const SET_CHAIN_CREATION_INDEX: usize = 6;
         const SET_NEW_VERSION_INDEX: usize = 7;
         const UPDATE_ROLLUP_DA_PAIR: usize = 8;
-        const APPROVE_BASE_TOKEN: usize = 9;
+        const APPROVE_BASE_TOKEN_NEW_PROTOCOL_VERSION: usize = 9;
         const GATEWAY_SET_NEW_VERSION: usize = 10;
-        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 111;
-        const GATEWAY_UPGRADE_CTM: usize = 12;
+        const APPROVE_BASE_TOKEN_NEW_CHAIN_CREATION_PARAMS: usize = 11;
+        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 12;
+        const APPROVE_BASE_TOKEN_UPGRADE_CTM: usize = 13;
+        const GATEWAY_UPGRADE_CTM: usize = 14;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 2.
@@ -284,11 +290,11 @@ impl GovernanceStage1Calls {
 
             let diamond_cut = data.diamondCut;
             if alloy::hex::encode(diamond_cut.abi_encode())
-                != expected_chain_upgrade_diamond_cut[2..]
+                != l1_expected_chain_upgrade_diamond_cut[2..]
             {
                 result.report_error(&format!(
                     "Invalid chain upgrade diamond cut. Expected: {}\n Received: {}",
-                    expected_chain_upgrade_diamond_cut,
+                    l1_expected_chain_upgrade_diamond_cut,
                     alloy::hex::encode(diamond_cut.abi_encode())
                 ));
             }
@@ -299,7 +305,7 @@ impl GovernanceStage1Calls {
             verity_facet_cuts(
                 &diamond_cut.facetCuts,
                 result,
-                expected_upgrade_facets.clone(),
+                l1_expected_upgrade_facets.clone(),
             )
             .await;
 
@@ -315,6 +321,7 @@ impl GovernanceStage1Calls {
                     verifiers,
                     result,
                     deployed_addresses.l1_bytecodes_supplier_addr,
+                    false,
                 )
                 .await
                 .context("proposed upgrade")?;
@@ -329,7 +336,12 @@ impl GovernanceStage1Calls {
             .expect("Failed to decode setChainCreationParams call");
             decoded
                 ._chainCreationParams
-                .verify(verifiers, result, expected_chain_creation_facets.clone())
+                .verify(
+                    verifiers,
+                    result,
+                    l1_expected_chain_creation_facets.clone(),
+                    false,
+                )
                 .await?;
 
             let ChainCreationParams {
@@ -369,7 +381,7 @@ impl GovernanceStage1Calls {
 
         // Verify Approve base token
         {
-            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
+            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN_NEW_PROTOCOL_VERSION].data;
             let data =
                 approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
 
@@ -403,16 +415,16 @@ impl GovernanceStage1Calls {
 
             let diamond_cut = l2_data.diamondCut;
             if alloy::hex::encode(diamond_cut.abi_encode())
-                != expected_chain_upgrade_diamond_cut[2..]
+                != gw_expected_chain_upgrade_diamond_cut[2..]
             {
                 result.report_error(&format!(
-                    "Invalid chain upgrade diamond cut. Expected: {}\n Received: {}",
-                    expected_chain_upgrade_diamond_cut,
+                    "Invalid gw chain upgrade diamond cut. Expected: {}\n Received: {}",
+                    gw_expected_chain_upgrade_diamond_cut,
                     alloy::hex::encode(diamond_cut.abi_encode())
                 ));
             }
 
-            verity_facet_cuts(&diamond_cut.facetCuts, result, expected_upgrade_facets).await;
+            verity_facet_cuts(&diamond_cut.facetCuts, result, gw_expected_upgrade_facets).await;
 
             let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
                 &diamond_cut.initCalldata,
@@ -426,9 +438,19 @@ impl GovernanceStage1Calls {
                     verifiers,
                     result,
                     deployed_addresses.l1_bytecodes_supplier_addr,
+                    true,
                 )
                 .await
                 .context("proposed upgrade")?;
+        }
+
+        // Verify Approve base token
+        {
+            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN_NEW_CHAIN_CREATION_PARAMS].data;
+            let data =
+                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+
+            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
         }
 
         // Verify Gateway New chain creation params
@@ -446,7 +468,7 @@ impl GovernanceStage1Calls {
 
             l2_data
                 ._chainCreationParams
-                .verify(verifiers, result, expected_chain_creation_facets)
+                .verify(verifiers, result, gw_expected_chain_creation_facets, true)
                 .await?;
 
             let ChainCreationParams {
@@ -460,6 +482,15 @@ impl GovernanceStage1Calls {
                 hex::encode(forceDeploymentsData),
             )
         };
+
+        // Verify Approve base token
+        {
+            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN_UPGRADE_CTM].data;
+            let data =
+                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+
+            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
+        }
 
         // Gateway verify CTM upgrade
         {
@@ -481,8 +512,8 @@ impl GovernanceStage1Calls {
                 verifiers,
                 result,
                 &call,
-                "gateway_ctm_proxy",
-                "gateway_ctm_impl",
+                "gateway_chain_type_manager_proxy",
+                "gateway_chain_type_manager_implementation_addr",
                 None,
             )?;
         }
@@ -503,12 +534,20 @@ impl ChainCreationParams {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         expected_chain_creation_facets: FacetCutSet,
+        is_gateway: bool,
     ) -> anyhow::Result<()> {
         result.print_info("== Chain creation params ==");
         let genesis_upgrade_name = verifiers
             .address_verifier
             .name_or_unknown(&self.genesisUpgrade);
-        if genesis_upgrade_name != "genesis_upgrade_addr" {
+
+        let name = if is_gateway {
+            "gateway_genesis_upgrade_addr"
+        } else {
+            "genesis_upgrade_addr"
+        };
+
+        if genesis_upgrade_name != name {
             result.report_error(&format!(
                 "Expected genesis upgrade address to be genesis_upgrade_addr, but got {}",
                 genesis_upgrade_name
@@ -546,6 +585,7 @@ impl ChainCreationParams {
             result,
             &self.diamondCut,
             expected_chain_creation_facets,
+            is_gateway,
         )
         .await?;
 
@@ -566,6 +606,7 @@ pub async fn verify_chain_creation_diamond_cut(
     result: &mut crate::verifiers::VerificationResult,
     diamond_cut: &DiamondCutData,
     expected_chain_creation_facets: FacetCutSet,
+    is_gateway: bool,
 ) -> anyhow::Result<()> {
     let mut proposed_facet_cut = FacetCutSet::new();
     for facet in &diamond_cut.facetCuts {
@@ -594,16 +635,23 @@ pub async fn verify_chain_creation_diamond_cut(
 
     if expected_chain_creation_facets != proposed_facet_cut {
         result.report_error(&format!(
-            "Invalid chain creation facet cut. Expected: {:#?}\nReceived: {:#?}",
+            "Invalid chain creation facet cut. Expected: {:?}\nReceived: {:?}",
             expected_chain_creation_facets, proposed_facet_cut
         ));
     }
 
-    result.expect_address(verifiers, &diamond_cut.initAddress, "diamond_init");
+    let name = if is_gateway {
+        "gateway_diamond_init_addr"
+    } else {
+        "diamond_init"
+    };
+    result.expect_address(verifiers, &diamond_cut.initAddress, name);
     let initialize_data_new_chain =
         InitializeDataNewChain::abi_decode(&diamond_cut.initCalldata, true)
             .expect("Failed to decode InitializeDataNewChain");
-    initialize_data_new_chain.verify(verifiers, result).await?;
+    initialize_data_new_chain
+        .verify(verifiers, result, is_gateway)
+        .await?;
 
     Ok(())
 }
@@ -643,7 +691,7 @@ pub async fn verity_facet_cuts(
 
     if proposed_facet_cuts != expected_upgrade_facets {
         result.report_error(&format!(
-            "Incorrect facet cuts. Expected {:#?}\nReceived: {:#?}",
+            "Incorrect facet cuts. Expected {:?}\nReceived: {:?}",
             expected_upgrade_facets, proposed_facet_cuts
         ));
     }
@@ -703,9 +751,6 @@ impl GovernanceStage0Calls {
                 .expect("Failed to decode pauseMigration Call on GW");
 
             // Call should be to bridgehub
-            if data._request.l2Contract != address_from_short_hex("10002") {
-                result.report_error("Gateway Bridgehub Contract Incorrect");
-            }
             result.expect_address(verifiers, &data._request.l2Contract, "l2_bridgehub");
         }
 
@@ -727,18 +772,19 @@ impl GovernanceStage2Calls {
         // on gateway and unpause migration on l1
 
         let list_of_calls = [
+            // Check that the protocol upgrade has happened
+            ("upgrade_stage_validator", "checkChainUpgraded()"),
+            // Unpause L1 migration
+            ("bridgehub_proxy", "unpauseMigration()"),
             // Approve base token
             ("gateway_base_token", "approve(address,uint256)"),
             // Unpause gateway
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
-            // Unpause L1 migration
-            ("bridgehub_proxy", "unpauseMigration()"),
             // Check that migrations are unpaused
-            ("check_migration_pause_state", "requireMigrationsUnpaused()"),
+            ("upgrade_stage_validator", "checkMigrationsUnpaused()"),
         ];
-        const APPROVE_BASE_TOKEN: usize = 1;
-        const GATEWAY_UNPAUSE_MIGRATION: usize = 2;
-        const UNPAUSE_MIGRATION: usize = 3;
+        const APPROVE_BASE_TOKEN: usize = 2;
+        const GATEWAY_UNPAUSE_MIGRATION: usize = 3;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 1.
@@ -764,13 +810,6 @@ impl GovernanceStage2Calls {
             }
             unpauseMigrationCall::abi_decode(&data._request.l2Calldata, true)
                 .expect("Failed to decode unpauseMigration Call on GW");
-        }
-
-        // Verify Unpause L1 migration
-        {
-            let calldata = &self.calls.elems[UNPAUSE_MIGRATION].data;
-            unpauseMigrationCall::abi_decode(&calldata, true)
-                .expect("Failed to decode unpauseMigration Call on L1");
         }
 
         Ok(())

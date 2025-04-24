@@ -280,6 +280,7 @@ impl ProposedUpgrade {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         bytecodes_supplier_addr: Address,
+        is_gateway: bool,
     ) -> anyhow::Result<()> {
         result.print_info("== checking chain upgrade init calldata ===");
 
@@ -304,7 +305,14 @@ impl ProposedUpgrade {
             .get(&self.verifier)
             .cloned()
             .unwrap_or_else(|| format!("Unknown: {}", self.verifier));
-        if verifier_name != "verifier" {
+
+        let name = if is_gateway {
+            "gateway_verifier_addr"
+        } else {
+            "verifier"
+        };
+
+        if verifier_name != name {
             result.report_error(&format!("Invalid verifier: {}", verifier_name));
         }
 

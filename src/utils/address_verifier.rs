@@ -64,7 +64,9 @@ impl AddressVerifier {
         );
 
         // Now, we append the bridgehub info
-        let info = network_verifier.get_bridgehub_info(bridgehub_addr).await;
+        let info = network_verifier
+            .get_bridgehub_info(bridgehub_addr, false)
+            .await;
 
         result.add_address(bridgehub_addr, "bridgehub_proxy");
         result.add_address(info.stm_address, "state_transition_manager");
@@ -80,6 +82,58 @@ impl AddressVerifier {
         result.add_address(info.gateway_base_token_addr, "gateway_base_token");
 
         result.add_address(address_from_short_hex("10002"), "l2_bridgehub");
+
+        // Add gateway addresses
+        result.add_address(
+            config.gateway.gateway_state_transition.admin_facet_addr,
+            "gateway_admin_facet_addr",
+        );
+        result.add_address(
+            config
+                .gateway
+                .gateway_state_transition
+                .chain_type_manager_implementation_addr,
+            "gateway_chain_type_manager_implementation_addr",
+        );
+        result.add_address(
+            config
+                .gateway
+                .gateway_state_transition
+                .chain_type_manager_proxy,
+            "gateway_chain_type_manager_proxy",
+        );
+        result.add_address(
+            config.gateway.gateway_state_transition.diamond_init_addr,
+            "gateway_diamond_init_addr",
+        );
+        result.add_address(
+            config.gateway.gateway_state_transition.executor_facet_addr,
+            "gateway_executor_facet_addr",
+        );
+        result.add_address(
+            config.gateway.gateway_state_transition.genesis_upgrade_addr,
+            "gateway_genesis_upgrade_addr",
+        );
+        result.add_address(
+            config.gateway.gateway_state_transition.getters_facet_addr,
+            "gateway_getters_facet_addr",
+        );
+        result.add_address(
+            config.gateway.gateway_state_transition.mailbox_facet_addr,
+            "gateway_mailbox_facet_addr",
+        );
+        result.add_address(
+            config.gateway.gateway_state_transition.verifier_addr,
+            "gateway_verifier_addr",
+        );
+        result.add_address(
+            config.gateway.gateway_state_transition.verifier_fflonk_addr,
+            "gateway_verifier_fflonk_addr",
+        );
+        result.add_address(
+            config.gateway.gateway_state_transition.verifier_plonk_addr,
+            "gateway_verifier_plonk_addr",
+        );
 
         result
     }

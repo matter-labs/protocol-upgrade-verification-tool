@@ -45,10 +45,17 @@ impl InitializeDataNewChain {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
+        is_gateway: bool,
     ) -> anyhow::Result<()> {
         result.print_info("== checking initialize data ===");
 
-        result.expect_address(verifiers, &self.verifier, "verifier");
+        let name = if is_gateway {
+            "gateway_verifier_addr"
+        } else {
+            "verifier"
+        };
+
+        result.expect_address(verifiers, &self.verifier, name);
         if self.verifierParams.recursionNodeLevelVkHash != [0u8; 32]
             || self.verifierParams.recursionLeafLevelVkHash != [0u8; 32]
             || self.verifierParams.recursionCircuitsSetVksHash != [0u8; 32]
