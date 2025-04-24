@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use crate::UpgradeOutput;
 
 use super::bytecode_verifier::BytecodeVerifier;
-use super::{address_from_short_hex, compute_create2_address_evm};
+use super::compute_create2_address_evm;
 
 sol! {
     #[sol(rpc)]
@@ -207,16 +207,8 @@ impl NetworkVerifier {
         Address::from_slice(&addr_as_bytes[12..])
     }
 
-    pub async fn get_bridgehub_info(
-        &self,
-        bridgehub_addr: Address,
-        is_gateway: bool,
-    ) -> BridgehubInfo {
-        let provider = if is_gateway {
-            &self.get_gw_provider()
-        } else {
-            &self.get_l1_provider()
-        };
+    pub async fn get_bridgehub_info(&self, bridgehub_addr: Address) -> BridgehubInfo {
+        let provider = &self.get_l1_provider();
 
         let bridgehub = Bridgehub::new(bridgehub_addr, provider);
 
@@ -224,11 +216,7 @@ impl NetworkVerifier {
 
         let shared_bridge = L1AssetRouter::new(shared_bridge_address, provider);
 
-        let chain_id = if is_gateway {
-            self.get_era_chain_id()
-        } else {
-            self.get_gateway_chain_id()
-        };
+        let chain_id = self.get_era_chain_id();
 
         let stm_address = bridgehub
             .chainTypeManager(chain_id.try_into().unwrap())
@@ -254,46 +242,22 @@ impl NetworkVerifier {
 
         let transparent_proxy_admin = self.get_proxy_admin(bridgehub_addr).await;
 
-        let legacy_bridge = if is_gateway {
-            Address::ZERO
-        } else {
-            shared_bridge.legacyBridge().call().await.unwrap()._0
-        };
+        let legacy_bridge = shared_bridge.legacyBridge().call().await.unwrap()._0;
 
-        let l1_weth_token_address = if is_gateway {
-            Address::ZERO
-        } else {
-            shared_bridge.L1_WETH_TOKEN().call().await.unwrap()._0
-        };
+        let l1_weth_token_address = shared_bridge.L1_WETH_TOKEN().call().await.unwrap()._0;
 
-        let native_token_vault = if is_gateway {
-            address_from_short_hex("1004")
-        } else {
-            shared_bridge.nativeTokenVault().call().await.unwrap()._0
-        };
+        let native_token_vault = shared_bridge.nativeTokenVault().call().await.unwrap()._0;
 
-        let l1_nullifier = if is_gateway {
-            Address::ZERO
-        } else {
-            shared_bridge.L1_NULLIFIER().call().await.unwrap()._0
-        };
+        let l1_nullifier = shared_bridge.L1_NULLIFIER().call().await.unwrap()._0;
 
-        let l1_asset_router_proxy_addr = if is_gateway {
-            Address::ZERO
-        } else {
-            bridgehub.assetRouter().call().await.unwrap()._0
-        };
+        let l1_asset_router_proxy_addr = bridgehub.assetRouter().call().await.unwrap()._0;
 
-        let gateway_base_token_addr = if is_gateway {
-            Address::ZERO
-        } else {
-            bridgehub
-                .baseToken(U256::from(self.get_gateway_chain_id()))
-                .call()
-                .await
-                .unwrap()
-                ._0
-        };
+        let gateway_base_token_addr = bridgehub
+            .baseToken(U256::from(self.get_gateway_chain_id()))
+            .call()
+            .await
+            .unwrap()
+            ._0;
 
         BridgehubInfo {
             shared_bridge: shared_bridge_address,

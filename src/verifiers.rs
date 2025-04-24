@@ -93,7 +93,7 @@ impl Verifiers {
     pub async fn append_addresses(&mut self) -> anyhow::Result<()> {
         let info = self
             .network_verifier
-            .get_bridgehub_info(self.bridgehub_address, false)
+            .get_bridgehub_info(self.bridgehub_address)
             .await;
 
         self.address_verifier

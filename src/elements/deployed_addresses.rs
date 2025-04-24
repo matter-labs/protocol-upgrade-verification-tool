@@ -695,21 +695,12 @@ impl DeployedAddresses {
         result: &mut VerificationResult,
         is_gateway: bool,
     ) -> anyhow::Result<(FacetCutSet, FacetCutSet)> {
-        let (provider, bridgehub_addr) = if is_gateway {
-            (
-                &verifiers.network_verifier.get_gw_provider(),
-                verifiers.gateway_bridgehub_address,
-            )
-        } else {
-            (
-                &verifiers.network_verifier.get_l1_provider(),
-                verifiers.bridgehub_address,
-            )
-        };
+        let provider = &verifiers.network_verifier.get_l1_provider();
+        let bridgehub_addr = verifiers.bridgehub_address;
 
         let bridgehub_info = verifiers
             .network_verifier
-            .get_bridgehub_info(bridgehub_addr, is_gateway)
+            .get_bridgehub_info(bridgehub_addr)
             .await;
 
         let mut facets_to_remove = FacetCutSet::new();
@@ -725,15 +716,33 @@ impl DeployedAddresses {
             });
         }
 
-        let expected_facets = if is_gateway {
+        let real_facet_addresses = if is_gateway {
             &EXPECTED_GATEWAY_FACETS
+                .iter()
+                .map(|e| {
+                    *verifiers
+                        .address_verifier
+                        .name_to_address
+                        .get(e.name)
+                        .unwrap_or_else(|| panic!("{} not found", e.name))
+                })
+                .collect::<Vec<Address>>()
         } else {
             &EXPECTED_FACETS
+                .iter()
+                .map(|e| {
+                    *verifiers
+                        .address_verifier
+                        .name_to_address
+                        .get(e.name)
+                        .unwrap_or_else(|| panic!("{} not found", e.name))
+                })
+                .collect::<Vec<Address>>()
         };
 
         let mut facets_to_add = FacetCutSet::new();
         // let l1_provider = verifiers.network_verifier.get_l1_provider();
-        for facet in expected_facets {
+        for (i, facet) in EXPECTED_FACETS.iter().enumerate() {
             let address = *verifiers
                 .address_verifier
                 .name_to_address
@@ -758,7 +767,7 @@ impl DeployedAddresses {
                     .collect();
 
             facets_to_add.add_facet(FacetInfo {
-                facet: address,
+                facet: real_facet_addresses[i],
                 is_freezable: facet.is_freezable,
                 action: facet_cut_set::Action::Add,
                 selectors: info.into_iter().collect(),
@@ -783,7 +792,7 @@ impl DeployedAddresses {
         let bridgehub_addr = verifiers.bridgehub_address;
         let bridgehub_info = verifiers
             .network_verifier
-            .get_bridgehub_info(bridgehub_addr, false)
+            .get_bridgehub_info(bridgehub_addr)
             .await;
 
         self.verify_ntv(config, verifiers, result, &bridgehub_info)

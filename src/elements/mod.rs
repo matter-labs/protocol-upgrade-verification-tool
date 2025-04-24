@@ -55,7 +55,7 @@ pub struct GovernanceCalls {
     pub(crate) governance_stage2_calls: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub(crate) struct ContractsConfig {
     diamond_cut_data: String,
     diamond_init_batch_overhead_l1_gas: u32,
@@ -79,6 +79,7 @@ pub(crate) struct ContractsConfig {
 #[derive(Debug, Deserialize)]
 pub(crate) struct Gateway {
     pub diamond_cut_data: String,
+    pub upgrade_cut_data: String,
     pub gateway_state_transition: GatewayStateTransition,
 }
 
@@ -90,6 +91,7 @@ pub(crate) struct GatewayStateTransition {
     pub diamond_init_addr: Address,
     pub executor_facet_addr: Address,
     pub genesis_upgrade_addr: Address,
+    pub default_upgrade_addr: Address,
     pub getters_facet_addr: Address,
     pub mailbox_facet_addr: Address,
     pub verifier_addr: Address,
@@ -276,7 +278,7 @@ impl UpgradeOutput {
                 l1_expected_upgrade_facets.clone(),
                 &self.chain_upgrade_diamond_cut,
                 gw_expected_upgrade_facets.clone(),
-                &self.gateway.diamond_cut_data,
+                &self.gateway.upgrade_cut_data,
             )
             .await
             .context("stage1")?;
@@ -299,7 +301,10 @@ impl UpgradeOutput {
             )
             .await;
 
-        self.contracts_config
+        let mut config = self.contracts_config.clone();
+        config.diamond_cut_data = self.gateway.diamond_cut_data.clone();
+
+        config
             .verify(
                 verifiers,
                 result,

@@ -1,3 +1,4 @@
+use alloy::hex;
 use alloy::primitives::Address;
 use std::cmp::Ordering;
 use std::collections::HashSet;
@@ -9,7 +10,7 @@ pub enum Action {
     Remove,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct FacetInfo {
     pub(crate) facet: Address,
     pub(crate) action: Action,
@@ -31,6 +32,23 @@ impl Hash for FacetInfo {
         for selector in selectors {
             selector.hash(state);
         }
+    }
+}
+
+impl std::fmt::Debug for FacetInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut selectors = self
+            .selectors
+            .iter()
+            .map(|e| hex::encode(e))
+            .collect::<Vec<String>>();
+        selectors.sort();
+        f.debug_struct("FacetInfo")
+            .field("facet", &self.facet)
+            .field("action", &self.action)
+            .field("is_freezable", &self.is_freezable)
+            .field("selectors", &selectors)
+            .finish()
     }
 }
 
