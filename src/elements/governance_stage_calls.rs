@@ -177,11 +177,12 @@ impl GovernanceStage1Calls {
         // (for example when we added a new type of bridge, we also included a call to bridgehub to set its address etc)
 
         let list_of_calls = [
-            // Check that migrations are paused
-            ("upgrade_stage_validator", "checkMigrationsPaused()"),
             // Check time has passed
             ("upgrade_timer", "checkDeadline()"),
+            // Check that migrations are paused
+            ("upgrade_stage_validator", "checkMigrationsPaused()"),
             // Proxy upgrades
+            ("transparent_proxy_admin", "upgrade(address,address)"),
             ("transparent_proxy_admin", "upgrade(address,address)"),
             ("transparent_proxy_admin", "upgrade(address,address)"),
             ("transparent_proxy_admin", "upgrade(address,address)"),
@@ -214,15 +215,16 @@ impl GovernanceStage1Calls {
         const UPGRADE_L1_NULLIFIER: usize = 4;
         const UPGRADE_L1_ASSET_ROUTER: usize = 5;
         const UPGRADE_NATIVE_TOKEN_VAULT: usize = 6;
-        const SET_CHAIN_CREATION_INDEX: usize = 7;
-        const SET_NEW_VERSION_INDEX: usize = 8;
-        const UPDATE_ROLLUP_DA_PAIR: usize = 9;
-        const APPROVE_BASE_TOKEN_NEW_PROTOCOL_VERSION: usize = 10;
-        const GATEWAY_SET_NEW_VERSION: usize = 11;
-        const APPROVE_BASE_TOKEN_NEW_CHAIN_CREATION_PARAMS: usize = 12;
-        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 13;
-        const APPROVE_BASE_TOKEN_UPGRADE_CTM: usize = 14;
-        const GATEWAY_UPGRADE_CTM: usize = 15;
+        const UPGRADE_MESSAGE_ROOT: usize = 7;
+        const SET_CHAIN_CREATION_INDEX: usize = 8;
+        const SET_NEW_VERSION_INDEX: usize = 9;
+        const UPDATE_ROLLUP_DA_PAIR: usize = 10;
+        const APPROVE_BASE_TOKEN_NEW_PROTOCOL_VERSION: usize = 11;
+        const GATEWAY_SET_NEW_VERSION: usize = 12;
+        const APPROVE_BASE_TOKEN_NEW_CHAIN_CREATION_PARAMS: usize = 13;
+        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 14;
+        const APPROVE_BASE_TOKEN_UPGRADE_CTM: usize = 15;
+        const GATEWAY_UPGRADE_CTM: usize = 16;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 2.
@@ -271,6 +273,14 @@ impl GovernanceStage1Calls {
             &self.calls.elems[UPGRADE_NATIVE_TOKEN_VAULT],
             "native_token_vault",
             "native_token_vault_implementation_addr",
+            None,
+        )?;
+        self.verify_upgrade_call(
+            verifiers,
+            result,
+            &self.calls.elems[UPGRADE_MESSAGE_ROOT],
+            "l1_message_root",
+            "l1_message_root_implementation_addr",
             None,
         )?;
 
