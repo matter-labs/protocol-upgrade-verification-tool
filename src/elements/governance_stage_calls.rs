@@ -179,6 +179,8 @@ impl GovernanceStage1Calls {
         let list_of_calls = [
             // Check that migrations are paused
             ("upgrade_stage_validator", "checkMigrationsPaused()"),
+            // Check time has passed
+            ("upgrade_timer", "checkDeadline()"),
             // Proxy upgrades
             ("transparent_proxy_admin", "upgrade(address,address)"),
             ("transparent_proxy_admin", "upgrade(address,address)"),
@@ -207,20 +209,20 @@ impl GovernanceStage1Calls {
             // Upgrade CTM
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
         ];
-        const UPGRADE_CTM: usize = 1;
-        const UPGRADE_BRIDGEHUB: usize = 2;
-        const UPGRADE_L1_NULLIFIER: usize = 3;
-        const UPGRADE_L1_ASSET_ROUTER: usize = 4;
-        const UPGRADE_NATIVE_TOKEN_VAULT: usize = 5;
-        const SET_CHAIN_CREATION_INDEX: usize = 6;
-        const SET_NEW_VERSION_INDEX: usize = 7;
-        const UPDATE_ROLLUP_DA_PAIR: usize = 8;
-        const APPROVE_BASE_TOKEN_NEW_PROTOCOL_VERSION: usize = 9;
-        const GATEWAY_SET_NEW_VERSION: usize = 10;
-        const APPROVE_BASE_TOKEN_NEW_CHAIN_CREATION_PARAMS: usize = 11;
-        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 12;
-        const APPROVE_BASE_TOKEN_UPGRADE_CTM: usize = 13;
-        const GATEWAY_UPGRADE_CTM: usize = 14;
+        const UPGRADE_CTM: usize = 2;
+        const UPGRADE_BRIDGEHUB: usize = 3;
+        const UPGRADE_L1_NULLIFIER: usize = 4;
+        const UPGRADE_L1_ASSET_ROUTER: usize = 5;
+        const UPGRADE_NATIVE_TOKEN_VAULT: usize = 6;
+        const SET_CHAIN_CREATION_INDEX: usize = 7;
+        const SET_NEW_VERSION_INDEX: usize = 8;
+        const UPDATE_ROLLUP_DA_PAIR: usize = 9;
+        const APPROVE_BASE_TOKEN_NEW_PROTOCOL_VERSION: usize = 10;
+        const GATEWAY_SET_NEW_VERSION: usize = 11;
+        const APPROVE_BASE_TOKEN_NEW_CHAIN_CREATION_PARAMS: usize = 12;
+        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 13;
+        const APPROVE_BASE_TOKEN_UPGRADE_CTM: usize = 14;
+        const GATEWAY_UPGRADE_CTM: usize = 15;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 2.
