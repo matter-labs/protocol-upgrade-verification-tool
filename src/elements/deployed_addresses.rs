@@ -648,7 +648,7 @@ impl DeployedAddresses {
         result: &mut VerificationResult,
         is_gateway: bool,
     ) -> anyhow::Result<(FacetCutSet, FacetCutSet)> {
-        let provider = &verifiers.network_verifier.get_l1_provider();
+        let l1_provider = &verifiers.network_verifier.get_l1_provider();
         let bridgehub_addr = verifiers.bridgehub_address;
 
         let bridgehub_info = verifiers
@@ -657,7 +657,7 @@ impl DeployedAddresses {
             .await;
 
         let mut facets_to_remove = FacetCutSet::new();
-        let getters_facet = GettersFacet::new(bridgehub_info.era_address, provider);
+        let getters_facet = GettersFacet::new(bridgehub_info.era_address, l1_provider);
         let current_facets = getters_facet.facets().call().await?.result;
         for f in current_facets {
             // Note, that when deleting facets, their address must be provided as zero.
@@ -669,45 +669,21 @@ impl DeployedAddresses {
             });
         }
 
-        let real_facet_addresses = if is_gateway {
-            &EXPECTED_GATEWAY_FACETS
-                .iter()
-                .map(|e| {
-                    *verifiers
-                        .address_verifier
-                        .name_to_address
-                        .get(e.name)
-                        .unwrap_or_else(|| panic!("{} not found", e.name))
-                })
-                .collect::<Vec<Address>>()
-        } else {
-            &EXPECTED_FACETS
-                .iter()
-                .map(|e| {
-                    *verifiers
-                        .address_verifier
-                        .name_to_address
-                        .get(e.name)
-                        .unwrap_or_else(|| panic!("{} not found", e.name))
-                })
-                .collect::<Vec<Address>>()
-        };
-
         let mut facets_to_add = FacetCutSet::new();
         // let l1_provider = verifiers.network_verifier.get_l1_provider();
-        for (i, facet) in EXPECTED_FACETS.iter().enumerate() {
+        for (l1_facet, gw_facet) in EXPECTED_FACETS.iter().zip(EXPECTED_GATEWAY_FACETS) {
             let address = *verifiers
                 .address_verifier
                 .name_to_address
-                .get(facet.name)
-                .unwrap_or_else(|| panic!("{} not found", facet.name));
-            let bytecode = provider
+                .get(l1_facet.name)
+                .unwrap_or_else(|| panic!("{} not found", l1_facet.name));
+            let bytecode = l1_provider
                 .get_code_at(address)
                 .await
                 .context(format!("Failed to retrieve the bytecode for {}", address))?;
 
             if bytecode.len() == 0 {
-                result.report_error(&format!("No bytecode for facet {}", facet.name));
+                result.report_error(&format!("No bytecode for facet {}", l1_facet.name));
             }
             let info: Vec<_> =
                 evmole::contract_info(evmole::ContractInfoArgs::new(&bytecode.0).with_selectors())
@@ -719,9 +695,23 @@ impl DeployedAddresses {
                     .filter(|selector| selector != &[0x17, 0xd7, 0xde, 0x7c])
                     .collect();
 
+            let facet_address = if is_gateway {
+                *verifiers
+                    .address_verifier
+                    .name_to_address
+                    .get(gw_facet.name)
+                    .unwrap_or_else(|| panic!("{} not found", gw_facet.name))
+            } else {
+                *verifiers
+                    .address_verifier
+                    .name_to_address
+                    .get(l1_facet.name)
+                    .unwrap_or_else(|| panic!("{} not found", l1_facet.name))
+            };
+
             facets_to_add.add_facet(FacetInfo {
-                facet: real_facet_addresses[i],
-                is_freezable: facet.is_freezable,
+                facet: facet_address,
+                is_freezable: l1_facet.is_freezable,
                 action: facet_cut_set::Action::Add,
                 selectors: info.into_iter().collect(),
             });
