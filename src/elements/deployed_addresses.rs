@@ -224,7 +224,6 @@ pub struct DeployedAddresses {
     pub(crate) native_token_vault_implementation_addr: Address,
 
     pub(crate) validator_timelock_addr: Address,
-    pub(crate) l2_wrapped_base_token_store_addr: Address,
     pub(crate) l1_bytecodes_supplier_addr: Address,
     pub(crate) l1_transitionary_owner: Address,
     pub(crate) l1_rollup_da_manager: Address,
@@ -292,10 +291,6 @@ impl DeployedAddresses {
         address_verifier.add_address(
             self.bridgehub.bridgehub_implementation_addr,
             "bridgehub_implementation_addr",
-        );
-        address_verifier.add_address(
-            self.l2_wrapped_base_token_store_addr,
-            "l2_wrapped_base_token_store",
         );
         address_verifier.add_address(
             self.bridges.l1_nullifier_implementation_addr,
@@ -409,48 +404,6 @@ impl DeployedAddresses {
             chain_type_manager
         );
 
-        Ok(())
-    }
-
-    async fn verify_wrapped_base_token_store(
-        &self,
-        config: &UpgradeOutput,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        bridgehub_info: &BridgehubInfo,
-    ) -> Result<()> {
-        if self.l2_wrapped_base_token_store_addr == Address::ZERO {
-            result.report_warn("L2WrappedBaseTokenStore address is zero");
-            return Ok(());
-        }
-        result.expect_create2_params(
-            verifiers,
-            &self.l2_wrapped_base_token_store_addr,
-            L2WrappedBaseTokenStore::constructorCall::new((
-                config.protocol_upgrade_handler_proxy_address,
-                config.deployer_addr,
-            ))
-            .abi_encode(),
-            "l1-contracts/L2WrappedBaseTokenStore",
-        );
-
-        let provider = verifiers.network_verifier.get_l1_provider();
-        let l2_wrapped_base_token_store =
-            L2WrappedBaseTokenStore::new(self.l2_wrapped_base_token_store_addr, provider);
-        let admin_response = l2_wrapped_base_token_store.admin().call().await?;
-        let l2_wrapped_base_token_store_admin = admin_response.admin;
-        let owner_response = l2_wrapped_base_token_store.owner().call().await?;
-        let l2_wrapped_base_token_store_owner = owner_response.owner;
-
-        if l2_wrapped_base_token_store_admin != bridgehub_info.ecosystem_admin {
-            result.report_warn(
-                "l2_wrapped_base_token_store admin is not equal to the ecosystem admin",
-            );
-        }
-        ensure!(
-            l2_wrapped_base_token_store_owner == config.protocol_upgrade_handler_proxy_address,
-            "l2_wrapped_base_token_store owner mismatch"
-        );
         Ok(())
     }
 
@@ -800,9 +753,6 @@ impl DeployedAddresses {
         self.verify_validator_timelock(config, verifiers, result, &bridgehub_info)
             .await
             .context("validator timelock")?;
-        self.verify_wrapped_base_token_store(config, verifiers, result, &bridgehub_info)
-            .await
-            .context("wrapped_basen_token")?;
         self.verify_l1_asset_router(config, verifiers, result, &bridgehub_info)
             .await
             .context("l1 asset")?;
