@@ -43,6 +43,7 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
         ("EcAdd".into(), address_from_short_hex("6"), false),
         ("EcMul".into(), address_from_short_hex("7"), false),
         ("EcPairing".into(), address_from_short_hex("8"), false),
+        ("Modexp".into(), address_from_short_hex("5"), false),
         // Note: deploy `EmptyContract` into the bootloader address.
         (
             "system-contracts/EmptyContract".into(),
@@ -149,7 +150,6 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             address_from_short_hex("10006"),
             false,
         ),
-        ("Modexp".into(), address_from_short_hex("5"), false),
         (
             "l1-contracts/Bridgehub".into(),
             address_from_short_hex("10002"),

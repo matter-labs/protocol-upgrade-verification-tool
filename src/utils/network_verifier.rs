@@ -208,25 +208,25 @@ impl NetworkVerifier {
     }
 
     pub async fn get_bridgehub_info(&self, bridgehub_addr: Address) -> BridgehubInfo {
-        let provider = &self.get_l1_provider();
+        let l1_provider = &self.get_l1_provider();
 
-        let bridgehub = Bridgehub::new(bridgehub_addr, provider);
+        let bridgehub = Bridgehub::new(bridgehub_addr, l1_provider);
 
         let shared_bridge_address = bridgehub.sharedBridge().call().await.unwrap().sharedBridge;
 
-        let shared_bridge = L1AssetRouter::new(shared_bridge_address, provider);
+        let shared_bridge = L1AssetRouter::new(shared_bridge_address, l1_provider);
 
-        let chain_id = self.get_era_chain_id();
+        let era_chain_id = self.get_era_chain_id();
 
         let stm_address = bridgehub
-            .chainTypeManager(chain_id.try_into().unwrap())
+            .chainTypeManager(era_chain_id.try_into().unwrap())
             .call()
             .await
             .unwrap()
             ._0;
-        let chain_type_manager = ChainTypeManager::new(stm_address, provider);
+        let chain_type_manager = ChainTypeManager::new(stm_address, l1_provider);
         let era_address = chain_type_manager
-            .getHyperchain(U256::from(chain_id))
+            .getHyperchain(U256::from(era_chain_id))
             .call()
             .await
             .unwrap()

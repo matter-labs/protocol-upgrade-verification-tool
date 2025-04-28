@@ -32,7 +32,7 @@ cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output.yaml --l1-rp
 ### Stage verification
 
 ```
-cargo run -- --ecosystem-yaml data/v28-ecosystem.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE --testnet-contracts --gw-rpc https://rpc.era-gateway-stage.zksync.dev/
+cargo run -- --ecosystem-yaml data/v28-ecosystem-stage.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE --testnet-contracts --gw-rpc https://rpc.era-gateway-stage.zksync.dev/
 ```
 
 ### Testnet verification
