@@ -8,9 +8,9 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
-// Current top of release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "97ee65bff5865c50b321d81f7e0e08f860e81a4b";
-// Current commit after v27 merge to main branch (PR 3713)
+// Current top of draft-v28 branch
+const DEFAULT_CONTRACTS_COMMIT: &str = "0e90c3df6d161d1180bc61758de6e98ba591bd64";
+// Current commit on top of draft-v28
 const DEFAULT_ERA_COMMIT: &str = "386e85b9b7d8b8944a316bec5face9bead89acec";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.28.0";
