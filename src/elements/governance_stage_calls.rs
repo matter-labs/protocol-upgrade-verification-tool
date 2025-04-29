@@ -765,6 +765,7 @@ impl GovernanceStage0Calls {
             ("bridgehub_proxy", "pauseMigration()"),
             ("gateway_base_token", "approve(address,uint256)"),
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            ("upgrade_timer", "startTimer()"),
         ];
         const PAUSE_L1_MIGRATION: usize = 0;
         const APPROVE_BASE_TOKEN: usize = 1;
@@ -824,7 +825,7 @@ impl GovernanceStage2Calls {
 
         let list_of_calls = [
             // Check that the protocol upgrade has happened
-            ("upgrade_stage_validator", "checkChainUpgraded()"),
+            ("upgrade_stage_validator", "checkProtocolUpgradePresence()"),
             // Unpause L1 migration
             ("bridgehub_proxy", "unpauseMigration()"),
             // Approve base token
