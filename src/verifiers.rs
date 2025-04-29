@@ -47,6 +47,9 @@ impl Verifiers {
         gateway_chain_id: u64,
         config: &UpgradeOutput,
     ) -> Self {
+        let bridgehub_address =
+            Address::from_hex(bridgehub_address.as_ref()).expect("Bridgehub address");
+
         let bytecode_verifier = BytecodeVerifier::init_from_github(contracts_commit).await;
         let network_verifier = NetworkVerifier::new(
             l1_rpc,
@@ -55,14 +58,13 @@ impl Verifiers {
             gw_rpc,
             &bytecode_verifier,
             config,
+            &bridgehub_address,
         )
         .await;
 
         if testnet_contracts && network_verifier.get_l1_chain_id() == 1 {
             panic!("Testnet contracts are not expected to be deployed on L1 mainnet - you passed --testnet-contracts flag.");
         }
-        let bridgehub_address =
-            Address::from_hex(bridgehub_address.as_ref()).expect("Bridgehub address");
 
         let address_verifier = AddressVerifier::new(
             bridgehub_address,

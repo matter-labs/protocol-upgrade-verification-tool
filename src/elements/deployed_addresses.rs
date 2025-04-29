@@ -3,6 +3,7 @@ use anyhow::{ensure, Context, Result};
 use super::protocol_version::ProtocolVersion;
 use crate::{
     utils::{
+        address_from_short_hex,
         address_verifier::AddressVerifier,
         facet_cut_set::{self, FacetCutSet, FacetInfo},
         network_verifier::{Bridgehub as BridgehubSol, BridgehubInfo},
@@ -14,7 +15,7 @@ use alloy::{
     primitives::{Address, U256},
     providers::Provider,
     sol,
-    sol_types::SolConstructor,
+    sol_types::{SolConstructor, SolValue},
 };
 use serde::Deserialize;
 
@@ -556,15 +557,31 @@ impl DeployedAddresses {
 
     async fn verify_chain_type_manager(
         &self,
-        _config: &UpgradeOutput,
+        config: &UpgradeOutput,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         bridgehub_info: &BridgehubInfo,
+        is_gateway: bool,
     ) -> Result<()> {
+        let (chain_type_manager_addr, bridgehub_addr) = if is_gateway {
+            (
+                &config
+                    .gateway
+                    .gateway_state_transition
+                    .chain_type_manager_implementation_addr,
+                address_from_short_hex("10002"),
+            )
+        } else {
+            (
+                &self.state_transition.state_transition_implementation_addr,
+                bridgehub_info.bridgehub_addr,
+            )
+        };
+
         result.expect_create2_params(
             verifiers,
-            &self.state_transition.state_transition_implementation_addr,
-            ChainTypeManager::constructorCall::new((bridgehub_info.bridgehub_addr,)).abi_encode(),
+            &chain_type_manager_addr,
+            ChainTypeManager::constructorCall::new((bridgehub_addr,)).abi_encode(),
             "l1-contracts/ChainTypeManager",
         );
         Ok(())
@@ -576,15 +593,25 @@ impl DeployedAddresses {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         _bridgehub_info: &BridgehubInfo,
+        is_gateway: bool,
     ) -> Result<()> {
+        let (admin_facet_address, da_manager_address) = if is_gateway {
+            (
+                &config.gateway.gateway_state_transition.admin_facet_addr,
+                config.gateway.gateway_state_transition.rollup_da_manager,
+            )
+        } else {
+            (
+                &self.state_transition.admin_facet_addr,
+                self.l1_rollup_da_manager,
+            )
+        };
+
         result.expect_create2_params(
             verifiers,
-            &self.state_transition.admin_facet_addr,
-            AdminFacet::constructorCall::new((
-                U256::from(config.l1_chain_id),
-                self.l1_rollup_da_manager,
-            ))
-            .abi_encode(),
+            admin_facet_address,
+            AdminFacet::constructorCall::new((U256::from(config.l1_chain_id), da_manager_address))
+                .abi_encode(),
             "l1-contracts/AdminFacet",
         );
         Ok(())
@@ -596,10 +623,17 @@ impl DeployedAddresses {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         _bridgehub_info: &BridgehubInfo,
+        is_gateway: bool,
     ) -> Result<()> {
+        let executor_facet_address = if is_gateway {
+            &config.gateway.gateway_state_transition.executor_facet_addr
+        } else {
+            &self.state_transition.executor_facet_addr
+        };
+
         result.expect_create2_params(
             verifiers,
-            &self.state_transition.executor_facet_addr,
+            executor_facet_address,
             ExecutorFacet::constructorCall::new((U256::from(config.l1_chain_id),)).abi_encode(),
             "l1-contracts/ExecutorFacet",
         );
@@ -608,14 +642,21 @@ impl DeployedAddresses {
 
     async fn verify_getters_facet(
         &self,
-        _config: &UpgradeOutput,
+        config: &UpgradeOutput,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         _bridgehub_info: &BridgehubInfo,
+        is_gateway: bool,
     ) -> Result<()> {
+        let getters_facet_address = if is_gateway {
+            &config.gateway.gateway_state_transition.getters_facet_addr
+        } else {
+            &self.state_transition.getters_facet_addr
+        };
+
         result.expect_create2_params(
             verifiers,
-            &self.state_transition.getters_facet_addr,
+            getters_facet_address,
             Vec::new(),
             "l1-contracts/GettersFacet",
         );
@@ -628,10 +669,17 @@ impl DeployedAddresses {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         _bridgehub_info: &BridgehubInfo,
+        is_gateway: bool,
     ) -> Result<()> {
+        let mailbox_facet_address = if is_gateway {
+            &config.gateway.gateway_state_transition.mailbox_facet_addr
+        } else {
+            &self.state_transition.mailbox_facet_addr
+        };
+
         result.expect_create2_params(
             verifiers,
-            &self.state_transition.mailbox_facet_addr,
+            mailbox_facet_address,
             MailboxFacet::constructorCall::new((
                 U256::from(config.era_chain_id),
                 U256::from(config.l1_chain_id),
@@ -670,7 +718,6 @@ impl DeployedAddresses {
         }
 
         let mut facets_to_add = FacetCutSet::new();
-        // let l1_provider = verifiers.network_verifier.get_l1_provider();
         for (l1_facet, gw_facet) in EXPECTED_FACETS.iter().zip(EXPECTED_GATEWAY_FACETS) {
             let address = *verifiers
                 .address_verifier
@@ -751,15 +798,15 @@ impl DeployedAddresses {
             .context("l1 nullifier")?;
         self.verify_bridgehub_impl(config, verifiers, result)
             .await?;
-        self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info)
+        self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info, false)
             .await?;
-        self.verify_admin_facet(config, verifiers, result, &bridgehub_info)
+        self.verify_admin_facet(config, verifiers, result, &bridgehub_info, false)
             .await?;
-        self.verify_executor_facet(config, verifiers, result, &bridgehub_info)
+        self.verify_executor_facet(config, verifiers, result, &bridgehub_info, false)
             .await?;
-        self.verify_getters_facet(config, verifiers, result, &bridgehub_info)
+        self.verify_getters_facet(config, verifiers, result, &bridgehub_info, false)
             .await?;
-        self.verify_mailbox_facet(config, verifiers, result, &bridgehub_info)
+        self.verify_mailbox_facet(config, verifiers, result, &bridgehub_info, false)
             .await?;
 
         self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
@@ -811,6 +858,74 @@ impl DeployedAddresses {
         result.expect_create2_params(
             verifiers,
             &self.state_transition.diamond_init_addr,
+            Vec::new(),
+            "l1-contracts/DiamondInit",
+        );
+
+        result.expect_create2_params(
+            verifiers,
+            &self.bridgehub.message_root_implementation_addr,
+            bridgehub_info.bridgehub_addr.abi_encode(),
+            "l1-contracts/MessageRoot",
+        );
+
+        // Check gateway create2
+        self.verify_admin_facet(config, verifiers, result, &bridgehub_info, true)
+            .await?;
+        self.verify_executor_facet(config, verifiers, result, &bridgehub_info, true)
+            .await?;
+        self.verify_getters_facet(config, verifiers, result, &bridgehub_info, true)
+            .await?;
+        self.verify_mailbox_facet(config, verifiers, result, &bridgehub_info, true)
+            .await?;
+        self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info, true)
+            .await?;
+
+        result.expect_create2_params(
+            verifiers,
+            &config.gateway.gateway_state_transition.verifier_plonk_addr,
+            Vec::new(),
+            "l1-contracts/L1VerifierPlonk",
+        );
+
+        result.expect_create2_params(
+            verifiers,
+            &config.gateway.gateway_state_transition.verifier_fflonk_addr,
+            Vec::new(),
+            "l1-contracts/L1VerifierFflonk",
+        );
+
+        let expected_constructor_params = DualVerifier::constructorCall::new((
+            config.gateway.gateway_state_transition.verifier_fflonk_addr,
+            config.gateway.gateway_state_transition.verifier_plonk_addr,
+        ))
+        .abi_encode();
+
+        result.expect_create2_params(
+            verifiers,
+            &config.gateway.gateway_state_transition.verifier_addr,
+            expected_constructor_params,
+            if verifiers.testnet_contracts {
+                "l1-contracts/TestnetVerifier"
+            } else {
+                "l1-contracts/DualVerifier"
+            },
+        );
+        result.expect_create2_params(
+            verifiers,
+            &config.gateway.gateway_state_transition.genesis_upgrade_addr,
+            Vec::new(),
+            "l1-contracts/L1GenesisUpgrade",
+        );
+        result.expect_create2_params(
+            verifiers,
+            &config.gateway.gateway_state_transition.default_upgrade_addr,
+            Vec::new(),
+            "l1-contracts/DefaultUpgrade",
+        );
+        result.expect_create2_params(
+            verifiers,
+            &config.gateway.gateway_state_transition.diamond_init_addr,
             Vec::new(),
             "l1-contracts/DiamondInit",
         );

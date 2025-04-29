@@ -46,6 +46,9 @@ pub struct UpgradeOutput {
     pub(crate) transactions: Vec<String>,
 
     pub(crate) gateway: Gateway,
+
+    pub(crate) max_expected_l1_gas_price: u64,
+    pub(crate) priority_txs_l2_gas_limit: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,6 +100,7 @@ pub(crate) struct GatewayStateTransition {
     pub verifier_addr: Address,
     pub verifier_fflonk_addr: Address,
     pub verifier_plonk_addr: Address,
+    pub rollup_da_manager: Address,
 }
 
 impl ContractsConfig {
@@ -248,7 +252,12 @@ impl UpgradeOutput {
         };
 
         stage0
-            .verify(verifiers, result, self.gateway_chain_id)
+            .verify(
+                verifiers,
+                result,
+                self.gateway_chain_id,
+                self.priority_txs_l2_gas_limit,
+            )
             .await
             .context("stage0")?;
 
@@ -288,7 +297,12 @@ impl UpgradeOutput {
         };
 
         stage2
-            .verify(verifiers, result, self.gateway_chain_id)
+            .verify(
+                verifiers,
+                result,
+                self.gateway_chain_id,
+                self.priority_txs_l2_gas_limit,
+            )
             .await
             .context("stage2")?;
 

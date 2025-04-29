@@ -12,7 +12,7 @@ use crate::{
 };
 use alloy::{
     hex,
-    primitives::U256,
+    primitives::{Bytes, U256},
     sol,
     sol_types::{SolCall, SolValue},
 };
@@ -723,6 +723,7 @@ impl GovernanceStage0Calls {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         gateway_chain_id: u64,
+        priority_txs_l2_gas_limit: u64,
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 0 calls ===");
 
@@ -759,18 +760,15 @@ impl GovernanceStage0Calls {
         // Verify L1 -> Gateway Pause Migration
         {
             let calldata = &self.calls.elems[PAUSE_GATEWAY_MIGRATION].data;
-            let data = requestL2TransactionDirectCall::abi_decode(&calldata, true)
-                .expect("Failed to decode L2 -> GW pauseMigration");
-
-            if data._request.chainId != U256::from(gateway_chain_id) {
-                result.report_error("Wrong gateway chain id for stage0 pauseMigration");
-            }
-
-            pauseMigrationCall::abi_decode(&data._request.l2Calldata, true)
-                .expect("Failed to decode pauseMigration Call on GW");
-
-            // Call should be to bridgehub
-            result.expect_address(verifiers, &data._request.l2Contract, "l2_bridgehub");
+            check_l1_to_gateway_transaction(
+                verifiers,
+                result,
+                calldata,
+                pauseMigrationCall::abi_decode,
+                gateway_chain_id,
+                priority_txs_l2_gas_limit,
+                "l2_bridgehub",
+            );
         }
 
         Ok(())
@@ -784,6 +782,7 @@ impl GovernanceStage2Calls {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         gateway_chain_id: u64,
+        priority_txs_l2_gas_limit: u64,
     ) -> anyhow::Result<()> {
         result.print_info("== Gov stage 2 calls ===");
 
@@ -821,16 +820,45 @@ impl GovernanceStage2Calls {
         // Verify Unpause gateway migration
         {
             let calldata = &self.calls.elems[GATEWAY_UNPAUSE_MIGRATION].data;
-            let data = requestL2TransactionDirectCall::abi_decode(&calldata, true)
-                .expect("Failed to decode L2 -> GW unpauseMigration");
-
-            if data._request.chainId != U256::from(gateway_chain_id) {
-                result.report_error("Wrong gateway chain id for stage0 pauseMigration");
-            }
-            unpauseMigrationCall::abi_decode(&data._request.l2Calldata, true)
-                .expect("Failed to decode unpauseMigration Call on GW");
+            check_l1_to_gateway_transaction(
+                verifiers,
+                result,
+                calldata,
+                unpauseMigrationCall::abi_decode,
+                gateway_chain_id,
+                priority_txs_l2_gas_limit,
+                "l2_bridgehub",
+            );
         }
 
         Ok(())
     }
+}
+
+fn check_l1_to_gateway_transaction<T, F>(
+    verifiers: &crate::verifiers::Verifiers,
+    result: &mut crate::verifiers::VerificationResult,
+    calldata: &Bytes,
+    decoder: F,
+    gateway_chain_id: u64,
+    priority_txs_l2_gas_limit: u64,
+    expected_l2_contract: &str,
+) -> T
+where
+    F: Fn(&[u8], bool) -> alloy::sol_types::Result<T>,
+{
+    let data = requestL2TransactionDirectCall::abi_decode(&calldata, true)
+        .expect("Failed to decode L2 -> GW transaction");
+
+    if data._request.chainId != U256::from(gateway_chain_id) {
+        result.report_error("Wrong gateway chain id for L2 -> GW transaction");
+    }
+
+    if data._request.l2GasLimit != U256::from(priority_txs_l2_gas_limit) {
+        result.report_error("Wrong l2GasLimit for L2 -> GW transaction");
+    }
+
+    result.expect_address(verifiers, &data._request.l2Contract, expected_l2_contract);
+
+    decoder(&data._request.l2Calldata, true).expect("Failed to decode inner L1 -> GW")
 }
