@@ -281,6 +281,7 @@ impl UpgradeOutput {
                 verifiers,
                 result,
                 self.gateway_chain_id,
+                self.priority_txs_l2_gas_limit,
                 l1_facets_to_add.clone(),
                 gw_facets_to_add.clone(),
                 &self.deployed_addresses,

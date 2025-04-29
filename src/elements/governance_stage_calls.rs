@@ -157,6 +157,7 @@ impl GovernanceStage1Calls {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         gateway_chain_id: u64,
+        priority_txs_l2_gas_limit: u64,
         l1_expected_chain_creation_facets: FacetCutSet,
         gw_expected_chain_creation_facets: FacetCutSet,
         deployed_addresses: &DeployedAddresses,
@@ -209,6 +210,10 @@ impl GovernanceStage1Calls {
             ("gateway_base_token", "approve(address,uint256)"),
             // Upgrade CTM
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // Approve base token
+            ("gateway_base_token", "approve(address,uint256)"),
+            // Upgrade CTM
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
         ];
         const UPGRADE_CTM: usize = 2;
         const UPGRADE_BRIDGEHUB: usize = 3;
@@ -225,6 +230,8 @@ impl GovernanceStage1Calls {
         const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 14;
         const APPROVE_BASE_TOKEN_UPGRADE_CTM: usize = 15;
         const GATEWAY_UPGRADE_CTM: usize = 16;
+        const APPROVE_TOKEN_GATEWAY_UPDATE_DA_PAIR: usize = 17;
+        const GATEWAY_UPDATE_DA_PAIR: usize = 18;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 2.
@@ -535,6 +542,32 @@ impl GovernanceStage1Calls {
                 "gateway_chain_type_manager_implementation_addr",
                 None,
             )?;
+        }
+
+        // Verify Approve base token
+        {
+            let calldata = &self.calls.elems[APPROVE_TOKEN_GATEWAY_UPDATE_DA_PAIR].data;
+            let data =
+                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+
+            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
+        }
+
+        // Verify GW rollup_da_manager call
+        {
+            let calldata = &self.calls.elems[GATEWAY_UPDATE_DA_PAIR].data;
+            let decoded = check_l1_to_gateway_transaction(
+                verifiers,
+                result,
+                calldata,
+                updateDAPairCall::abi_decode,
+                gateway_chain_id,
+                priority_txs_l2_gas_limit,
+                "l2_bridgehub",
+            );
+
+            result.expect_address(verifiers, &decoded.l1_da_addr, "gateway_rollup_da_manager");
+            result.expect_address(verifiers, &decoded.l2_da_addr, "rollup_l2_da_validator");
         }
 
         Ok((
