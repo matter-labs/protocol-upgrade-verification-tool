@@ -136,6 +136,10 @@ impl AddressVerifier {
             config.gateway.gateway_state_transition.verifier_plonk_addr,
             "gateway_verifier_plonk_addr",
         );
+        result.add_address(
+            config.gateway.gateway_state_transition.rollup_da_manager,
+            "gateway_rollup_da_manager",
+        );
 
         result
     }
