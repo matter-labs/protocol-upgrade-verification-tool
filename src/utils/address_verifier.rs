@@ -140,6 +140,13 @@ impl AddressVerifier {
             config.gateway.gateway_state_transition.rollup_da_manager,
             "gateway_rollup_da_manager",
         );
+        result.add_address(
+            config
+                .gateway
+                .gateway_state_transition
+                .rollup_l2_da_validator,
+            "gateway_rollup_l2_da_validator",
+        );
 
         result
     }

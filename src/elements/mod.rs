@@ -101,6 +101,7 @@ pub(crate) struct GatewayStateTransition {
     pub verifier_fflonk_addr: Address,
     pub verifier_plonk_addr: Address,
     pub rollup_da_manager: Address,
+    pub rollup_l2_da_validator: Address,
 }
 
 impl ContractsConfig {

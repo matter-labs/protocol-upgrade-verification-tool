@@ -563,10 +563,14 @@ impl GovernanceStage1Calls {
                 updateDAPairCall::abi_decode,
                 gateway_chain_id,
                 priority_txs_l2_gas_limit,
-                "l2_bridgehub",
+                "gateway_rollup_da_manager",
             );
 
-            result.expect_address(verifiers, &decoded.l1_da_addr, "gateway_rollup_da_manager");
+            result.expect_address(
+                verifiers,
+                &decoded.l1_da_addr,
+                "gateway_rollup_l2_da_validator",
+            );
             result.expect_address(verifiers, &decoded.l2_da_addr, "rollup_l2_da_validator");
         }
 
