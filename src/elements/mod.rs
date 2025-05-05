@@ -1,23 +1,23 @@
 use alloy::primitives::{Address, FixedBytes, U256};
 use anyhow::Context;
 use call_list::CallList;
-use deployed_addresses::DeployedAddresses;
-use governance_stage_calls::{GovernanceStage0Calls, GovernanceStage1Calls, GovernanceStage2Calls};
+use gateway_state_transition::GatewayStateTransition;
+use governance_stage_calls::{EcosystemAdminCalls, GovernanceCalls};
 use initialize_data_new_chain::{FeeParams, PubdataPricingMode};
 use protocol_version::ProtocolVersion;
 use serde::Deserialize;
 
 use crate::{
     get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::address_verifier::AddressVerifier,
+    utils::{address_from_short_hex, address_verifier::AddressVerifier, network_verifier::NetworkVerifier},
     verifiers::{VerificationResult, Verifiers},
     MAX_PRIORITY_TX_GAS_LIMIT,
 };
 
 pub mod call_list;
-pub mod deployed_addresses;
 pub mod fixed_force_deployment;
 pub mod force_deployment;
+pub mod gateway_state_transition;
 pub mod governance_stage_calls;
 pub mod initialize_data_new_chain;
 pub mod protocol_version;
@@ -25,30 +25,15 @@ pub mod set_new_version_upgrade;
 
 #[derive(Debug, Deserialize)]
 pub struct UpgradeOutput {
-    pub(crate) chain_upgrade_diamond_cut: String,
-    pub(crate) create2_factory_addr: Address,
-    pub(crate) create2_factory_salt: FixedBytes<32>,
-    pub(crate) deployer_addr: Address,
-    pub(crate) era_chain_id: u64,
+    pub(crate) diamond_cut_data: String,
+    pub(crate) ecosystem_admin_calls_to_execute: String,
+    pub(crate) governance_calls_to_execute: String,
+    
+    pub(crate) multicall3_addr: Address,
+    pub(crate) relayed_sl_da_validator: Address,
+    pub(crate) validium_da_validator: Address,
 
-    pub(crate) governance_calls: GovernanceCalls,
-
-    pub(crate) l1_chain_id: u64,
-
-    pub(crate) protocol_upgrade_handler_proxy_address: Address,
-
-    #[serde(rename = "contracts_newConfig")]
-    pub(crate) contracts_config: ContractsConfig,
-    pub(crate) deployed_addresses: DeployedAddresses,
-
-    pub(crate) transactions: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GovernanceCalls {
-    pub(crate) governance_stage0_calls: String,
-    pub(crate) governance_stage1_calls: String,
-    pub(crate) governance_stage2_calls: String,
+    pub(crate) gateway_state_transition: GatewayStateTransition,
 }
 
 #[derive(Debug, Deserialize)]
@@ -164,8 +149,11 @@ impl ContractsConfig {
 }
 
 impl UpgradeOutput {
-    pub fn add_to_verifier(&self, address_verifier: &mut AddressVerifier) {
-        self.deployed_addresses.add_to_verifier(address_verifier);
+    pub async fn add_to_verifier(&self, address_verifier: &mut AddressVerifier, network_verifier: &NetworkVerifier, bridgehub_addr: Address) {
+        address_verifier.add_address(self.multicall3_addr, "multicall3_addr");
+        address_verifier.add_address(self.relayed_sl_da_validator, "relayed_sl_da_validator");
+        address_verifier.add_address(self.validium_da_validator, "validium_da_validator");
+        self.gateway_state_transition.add_to_verifier(address_verifier, network_verifier, bridgehub_addr).await;
     }
 
     pub async fn verify(
@@ -174,81 +162,43 @@ impl UpgradeOutput {
         result: &mut VerificationResult,
     ) -> anyhow::Result<()> {
         result.print_info("== Config verification ==");
-
+        
         let provider_chain_id = verifiers.network_verifier.get_era_chain_id();
-        if provider_chain_id == self.era_chain_id {
-            result.report_ok("Chain id");
-        } else {
-            result.report_error(&format!(
-                "chain id mismatch: {} vs {} ",
-                self.era_chain_id, provider_chain_id
-            ));
-        }
-
-        if self.l1_chain_id == verifiers.network_verifier.get_l1_chain_id() {
-            result.report_ok("L1 chain id");
-        } else {
-            result.report_error(&format!(
-                "L1 chain id mismatch: {} vs {} ",
-                self.l1_chain_id,
-                verifiers.network_verifier.get_l1_chain_id()
-            ));
-        }
 
         // Check that addresses actually contain correct bytecodes.
-        self.deployed_addresses
-            .verify(self, verifiers, result)
+        self.gateway_state_transition
+            .verify(verifiers, result)
             .await
             .context("checking deployed addresses")?;
-        let (facets_to_remove, facets_to_add) = self
-            .deployed_addresses
-            .get_expected_facet_cuts(verifiers, result)
-            .await
-            .context("checking facets")?;
+        // let (facets_to_remove, facets_to_add) = self
+        //     .deployed_addresses
+        //     .get_expected_facet_cuts(verifiers, result)
+        //     .await
+        //     .context("checking facets")?;
 
-        result
-            .expect_deployed_bytecode(verifiers, &self.create2_factory_addr, "Create2Factory")
-            .await;
+        // result
+        //     .expect_deployed_bytecode(verifiers, &create2_factory_addr, "Create2Factory")
+        //     .await;
 
-        let stage0 = GovernanceStage0Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage0_calls),
+        let ecosystem_admin_calls = EcosystemAdminCalls {
+            calls: CallList::parse(&self.ecosystem_admin_calls_to_execute),
         };
 
-        stage0.verify(verifiers, result).await.context("stage0")?;
+        ecosystem_admin_calls.verify(verifiers, result).await.context("ecosystem_admin_calls")?;
 
-        let stage1 = GovernanceStage1Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage1_calls),
+        let governance_calls = GovernanceCalls {
+            calls: CallList::parse(&self.governance_calls_to_execute),
         };
 
-        let expected_upgrade_facets = facets_to_remove.merge(facets_to_add.clone()).clone();
+        // let expected_upgrade_facets = facets_to_remove.merge(facets_to_add.clone()).clone();
 
-        let (expected_chain_creation_data, expected_force_deployments) = stage1
+        governance_calls
             .verify(
                 verifiers,
                 result,
-                facets_to_add,
-                &self.deployed_addresses,
-                expected_upgrade_facets,
-                &self.chain_upgrade_diamond_cut,
-                &self.contracts_config,
             )
             .await
-            .context("stage1")?;
-
-        let stage2 = GovernanceStage2Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage2_calls),
-        };
-
-        stage2.verify(verifiers, result).await.context("stage2")?;
-
-        self.contracts_config
-            .verify(
-                verifiers,
-                result,
-                expected_chain_creation_data,
-                expected_force_deployments,
-            )
-            .await;
+            .context("governance_calls")?;
 
         Ok(())
     }

@@ -80,46 +80,14 @@ impl NetworkVerifier {
         bytecode_verifier: &BytecodeVerifier,
         config: &UpgradeOutput,
     ) -> Self {
-        let mut create2_constructor_params = HashMap::new();
-        let mut create2_known_bytecodes = HashMap::new();
         let l1_provider = ProviderBuilder::new().on_http(l1_rpc.parse().unwrap());
-        println!(
-            "Adding {} transactions from create2",
-            config.transactions.len()
-        );
-
-        for transaction in &config.transactions {
-            if let Some((address, contract, constructor_param)) = check_create2_deploy(
-                l1_provider.clone(),
-                transaction,
-                &config.create2_factory_addr,
-                &config.create2_factory_salt,
-                bytecode_verifier,
-            )
-            .await
-            {
-                if create2_constructor_params
-                    .insert(address, constructor_param)
-                    .is_some()
-                {
-                    panic!("Duplicate deployment for {:#?}", address)
-                }
-
-                if create2_known_bytecodes
-                    .insert(address, contract.clone())
-                    .is_some()
-                {
-                    panic!("Duplicate deployment for {:#?}", address)
-                }
-            }
-        }
 
         Self {
             l1_chain_id: l1_provider.get_chain_id().await.unwrap(),
             l1_provider,
             l2_chain_id,
-            create2_constructor_params,
-            create2_known_bytecodes,
+            create2_constructor_params: HashMap::default(),
+            create2_known_bytecodes: HashMap::default(),
         }
     }
 

@@ -1,6 +1,5 @@
 use super::{
     call_list::{Call, CallList},
-    deployed_addresses::DeployedAddresses,
     fixed_force_deployment::FixedForceDeploymentsData,
     set_new_version_upgrade::{self, setNewVersionUpgradeCall},
 };
@@ -19,14 +18,15 @@ use alloy::{
 };
 use anyhow::Context;
 
-pub struct GovernanceStage0Calls {
+sol! {
+    function setServerNotifier(address _serverNotifier) external;
+}
+
+pub struct EcosystemAdminCalls {
     pub calls: CallList,
 }
 
-pub struct GovernanceStage1Calls {
-    pub calls: CallList,
-}
-pub struct GovernanceStage2Calls {
+pub struct GovernanceCalls {
     pub calls: CallList,
 }
 
@@ -85,249 +85,293 @@ sol! {
     function facets() external view returns (Facet[] memory result);
 }
 
-impl GovernanceStage1Calls {
-    /// Verifies an upgrade call by decoding its data and comparing the proxy and implementation addresses.
-    pub fn verify_upgrade_call(
-        &self,
-        verifiers: &Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        call: &Call,
-        proxy_address: &str,
-        implementation_address: &str,
-        call_payload: Option<&str>,
-    ) -> anyhow::Result<()> {
-        let data = &call.data;
-        let (proxy, implementation) = if let Some(expected_payload) = call_payload {
-            let decoded = upgradeAndCallCall::abi_decode(data, true)
-                .expect("Failed to decode upgradeAndCall call");
-            let expected_data = hex::decode(expected_payload)
-                .expect("Failed to decode expected call payload from hex");
-            if decoded.data != expected_data {
-                result.report_error(&format!(
-                    "Expected upgrade call data to be {:x?}, but got {:x?}",
-                    expected_data, decoded.data
-                ));
-            }
-            (decoded.proxy, decoded.implementation)
-        } else {
-            let decoded =
-                upgradeCall::abi_decode(data, true).expect("Failed to decode upgrade call");
-            (decoded.proxy, decoded.implementation)
-        };
-
-        if result.expect_address(verifiers, &proxy, proxy_address)
-            && result.expect_address(verifiers, &implementation, implementation_address)
-        {
-            result.report_ok(&format!(
-                "Upgrade call for {} ({}) to {} ({})",
-                proxy, proxy_address, implementation, implementation_address
-            ));
-        }
-        Ok(())
-    }
-
-    /// Verifies all the governance stage 1 calls.
-    /// Returns a pair of expected diamond cut data as well as expected fixed force deployments data.
+impl EcosystemAdminCalls {
     pub async fn verify(
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
-        expected_chain_creation_facets: FacetCutSet,
-        deployed_addresses: &DeployedAddresses,
-        expected_upgrade_facets: FacetCutSet,
-        expected_chain_upgrade_diamond_cut: &str,
-        config: &ContractsConfig,
-    ) -> anyhow::Result<(String, String)> {
-        result.print_info("== Gov stage 1 calls ===");
-
-        // Stage1 is where most of the upgrade happens.
-        // It usually consists of 3 parts:
-        // * upgrading proxies (we deploy a new implementation and point existing proxy to it)
-        // * upgrading chain creation parameters (telling the system how the new chains should look like)
-        // * saving the information on how to upgrade existing chains (set new version upgrade)
-
-        // Optionally for some upgrades we might have additional contract calls
-        // (for example when we added a new type of bridge, we also included a call to bridgehub to set its address etc)
+    ) -> anyhow::Result<()> {
+        result.print_info("== Ecosystem Admin Calls ===");
 
         let list_of_calls = [
-            // stage 0
-            ("bridgehub_proxy", "pauseMigration()"),
-            // stage 1 proper
-            // Proxy upgrades
-            ("transparent_proxy_admin", "upgrade(address,address)"),
-            ("transparent_proxy_admin", "upgrade(address,address)"),
-            ("transparent_proxy_admin", "upgrade(address,address)"),
-            ("transparent_proxy_admin", "upgrade(address,address)"),
-            ("transparent_proxy_admin", "upgrade(address,address)"),
-            // index = 5
-            (
-                "state_transition_manager",
-                "setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes),bytes))",
-            ),
-
-            ("state_transition_manager",
-            "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
-            ("rollup_da_manager", "updateDAPair(address,address,bool)"),
-            // stage 2
-            ("bridgehub_proxy", "unpauseMigration()")
+           // Set server notifier
+           ("chain_type_manager_proxy_addr", "setServerNotifier(address)"),
+           // Accept ownership
+           ("server_notifier_addr", "acceptOwnership()")
         ];
-        const STAGE_0_SHIFT: usize = 1;
-        const UPGRADE_CTM: usize = 0 + STAGE_0_SHIFT;
-        const UPGRADE_BRIDGEHUB: usize = 1 + STAGE_0_SHIFT;
-        const UPGRADE_L1_NULLIFIER: usize = 2 + STAGE_0_SHIFT;
-        const UPGRADE_L1_ASSET_ROUTER: usize = 3 + STAGE_0_SHIFT;
-        const UPGRADE_NATIVE_TOKEN_VAULT: usize = 4 + STAGE_0_SHIFT;
-        const SET_CHAIN_CREATION_INDEX: usize = 5 + STAGE_0_SHIFT;
-        const SET_NEW_VERSION_INDEX: usize = 6 + STAGE_0_SHIFT;
-        const UPDATE_ROLLUP_DA_PAIR: usize = 7 + STAGE_0_SHIFT;
+        const SET_SERVER_NOTIFIER: usize = 0;
 
         // For calls without any params, we don't have to check
-        // anything else. This is true for stage 0 and stage 2.
+        // anything else.
 
         self.calls.verify(&list_of_calls, verifiers, result)?;
 
-        // Verify each upgrade call.
-        self.verify_upgrade_call(
-            verifiers,
-            result,
-            &self.calls.elems[UPGRADE_CTM],
-            "state_transition_manager",
-            "state_transition_implementation_addr",
-            None,
-        )?;
-
-        self.verify_upgrade_call(
-            verifiers,
-            result,
-            &self.calls.elems[UPGRADE_BRIDGEHUB],
-            "bridgehub_proxy",
-            "bridgehub_implementation_addr",
-            None,
-        )?;
-
-        self.verify_upgrade_call(
-            verifiers,
-            result,
-            &self.calls.elems[UPGRADE_L1_NULLIFIER],
-            "l1_nullifier_proxy_addr",
-            "l1_nullifier_implementation_addr",
-            None,
-        )?;
-
-        self.verify_upgrade_call(
-            verifiers,
-            result,
-            &self.calls.elems[UPGRADE_L1_ASSET_ROUTER],
-            "l1_asset_router_proxy",
-            "l1_asset_router_implementation_addr",
-            None,
-        )?;
-        self.verify_upgrade_call(
-            verifiers,
-            result,
-            &self.calls.elems[UPGRADE_NATIVE_TOKEN_VAULT],
-            "native_token_vault",
-            "native_token_vault_implementation_addr",
-            None,
-        )?;
-
         // Verify setNewVersionUpgrade
         {
-            let calldata = &self.calls.elems[SET_NEW_VERSION_INDEX].data;
-            let data = setNewVersionUpgradeCall::abi_decode(calldata, true).unwrap();
+            let calldata = &self.calls.elems[SET_SERVER_NOTIFIER].data;
+            let data = setServerNotifierCall::abi_decode(calldata, true).unwrap();
 
-            if data.oldProtocolVersionDeadline != U256::MAX {
-                result.report_error("Wrong old protocol version deadline for stage1 call");
-            }
-
-            if data.newProtocolVersion != get_expected_new_protocol_version().into() {
-                result.report_error("Wrong new protocol version for stage1 call");
-            }
-            if data.oldProtocolVersion != get_expected_old_protocol_version().into() {
-                result.report_error("Wrong old protocol version for stage1 call");
-            }
-
-            let diamond_cut = data.diamondCut;
-            if alloy::hex::encode(diamond_cut.abi_encode())
-                != expected_chain_upgrade_diamond_cut[2..]
-            {
-                result.report_error(&format!(
-                    "Invalid chain upgrade diamond cut. Expected: {}\n Received: {}",
-                    expected_chain_upgrade_diamond_cut,
-                    alloy::hex::encode(diamond_cut.abi_encode())
-                ));
-            }
-
-            // should match state_transiton.default_upgrade
-            result.expect_address(verifiers, &diamond_cut.initAddress, "default_upgrade");
-
-            verity_facet_cuts(&diamond_cut.facetCuts, result, expected_upgrade_facets).await;
-
-            let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
-                &diamond_cut.initCalldata,
-                true,
-            )
-            .unwrap();
-
-            upgrade
-                ._proposedUpgrade
-                .verify(
-                    verifiers,
-                    result,
-                    deployed_addresses.l1_bytecodes_supplier_addr,
-                )
-                .await
-                .context("proposed upgrade")?;
+            result.expect_address(verifiers, &data._serverNotifier, "server_notifier_addr");
         }
 
-        // Verify setChainCreationParams call.
-        let (chain_creation_diamond_cut, force_deployments) = {
-            let decoded = setChainCreationParamsCall::abi_decode(
-                &self.calls.elems[SET_CHAIN_CREATION_INDEX].data,
-                true,
-            )
-            .expect("Failed to decode setChainCreationParams call");
-            decoded
-                ._chainCreationParams
-                .verify(verifiers, result, expected_chain_creation_facets)
-                .await?;
 
-            let ChainCreationParams {
-                diamondCut,
-                forceDeploymentsData,
-                ..
-            } = decoded._chainCreationParams;
-
-            (
-                hex::encode(diamondCut.abi_encode()),
-                hex::encode(forceDeploymentsData),
-            )
-        };
-
-        // Verify rollup_da_manager call
-        let decoded =
-            updateDAPairCall::abi_decode(&self.calls.elems[UPDATE_ROLLUP_DA_PAIR].data, true)
-                .expect("Failed to decode updateDAPair call");
-        if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
-            result.report_error(&format!(
-                "Expected l1_da_addr to be {}, but got {}",
-                deployed_addresses.rollup_l1_da_validator_addr, decoded.l1_da_addr
-            ));
-        }
-
-        if decoded.l2_da_addr
-            != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"]
-        {
-            result.report_error(&format!(
-                "Expected l2_da_addr to be {}, but got {}",
-                verifiers.address_verifier.name_to_address["rollup_l2_da_validator"],
-                decoded.l2_da_addr
-            ));
-        }
-
-        Ok((chain_creation_diamond_cut, force_deployments))
+        Ok(())
     }
 }
+
+impl GovernanceCalls {
+    pub async fn verify(
+        &self,
+        verifiers: &crate::verifiers::Verifiers,
+        result: &mut crate::verifiers::VerificationResult,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+// impl GovernanceStage1Calls {
+//     /// Verifies an upgrade call by decoding its data and comparing the proxy and implementation addresses.
+//     pub fn verify_upgrade_call(
+//         &self,
+//         verifiers: &Verifiers,
+//         result: &mut crate::verifiers::VerificationResult,
+//         call: &Call,
+//         proxy_address: &str,
+//         implementation_address: &str,
+//         call_payload: Option<&str>,
+//     ) -> anyhow::Result<()> {
+//         let data = &call.data;
+//         let (proxy, implementation) = if let Some(expected_payload) = call_payload {
+//             let decoded = upgradeAndCallCall::abi_decode(data, true)
+//                 .expect("Failed to decode upgradeAndCall call");
+//             let expected_data = hex::decode(expected_payload)
+//                 .expect("Failed to decode expected call payload from hex");
+//             if decoded.data != expected_data {
+//                 result.report_error(&format!(
+//                     "Expected upgrade call data to be {:x?}, but got {:x?}",
+//                     expected_data, decoded.data
+//                 ));
+//             }
+//             (decoded.proxy, decoded.implementation)
+//         } else {
+//             let decoded =
+//                 upgradeCall::abi_decode(data, true).expect("Failed to decode upgrade call");
+//             (decoded.proxy, decoded.implementation)
+//         };
+
+//         if result.expect_address(verifiers, &proxy, proxy_address)
+//             && result.expect_address(verifiers, &implementation, implementation_address)
+//         {
+//             result.report_ok(&format!(
+//                 "Upgrade call for {} ({}) to {} ({})",
+//                 proxy, proxy_address, implementation, implementation_address
+//             ));
+//         }
+//         Ok(())
+//     }
+
+//     /// Verifies all the governance stage 1 calls.
+//     /// Returns a pair of expected diamond cut data as well as expected fixed force deployments data.
+//     pub async fn verify(
+//         &self,
+//         verifiers: &crate::verifiers::Verifiers,
+//         result: &mut crate::verifiers::VerificationResult,
+//         expected_chain_creation_facets: FacetCutSet,
+//         deployed_addresses: &DeployedAddresses,
+//         expected_upgrade_facets: FacetCutSet,
+//         expected_chain_upgrade_diamond_cut: &str,
+//         config: &ContractsConfig,
+//     ) -> anyhow::Result<(String, String)> {
+//         result.print_info("== Gov stage 1 calls ===");
+
+//         // Stage1 is where most of the upgrade happens.
+//         // It usually consists of 3 parts:
+//         // * upgrading proxies (we deploy a new implementation and point existing proxy to it)
+//         // * upgrading chain creation parameters (telling the system how the new chains should look like)
+//         // * saving the information on how to upgrade existing chains (set new version upgrade)
+
+//         // Optionally for some upgrades we might have additional contract calls
+//         // (for example when we added a new type of bridge, we also included a call to bridgehub to set its address etc)
+
+//         let list_of_calls = [
+//             // stage 0
+//             ("bridgehub_proxy", "pauseMigration()"),
+//             // stage 1 proper
+//             // Proxy upgrades
+//             ("transparent_proxy_admin", "upgrade(address,address)"),
+//             ("transparent_proxy_admin", "upgrade(address,address)"),
+//             ("transparent_proxy_admin", "upgrade(address,address)"),
+//             ("transparent_proxy_admin", "upgrade(address,address)"),
+//             ("transparent_proxy_admin", "upgrade(address,address)"),
+//             // index = 5
+//             (
+//                 "state_transition_manager",
+//                 "setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes),bytes))",
+//             ),
+
+//             ("state_transition_manager",
+//             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
+//             ("rollup_da_manager", "updateDAPair(address,address,bool)"),
+//             // stage 2
+//             ("bridgehub_proxy", "unpauseMigration()")
+//         ];
+//         const STAGE_0_SHIFT: usize = 1;
+//         const UPGRADE_CTM: usize = 0 + STAGE_0_SHIFT;
+//         const UPGRADE_BRIDGEHUB: usize = 1 + STAGE_0_SHIFT;
+//         const UPGRADE_L1_NULLIFIER: usize = 2 + STAGE_0_SHIFT;
+//         const UPGRADE_L1_ASSET_ROUTER: usize = 3 + STAGE_0_SHIFT;
+//         const UPGRADE_NATIVE_TOKEN_VAULT: usize = 4 + STAGE_0_SHIFT;
+//         const SET_CHAIN_CREATION_INDEX: usize = 5 + STAGE_0_SHIFT;
+//         const SET_NEW_VERSION_INDEX: usize = 6 + STAGE_0_SHIFT;
+//         const UPDATE_ROLLUP_DA_PAIR: usize = 7 + STAGE_0_SHIFT;
+
+//         // For calls without any params, we don't have to check
+//         // anything else. This is true for stage 0 and stage 2.
+
+//         self.calls.verify(&list_of_calls, verifiers, result)?;
+
+//         // Verify each upgrade call.
+//         self.verify_upgrade_call(
+//             verifiers,
+//             result,
+//             &self.calls.elems[UPGRADE_CTM],
+//             "state_transition_manager",
+//             "state_transition_implementation_addr",
+//             None,
+//         )?;
+
+//         self.verify_upgrade_call(
+//             verifiers,
+//             result,
+//             &self.calls.elems[UPGRADE_BRIDGEHUB],
+//             "bridgehub_proxy",
+//             "bridgehub_implementation_addr",
+//             None,
+//         )?;
+
+//         self.verify_upgrade_call(
+//             verifiers,
+//             result,
+//             &self.calls.elems[UPGRADE_L1_NULLIFIER],
+//             "l1_nullifier_proxy_addr",
+//             "l1_nullifier_implementation_addr",
+//             None,
+//         )?;
+
+//         self.verify_upgrade_call(
+//             verifiers,
+//             result,
+//             &self.calls.elems[UPGRADE_L1_ASSET_ROUTER],
+//             "l1_asset_router_proxy",
+//             "l1_asset_router_implementation_addr",
+//             None,
+//         )?;
+//         self.verify_upgrade_call(
+//             verifiers,
+//             result,
+//             &self.calls.elems[UPGRADE_NATIVE_TOKEN_VAULT],
+//             "native_token_vault",
+//             "native_token_vault_implementation_addr",
+//             None,
+//         )?;
+
+//         // Verify setNewVersionUpgrade
+//         {
+//             let calldata = &self.calls.elems[SET_NEW_VERSION_INDEX].data;
+//             let data = setNewVersionUpgradeCall::abi_decode(calldata, true).unwrap();
+
+//             if data.oldProtocolVersionDeadline != U256::MAX {
+//                 result.report_error("Wrong old protocol version deadline for stage1 call");
+//             }
+
+//             if data.newProtocolVersion != get_expected_new_protocol_version().into() {
+//                 result.report_error("Wrong new protocol version for stage1 call");
+//             }
+//             if data.oldProtocolVersion != get_expected_old_protocol_version().into() {
+//                 result.report_error("Wrong old protocol version for stage1 call");
+//             }
+
+//             let diamond_cut = data.diamondCut;
+//             if alloy::hex::encode(diamond_cut.abi_encode())
+//                 != expected_chain_upgrade_diamond_cut[2..]
+//             {
+//                 result.report_error(&format!(
+//                     "Invalid chain upgrade diamond cut. Expected: {}\n Received: {}",
+//                     expected_chain_upgrade_diamond_cut,
+//                     alloy::hex::encode(diamond_cut.abi_encode())
+//                 ));
+//             }
+
+//             // should match state_transiton.default_upgrade
+//             result.expect_address(verifiers, &diamond_cut.initAddress, "default_upgrade");
+
+//             verity_facet_cuts(&diamond_cut.facetCuts, result, expected_upgrade_facets).await;
+
+//             let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
+//                 &diamond_cut.initCalldata,
+//                 true,
+//             )
+//             .unwrap();
+
+//             upgrade
+//                 ._proposedUpgrade
+//                 .verify(
+//                     verifiers,
+//                     result,
+//                     deployed_addresses.l1_bytecodes_supplier_addr,
+//                 )
+//                 .await
+//                 .context("proposed upgrade")?;
+//         }
+
+//         // Verify setChainCreationParams call.
+//         let (chain_creation_diamond_cut, force_deployments) = {
+//             let decoded = setChainCreationParamsCall::abi_decode(
+//                 &self.calls.elems[SET_CHAIN_CREATION_INDEX].data,
+//                 true,
+//             )
+//             .expect("Failed to decode setChainCreationParams call");
+//             decoded
+//                 ._chainCreationParams
+//                 .verify(verifiers, result, expected_chain_creation_facets)
+//                 .await?;
+
+//             let ChainCreationParams {
+//                 diamondCut,
+//                 forceDeploymentsData,
+//                 ..
+//             } = decoded._chainCreationParams;
+
+//             (
+//                 hex::encode(diamondCut.abi_encode()),
+//                 hex::encode(forceDeploymentsData),
+//             )
+//         };
+
+//         // Verify rollup_da_manager call
+//         let decoded =
+//             updateDAPairCall::abi_decode(&self.calls.elems[UPDATE_ROLLUP_DA_PAIR].data, true)
+//                 .expect("Failed to decode updateDAPair call");
+//         if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
+//             result.report_error(&format!(
+//                 "Expected l1_da_addr to be {}, but got {}",
+//                 deployed_addresses.rollup_l1_da_validator_addr, decoded.l1_da_addr
+//             ));
+//         }
+
+//         if decoded.l2_da_addr
+//             != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"]
+//         {
+//             result.report_error(&format!(
+//                 "Expected l2_da_addr to be {}, but got {}",
+//                 verifiers.address_verifier.name_to_address["rollup_l2_da_validator"],
+//                 decoded.l2_da_addr
+//             ));
+//         }
+
+//         Ok((chain_creation_diamond_cut, force_deployments))
+//     }
+// }
 
 impl ChainCreationParams {
     /// Verifies the chain creation parameters.
@@ -482,25 +526,25 @@ pub async fn verity_facet_cuts(
     }
 }
 
-impl GovernanceStage0Calls {
-    /// Stage0 is executed before the main upgrade even starts.
-    pub(crate) async fn verify(
-        &self,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-    ) -> anyhow::Result<()> {
-        result.print_info("== Gov stage 0 calls ===");
-        Ok(())
-    }
-}
-impl GovernanceStage2Calls {
-    /// Stage2 is executed after all the chains have upgraded.
-    pub(crate) async fn verify(
-        &self,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-    ) -> anyhow::Result<()> {
-        result.print_info("== Gov stage 2 calls ===");
-        Ok(())
-    }
-}
+// impl GovernanceStage0Calls {
+//     /// Stage0 is executed before the main upgrade even starts.
+//     pub(crate) async fn verify(
+//         &self,
+//         verifiers: &crate::verifiers::Verifiers,
+//         result: &mut crate::verifiers::VerificationResult,
+//     ) -> anyhow::Result<()> {
+//         result.print_info("== Gov stage 0 calls ===");
+//         Ok(())
+//     }
+// }
+// impl GovernanceStage2Calls {
+//     /// Stage2 is executed after all the chains have upgraded.
+//     pub(crate) async fn verify(
+//         &self,
+//         verifiers: &crate::verifiers::Verifiers,
+//         result: &mut crate::verifiers::VerificationResult,
+//     ) -> anyhow::Result<()> {
+//         result.print_info("== Gov stage 2 calls ===");
+//         Ok(())
+//     }
+// }

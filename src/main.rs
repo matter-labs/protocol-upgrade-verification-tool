@@ -92,17 +92,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.display_upgrade_data.unwrap_or_default() {
         println!(
-            "Stage0 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+            "Ecosystem Admin encoded upgrade data = {}",
+            encode_upgrade_data(&config.ecosystem_admin_calls_to_execute)
         );
 
         println!(
-            "Stage1 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
-        );
-        println!(
-            "Stage2 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
+            "Governance Calls encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_calls_to_execute)
         );
     }
 

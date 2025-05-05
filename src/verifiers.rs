@@ -59,6 +59,7 @@ impl Verifiers {
             &network_verifier,
             &bytecode_verifier,
             config,
+            bridgehub_address
         )
         .await;
 
