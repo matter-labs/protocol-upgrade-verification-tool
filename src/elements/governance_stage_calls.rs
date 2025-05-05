@@ -125,6 +125,44 @@ impl GovernanceCalls {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
     ) -> anyhow::Result<()> {
+        let list_of_calls = [
+           // register settlement layer
+           ("bridgehub_proxy_addr", "registerSettlementLayer(uint256,bool)"),
+           // Approve base token
+           ("gateway_base_token_addr", "approve(address,uint256)"),
+           // Gateway Add Chain Type Manager
+           ("bridgehub_proxy_addr", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+           // Set asset deployment tracker
+           ("l1_asset_router_addr", "setAssetDeploymentTracker(bytes32,address)"),
+           // Register CTM asset on L1
+           ("ctm_deployment_tracker_proxy_addr", "registerCTMAssetOnL1(address)"),
+           // Approve base token
+           ("gateway_base_token_addr", "approve(address,uint256)"),
+           // Set asset handler counterpart
+           ("bridgehub_proxy_addr", "requestL2TransactionTwoBridges((uint256,uint256,uint256,uint256,uint256,address,address,uint256,bytes))"),
+           // Approve base token
+           ("gateway_base_token_addr", "approve(address,uint256)"),
+           // Set address of GW Chaintype manager
+           ("bridgehub_proxy_addr", "requestL2TransactionTwoBridges((uint256,uint256,uint256,uint256,uint256,address,address,uint256,bytes))"),
+           // Approve base token
+           ("gateway_base_token_addr", "approve(address,uint256)"),
+           // Gateway Ownershup: RollupDAManager
+           ("bridgehub_proxy_addr", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+           // Approve base token
+           ("gateway_base_token_addr", "approve(address,uint256)"),
+           // Gateway Ownershup: ValidatorTimelock
+           ("bridgehub_proxy_addr", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+           // Approve base token
+           ("gateway_base_token_addr", "approve(address,uint256)"),
+           // Gateway Ownershup: ServerNotifier
+           ("bridgehub_proxy_addr", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+           // Approve base token
+           ("gateway_base_token_addr", "approve(address,uint256)"),
+           // Gateway Update DA Pair
+           ("bridgehub_proxy_addr", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+        ];
+
+        self.calls.verify(&list_of_calls, verifiers, result)?;
         Ok(())
     }
 }

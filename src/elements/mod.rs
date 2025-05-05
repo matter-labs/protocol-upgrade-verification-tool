@@ -33,6 +33,8 @@ pub struct UpgradeOutput {
     pub(crate) relayed_sl_da_validator: Address,
     pub(crate) validium_da_validator: Address,
 
+    pub(crate) server_notifier: Address,
+
     pub(crate) gateway_state_transition: GatewayStateTransition,
 }
 
@@ -153,6 +155,7 @@ impl UpgradeOutput {
         address_verifier.add_address(self.multicall3_addr, "multicall3_addr");
         address_verifier.add_address(self.relayed_sl_da_validator, "relayed_sl_da_validator");
         address_verifier.add_address(self.validium_da_validator, "validium_da_validator");
+        address_verifier.add_address(self.server_notifier, "server_notifier_addr");
         self.gateway_state_transition.add_to_verifier(address_verifier, network_verifier, bridgehub_addr).await;
     }
 

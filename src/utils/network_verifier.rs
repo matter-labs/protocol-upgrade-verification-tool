@@ -24,6 +24,8 @@ sol! {
         function getAllZKChainChainIDs() external view returns (uint256[] memory);
         function assetRouter() external view returns (address);
         function getZKChain(uint256 _chainId) external view returns (address chainAddress);
+        function baseToken(uint256 _chainId) external view returns (address);
+        function l1CtmDeployer() external view returns (address);
     }
 
     #[sol(rpc)]
@@ -61,12 +63,15 @@ pub struct BridgehubInfo {
     pub native_token_vault: Address,
     pub l1_nullifier: Address,
     pub l1_asset_router_proxy_addr: Address,
+    pub gateway_base_token_addr: Address,
+    pub ctm_deployment_tracker_proxy_addr: Address,
 }
 
 pub struct NetworkVerifier {
     pub l1_provider: RootProvider<Http<Client>>,
     pub l2_chain_id: u64,
     pub l1_chain_id: u64,
+    pub gw_chain_id: u64,
 
     // todo: maybe merge into one struct.
     pub create2_known_bytecodes: HashMap<Address, String>,
@@ -77,6 +82,7 @@ impl NetworkVerifier {
     pub async fn new(
         l1_rpc: String,
         l2_chain_id: u64,
+        gw_chain_id: u64,
         bytecode_verifier: &BytecodeVerifier,
         config: &UpgradeOutput,
     ) -> Self {
@@ -86,6 +92,7 @@ impl NetworkVerifier {
             l1_chain_id: l1_provider.get_chain_id().await.unwrap(),
             l1_provider,
             l2_chain_id,
+            gw_chain_id,
             create2_constructor_params: HashMap::default(),
             create2_known_bytecodes: HashMap::default(),
         }
@@ -194,6 +201,20 @@ impl NetworkVerifier {
 
         let l1_asset_router_proxy_addr = bridgehub.assetRouter().call().await.unwrap()._0;
 
+        let gateway_base_token_addr = bridgehub
+            .baseToken(U256::from(self.gw_chain_id))
+            .call()
+            .await
+            .unwrap()
+            ._0;
+        
+        let ctm_deployment_tracker_proxy_addr = bridgehub
+            .l1CtmDeployer()
+            .call()
+            .await
+            .unwrap()
+            ._0;
+
         BridgehubInfo {
             shared_bridge: shared_bridge_address,
             legacy_bridge,
@@ -207,6 +228,8 @@ impl NetworkVerifier {
             native_token_vault,
             l1_nullifier,
             l1_asset_router_proxy_addr,
+            gateway_base_token_addr,
+            ctm_deployment_tracker_proxy_addr
         }
     }
 }

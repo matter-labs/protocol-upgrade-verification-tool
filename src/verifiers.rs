@@ -42,11 +42,12 @@ impl Verifiers {
         contracts_commit: &str,
         l1_rpc: String,
         era_chain_id: u64,
+        gw_chain_id: u64,
         config: &UpgradeOutput,
     ) -> Self {
         let bytecode_verifier = BytecodeVerifier::init_from_github(contracts_commit).await;
         let network_verifier =
-            NetworkVerifier::new(l1_rpc, era_chain_id, &bytecode_verifier, config).await;
+            NetworkVerifier::new(l1_rpc, era_chain_id, gw_chain_id, &bytecode_verifier, config).await;
 
         if testnet_contracts && network_verifier.get_l1_chain_id() == 1 {
             panic!("Testnet contracts are not expected to be deployed on L1 mainnet - you passed --testnet-contracts flag.");

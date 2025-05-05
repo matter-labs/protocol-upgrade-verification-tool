@@ -4,6 +4,7 @@ governance_calls_to_execute: "0x000000000000000000000000000000000000000000000000
 multicall3_addr: "0x3FBAC5DA4f90016471aB02b583Af4BD256ECb02E"
 relayed_sl_da_validator: "0x719A5aE8dF7468C7E1C22278eD3fD472e9904604"
 validium_da_validator: "0xBbf2Aa2f2CF7fa6c185FF1873F0574Ea2718966D"
+server_notifier: "0xb19c325bf89547666c3c972a755b8960d6198224"
 
 gateway_state_transition:
   admin_facet_addr: "0x9208a64faEa37eC5A648F681DA16F9405e189015"

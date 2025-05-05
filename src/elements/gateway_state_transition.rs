@@ -197,15 +197,12 @@ impl GatewayStateTransition {
         address_verifier.add_address(self.verifier_addr, "gateway_verifier_addr");
 
         let bridgehub_info = network_verifier.get_bridgehub_info(bridgehub_addr).await;
-
+        
+        address_verifier.add_address(bridgehub_info.l1_asset_router_proxy_addr, "l1_asset_router_addr");
+        address_verifier.add_address(bridgehub_info.ctm_deployment_tracker_proxy_addr, "ctm_deployment_tracker_proxy_addr");
+        address_verifier.add_address(bridgehub_info.gateway_base_token_addr, "gateway_base_token_addr");
+        address_verifier.add_address(bridgehub_addr, "bridgehub_proxy_addr");
         address_verifier.add_address(bridgehub_info.stm_address, "chain_type_manager_proxy_addr");
-
-        let server_notifier_addr = ChainTypeManager::new(
-            bridgehub_info.stm_address,
-            network_verifier.get_l1_provider()
-        ).serverNotifierAddress().call().await.unwrap().serverNotifierAddress;
-
-        address_verifier.add_address(server_notifier_addr, "server_notifier_addr");
     }
 
     pub async fn verify(
@@ -216,67 +213,4 @@ impl GatewayStateTransition {
         Ok(())
     }
 
-
-    // async fn verify_admin_facet(
-    //     &self,
-    //     verifiers: &crate::verifiers::Verifiers,
-    //     result: &mut crate::verifiers::VerificationResult,
-    // ) -> Result<()> {
-    //     let chain_id = verifiers.network_verifier.get_l1_chain_id();
-
-    //     result.expect_create2_params(
-    //         verifiers,
-    //         &self.admin_facet_addr,
-    //         AdminFacet::constructorCall::new((U256::from(chain_id), self.da_manager_addr))
-    //             .abi_encode(),
-    //         "l1-contracts/AdminFacet",
-    //     );
-    //     Ok(())
-    // }
-
-    async fn verify_executor_facet(
-        &self,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-    ) -> Result<()> {
-        result.expect_create2_params(
-            verifiers,
-            &self.executor_facet_addr,
-            ExecutorFacet::constructorCall::new((U256::from(verifiers.network_verifier.l1_chain_id),)).abi_encode(),
-            "l1-contracts/ExecutorFacet",
-        );
-        Ok(())
-    }
-
-    async fn verify_getters_facet(
-        &self,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-    ) -> Result<()> {
-        result.expect_create2_params(
-            verifiers,
-            &self.getters_facet_addr,
-            Vec::new(),
-            "l1-contracts/GettersFacet",
-        );
-        Ok(())
-    }
-
-    async fn verify_mailbox_facet(
-        &self,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-    ) -> Result<()> {
-        result.expect_create2_params(
-            verifiers,
-            &self.mailbox_facet_addr,
-            MailboxFacet::constructorCall::new((
-                U256::from(verifiers.network_verifier.get_era_chain_id()),
-                U256::from(verifiers.network_verifier.l1_chain_id),
-            ))
-            .abi_encode(),
-            "l1-contracts/MailboxFacet",
-        );
-        Ok(())
-    }
 }

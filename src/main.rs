@@ -9,7 +9,7 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "13cc1366fd348772ccfac5a585c4e4701a5dfe45";
+const DEFAULT_CONTRACTS_COMMIT: &str = "f6c41ebc5cc0c031a72342d2ca4431954574a114";
 // Current commit after v27 merge to main branch (PR 3713)
 const DEFAULT_ERA_COMMIT: &str = "9cbacb86634f00cfabb55f94a73b5c564c74bf36";
 
@@ -58,6 +58,10 @@ struct Args {
     // fixme: can it be an address rightaway?
     #[clap(long)]
     bridgehub_address: String,
+
+    // Gateway Chain Id
+    #[clap(long)]
+    gw_chain_id: u64,
 }
 
 #[tokio::main]
@@ -79,6 +83,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &args.contracts_commit,
         args.l1_rpc,
         args.era_chain_id,
+        args.gw_chain_id,
         &config,
     )
     .await;

@@ -3,7 +3,7 @@ use alloy::primitives::{map::HashMap, Address};
 use crate::UpgradeOutput;
 
 use super::{
-    apply_l2_to_l1_alias, bytecode_verifier::BytecodeVerifier, network_verifier::{self, NetworkVerifier},
+    bytecode_verifier::BytecodeVerifier, network_verifier::NetworkVerifier,
 };
 
 pub struct AddressVerifier {
