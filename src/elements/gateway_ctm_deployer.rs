@@ -9,11 +9,11 @@ use super::{
 use crate::{
     elements::{initialize_data_new_chain::InitializeDataNewChain, ContractsConfig},
     get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::{encode_asset_id, facet_cut_set::{self, FacetCutSet, FacetInfo}, fixed_bytes20_to_32},
-    verifiers::Verifiers,
+    utils::{compute_create2_factory_deployed_address_zk, encode_asset_id, facet_cut_set::{self, FacetCutSet, FacetInfo}, fixed_bytes20_to_32},
+    verifiers::{VerificationResult, Verifiers},
 };
 use alloy::{
-    dyn_abi::abi, hex, primitives::{ruint::aliases::U256, Address, Bytes, Uint}, sol, sol_types::{SolCall, SolValue}
+    dyn_abi::abi, hex, primitives::{keccak256, ruint::aliases::U256, Address, Bytes, FixedBytes, Uint}, providers::Provider, sol, sol_types::{SolCall, SolValue}
 };
 use anyhow::Context;
 
@@ -99,6 +99,75 @@ sol!{
         /// @notice The latest protocol version.
         uint256 protocolVersion;
     }
+
+    /// @notice Addresses of state transition related contracts.
+    // solhint-disable-next-line gas-struct-packing
+    struct StateTransitionContracts {
+        /// @notice Address of the ChainTypeManager proxy contract.
+        address chainTypeManagerProxy;
+        /// @notice Address of the ChainTypeManager implementation contract.
+        address chainTypeManagerImplementation;
+        /// @notice Address of the Verifier contract.
+        address verifier;
+        /// @notice Address of the VerifierPlonk contract.
+        address verifierPlonk;
+        /// @notice Address of the VerifierFflonk contract.
+        address verifierFflonk;
+        /// @notice Address of the Admin facet contract.
+        address adminFacet;
+        /// @notice Address of the Mailbox facet contract.
+        address mailboxFacet;
+        /// @notice Address of the Executor facet contract.
+        address executorFacet;
+        /// @notice Address of the Getters facet contract.
+        address gettersFacet;
+        /// @notice Address of the DiamondInit contract.
+        address diamondInit;
+        /// @notice Address of the GenesisUpgrade contract.
+        address genesisUpgrade;
+        /// @notice Address of the ValidatorTimelock contract.
+        address validatorTimelock;
+        /// @notice Address of the ProxyAdmin for ChainTypeManager.
+        address chainTypeManagerProxyAdmin;
+        /// @notice Address of the ServerNotifier proxy contract.
+        address serverNotifierProxy;
+        /// @notice Address of the ServerNotifier implementation contract.
+        address serverNotifierImplementation;
+    }
+
+    /// @notice Addresses of Data Availability (DA) related contracts.
+    // solhint-disable-next-line gas-struct-packing
+    struct DAContracts {
+        /// @notice Address of the RollupDAManager contract.
+        address rollupDAManager;
+        /// @notice Address of the RelayedSLDAValidator contract.
+        address relayedSLDAValidator;
+        /// @notice Address of the ValidiumL1DAValidator contract.
+        address validiumDAValidator;
+    }
+
+    /// @notice Collection of all deployed contracts by the GatewayCTMDeployer.
+    struct DeployedContracts {
+        /// @notice Address of the Multicall3 contract.
+        address multicall3;
+        /// @notice Struct containing state transition related contracts.
+        StateTransitionContracts stateTransition;
+        /// @notice Struct containing Data Availability related contracts.
+        DAContracts daContracts;
+        /// @notice Encoded data for the diamond cut operation.
+        bytes diamondCutData;
+    }
+    
+    #[sol(rpc)]
+    contract GatewayCTMDeployer {    
+        /// @notice Returns deployed contracts.
+        /// @dev Just using `public` mode for the `deployedContracts` field did not work
+        /// due to internal issues during testing.
+        /// @return contracts The struct with information about the deployed contracts.
+        function getDeployedContracts() external view returns (DeployedContracts memory contracts) {
+            contracts = deployedContracts;
+        }
+    }    
 }
 
 impl GatewayCTMDeployerConfig {
@@ -110,4 +179,99 @@ impl GatewayCTMDeployerConfig {
         // TODO: verify all the fields provided here
         Ok(())
     }
+}
+
+impl DeployedContracts {
+    #[allow(clippy::too_many_lines)]
+    pub fn verify(
+        &self,
+        verifiers: &crate::verifiers::Verifiers,
+        result: &mut crate::verifiers::VerificationResult,
+    ) -> anyhow::Result<()> {
+        // ── top‑level ───────────────────────────────────────────────────────────
+        // FIXME: this one is missing
+        result.expect_address(verifiers, &self.multicall3, "multicall3_addr");
+
+        // ── state‑transition contracts ─────────────────────────────────────────
+        let st = &self.stateTransition;
+        result.expect_address(verifiers, &st.chainTypeManagerProxy,          "gateway_chain_type_manager_proxy_addr");
+        result.expect_address(verifiers, &st.chainTypeManagerImplementation, "gateway_chain_type_manager_implementation_addr");
+        result.expect_address(verifiers, &st.verifier,                       "gateway_verifier_addr");
+        
+        // Note, that we do not cross check verifierPlonk and Fflonk since these are in the constructor params of the Verifier
+        // and so are implicitly checked already
+        // FIXME: the below 2 are missing the output struct
+        result.expect_address(verifiers, &st.verifierPlonk,                  "gateway_verifier_plonk_addr");
+        result.expect_address(verifiers, &st.verifierFflonk,                 "gateway_verifier_fflonk_addr");
+        
+        result.expect_address(verifiers, &st.adminFacet,                     "gateway_admin_facet_addr");
+        result.expect_address(verifiers, &st.mailboxFacet,                   "gateway_mailbox_facet_addr");
+        result.expect_address(verifiers, &st.executorFacet,                  "gateway_executor_facet_addr");
+        result.expect_address(verifiers, &st.gettersFacet,                   "gateway_getters_facet_addr");
+        result.expect_address(verifiers, &st.diamondInit,                    "gateway_diamond_init_addr");
+        result.expect_address(verifiers, &st.genesisUpgrade,                 "gateway_genesis_upgrade_addr");
+        result.expect_address(verifiers, &st.validatorTimelock,              "gateway_validator_timelock_addr"); 
+        
+        // FIXME: the below 3 are missing
+        result.expect_address(verifiers, &st.chainTypeManagerProxyAdmin,     "gateway_chain_type_manager_proxy_admin_addr");
+        result.expect_address(verifiers, &st.serverNotifierProxy,            "gateway_server_notifier_proxy_addr");
+        result.expect_address(verifiers, &st.serverNotifierImplementation,   "gateway_server_notifier_implementation_addr");
+
+        // ── data‑availability contracts ───────────────────────────────────────
+        // all of the below are missing missing
+        let da = &self.daContracts;
+        result.expect_address(verifiers, &da.rollupDAManager,        "rollup_da_manager_addr");
+        result.expect_address(verifiers, &da.relayedSLDAValidator,   "relayed_slda_validator_addr");
+        result.expect_address(verifiers, &da.validiumDAValidator,    "validium_da_validator_addr");
+
+        // NOTE: `diamondCutData` is raw bytes, not an address, so no check needed.
+
+        Ok(())
+    }
+
+}
+
+pub async fn verify_gateway_ctm_deployer(
+    gateway_ctm_deployer_addr: Address,
+    constructor_params: String,
+    salt: FixedBytes<32>,
+    verifiers: &Verifiers,
+    result: &mut VerificationResult,
+) -> anyhow::Result<()> {
+    let gw_provider = verifiers.network_verifier.gw_provider.clone();
+    
+    // Firstly, let's double check that the code is expected.
+    let gateway_ctm_deployer_bytecode = gw_provider.get_code_at(gateway_ctm_deployer_addr).await?;
+
+    let constructor_params = hex::decode(&constructor_params).unwrap();
+
+    let expected_address = compute_create2_factory_deployed_address_zk(
+        salt,
+        *verifiers.bytecode_verifier.file_to_zk_bytecode_hash("l1-contracts/GatewayCTMDeployer").expect("Can not find l1-contracts/GatewayCTMDeployer"),
+        keccak256(&constructor_params)
+    );
+
+    if expected_address != gateway_ctm_deployer_addr {
+        result.report_error(&format!("Unexpected address for GatewayCTMDeployer. Expected: {}, Found: {}", expected_address, gateway_ctm_deployer_addr));
+        return Ok(());
+    }
+    if gateway_ctm_deployer_bytecode.is_empty() {
+        result.report_error(&format!("Bytecode at supposed GatewayCTMDeployer is empty"));
+        return Ok(());
+    }
+
+    let config = GatewayCTMDeployerConfig::abi_decode(&constructor_params, true)?;
+
+    config.verify(
+        verifiers,
+        result
+    )?;
+
+    let gateway_ctm_deployer_contract = GatewayCTMDeployer::new(
+        gateway_ctm_deployer_addr,
+        gw_provider.clone()
+    );
+    let deployed_contracts = gateway_ctm_deployer_contract.getDeployedContracts().call().await?;
+    
+    Ok(())
 }

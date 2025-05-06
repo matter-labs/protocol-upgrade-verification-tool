@@ -8,10 +8,11 @@ use alloy::transports::http::Http;
 use reqwest::Client;
 use std::collections::HashMap;
 
+use crate::elements::governance_stage_calls::requestL2TransactionDirectCall;
 use crate::UpgradeOutput;
 
 use super::bytecode_verifier::BytecodeVerifier;
-use super::compute_create2_address_evm;
+use super::{address_from_short_hex, compute_create2_address_evm, compute_create2_address_zk};
 
 sol! {
     #[sol(rpc)]
@@ -44,6 +45,12 @@ sol! {
     }
 
     function create2AndTransferParams(bytes memory bytecode, bytes32 salt, address owner);
+
+    function create2(
+        bytes32 _salt,
+        bytes32 _bytecodeHash,
+        bytes calldata _input
+    ) external payable returns (address);
 }
 
 const EIP1967_PROXY_ADMIN_SLOT: &str =
@@ -69,6 +76,8 @@ pub struct BridgehubInfo {
 
 pub struct NetworkVerifier {
     pub l1_provider: RootProvider<Http<Client>>,
+    pub gw_provider: RootProvider<Http<Client>>,
+
     pub l2_chain_id: u64,
     pub l1_chain_id: u64,
     pub gw_chain_id: u64,
@@ -81,18 +90,20 @@ pub struct NetworkVerifier {
 impl NetworkVerifier {
     pub async fn new(
         l1_rpc: String,
+        gw_rpc: String,
         l2_chain_id: u64,
-        gw_chain_id: u64,
         bytecode_verifier: &BytecodeVerifier,
         config: &UpgradeOutput,
     ) -> Self {
         let l1_provider = ProviderBuilder::new().on_http(l1_rpc.parse().unwrap());
+        let gw_provider = ProviderBuilder::new().on_http(gw_rpc.parse().unwrap());
 
         Self {
             l1_chain_id: l1_provider.get_chain_id().await.unwrap(),
+            gw_chain_id: gw_provider.get_chain_id().await.unwrap(),
             l1_provider,
             l2_chain_id,
-            gw_chain_id,
+            gw_provider,
             create2_constructor_params: HashMap::default(),
             create2_known_bytecodes: HashMap::default(),
         }
@@ -301,6 +312,59 @@ async fn check_create2_deploy(
             compute_create2_address_evm(create2_and_transfer_addr, salt, keccak256(&x.bytecode));
 
         return Some((contract_addr, name, params));
+    }
+
+    None
+}
+
+async fn check_gw_create2_deploy(
+    l1_provider: RootProvider<Http<Client>>,
+    bridgehub_addr: &Address,
+    transaction: &str,
+    bytecode_verifier: &BytecodeVerifier,
+) -> Option<(Address, String, Vec<u8>)> {
+    let l2_create2_addr = address_from_short_hex("10000");
+
+    let tx_hash: TxHash = transaction.parse().unwrap();
+
+    let tx = l1_provider
+        .get_transaction_by_hash(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+
+    if tx.to() != Some(*bridgehub_addr) {
+        return None;
+    }
+
+    let inner_tx = requestL2TransactionDirectCall::abi_decode(tx.input(), false);
+
+    if let Ok(l2_call) = inner_tx {
+        if l2_call._request.l2Contract != l2_create2_addr {
+            return None;
+        }
+
+        let create2_data = create2Call::abi_decode(&l2_call._request.l2Calldata, false);
+
+        if let Ok(create2_call) = create2_data {
+            if create2_call._salt != vec![0u8; 32].as_slice() {
+                println!("Salt mismatch: {:?} != {:?}", create2_call._salt, 0);
+                return None;
+            }
+
+            let addr = compute_create2_address_zk(
+                l2_call._request.l2Contract,
+                create2_call._salt,
+                create2_call._bytecodeHash,
+                keccak256(create2_call._input.to_vec()),
+            );
+
+            if let Some(file_name) =
+                bytecode_verifier.zk_bytecode_hash_to_file(&create2_call._bytecodeHash)
+            {
+                return Some((addr, file_name.to_string(), create2_call._input.to_vec()));
+            }
+        }
     }
 
     None

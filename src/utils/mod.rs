@@ -64,6 +64,19 @@ pub fn compute_create2_address_zk(
     Address::from_slice(&keccak256(address_payload).0[12..])
 }
 
+pub fn compute_create2_factory_deployed_address_zk(
+    salt: FixedBytes<32>,
+    bytecode_hash: FixedBytes<32>,
+    constructor_input_hash: FixedBytes<32>,
+) -> Address {
+    compute_create2_address_zk(
+        address_from_short_hex("10000"),
+        salt,
+        bytecode_hash,
+        constructor_input_hash
+    )   
+}
+
 pub fn compute_create2_address_evm(
     sender: Address,
     salt: FixedBytes<32>,

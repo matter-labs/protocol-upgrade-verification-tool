@@ -61,7 +61,7 @@ struct Args {
 
     // Gateway Chain Id
     #[clap(long)]
-    gw_chain_id: u64,
+    gw_rpc: String,
 }
 
 #[tokio::main]
@@ -82,8 +82,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &args.era_commit,
         &args.contracts_commit,
         args.l1_rpc,
+        args.gw_rpc,
         args.era_chain_id,
-        args.gw_chain_id,
         &config,
     )
     .await;
@@ -93,8 +93,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let r = config.verify(
         &verifiers, 
         &mut result,
-        verifiers.network_verifier.l1_chain_id,
-        args.gw_chain_id,
     ).await;
 
     println!("{}", result);

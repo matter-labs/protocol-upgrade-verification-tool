@@ -170,8 +170,6 @@ impl UpgradeOutput {
         &self,
         verifiers: &Verifiers,
         result: &mut VerificationResult,
-        l1_chain_id: u64,
-        gateway_chain_id: u64,
     ) -> anyhow::Result<()> {
         result.print_info("== Config verification ==");
         
@@ -208,8 +206,6 @@ impl UpgradeOutput {
             .verify(
                 verifiers,
                 result,
-                l1_chain_id,
-                gateway_chain_id,
                 self.refund_recipient
             )
             .await

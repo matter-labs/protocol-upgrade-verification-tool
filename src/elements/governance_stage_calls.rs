@@ -325,8 +325,6 @@ impl GovernanceCalls {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
-        l1_chain_id: u64,
-        gateway_chain_id: u64,
         refund_recipient: Address
     ) -> anyhow::Result<()> {
         let list_of_calls = [
@@ -367,7 +365,7 @@ impl GovernanceCalls {
         ];
         self.calls.verify(&list_of_calls, verifiers, result)?;
 
-        let gateway_chain_id = U256::from(gateway_chain_id);
+        let gateway_chain_id = U256::from(verifiers.network_verifier.gw_chain_id);
         let l1_ctm_address = verifiers.address_verifier.name_to_address["chain_type_manager_proxy_addr"];
         let expected_asset_data = fixed_bytes20_to_32(l1_ctm_address.0);  
 
@@ -454,7 +452,7 @@ impl GovernanceCalls {
             result.expect_address(verifiers, &data.assetHandler, "l2_bridgehub");
 
             let expected_asset_id = encode_asset_id(
-                U256::from(l1_chain_id),
+                U256::from(verifiers.network_verifier.l1_chain_id),
                 expected_asset_data,
                 verifiers.address_verifier.name_to_address["ctm_deployment_tracker_proxy_addr"]
             );
