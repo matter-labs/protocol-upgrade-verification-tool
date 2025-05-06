@@ -22,6 +22,7 @@ pub mod governance_stage_calls;
 pub mod initialize_data_new_chain;
 pub mod protocol_version;
 pub mod set_new_version_upgrade;
+pub mod gateway_ctm_deployer;
 
 #[derive(Debug, Deserialize)]
 pub struct UpgradeOutput {
@@ -36,6 +37,10 @@ pub struct UpgradeOutput {
     pub(crate) server_notifier: Address,
 
     pub(crate) gateway_state_transition: GatewayStateTransition,
+    pub(crate) gateway_server_notifier: Address,
+    pub(crate) old_rollup_l2_da_validator: Address,
+    pub(crate) gateway_ctm_deployer_create2_data: String,
+    pub(crate) gateway_ctm_deployer: Address,
 
     pub(crate) refund_recipient: Address,
 }

@@ -368,7 +368,7 @@ impl GovernanceCalls {
         self.calls.verify(&list_of_calls, verifiers, result)?;
 
         let gateway_chain_id = U256::from(gateway_chain_id);
-        let l1_ctm_address = verifiers.address_verifier.name_to_address["ctm_proxy_address"];
+        let l1_ctm_address = verifiers.address_verifier.name_to_address["chain_type_manager_proxy_addr"];
         let expected_asset_data = fixed_bytes20_to_32(l1_ctm_address.0);  
 
         let mut call_index = 0;
@@ -390,7 +390,7 @@ impl GovernanceCalls {
             result.expect_address(
                 verifiers, 
                 &params.toWhom, 
-                "l1_asset_router_proxy"
+                "l1_asset_router_addr"
             );
 
             call_index += 1;
@@ -405,7 +405,7 @@ impl GovernanceCalls {
 
             let inner_params = addChainTypeManagerCall::abi_decode(&params._request.l2Calldata, true)?;
 
-            result.expect_address(verifiers, &inner_params._chainTypeManager, "gw_ctm_address");
+            result.expect_address(verifiers, &inner_params._chainTypeManager, "gateway_chain_type_manager_proxy_addr");
 
             call_index += 1;
         }
@@ -417,7 +417,7 @@ impl GovernanceCalls {
             if params._assetRegistrationData != expected_asset_data {
                 result.report_error(&format!("Unexpected asset registration data. Expected: {}, Received: {}", expected_asset_data, params._assetRegistrationData));
             }
-            result.expect_address(verifiers, &params._assetDeploymentTracker, "l1_ctm_deployment_tracker");
+            result.expect_address(verifiers, &params._assetDeploymentTracker, "ctm_deployment_tracker_proxy_addr");
 
 
             call_index += 1;
@@ -426,7 +426,7 @@ impl GovernanceCalls {
         // 4: registerCTMAssetOnL1
         {
             let params = registerCTMAssetOnL1Call::abi_decode(&self.calls.elems[call_index].data, true)?;
-            result.expect_address(verifiers, &params._ctmAddress, "ctm_proxy_address");
+            result.expect_address(verifiers, &params._ctmAddress, "chain_type_manager_proxy_addr");
 
             call_index += 1;
         }
@@ -437,7 +437,7 @@ impl GovernanceCalls {
             result.expect_address(
                 verifiers, 
                 &params.toWhom, 
-                "l1_asset_router_proxy"
+                "l1_asset_router_addr"
             );
 
             call_index += 1;
@@ -448,7 +448,7 @@ impl GovernanceCalls {
             let params = requestL2TransactionTwoBridgesCall::abi_decode(&self.calls.elems[call_index].data, true)?;
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
 
-            result.expect_address(verifiers, &params._request.secondBridgeAddress, "l1_asset_router_proxy");
+            result.expect_address(verifiers, &params._request.secondBridgeAddress, "l1_asset_router_addr");
 
             let data = SetAssetHandlerCounterpartData::parse(params._request.secondBridgeCalldata.clone().into())?;
             result.expect_address(verifiers, &data.assetHandler, "l2_bridgehub");
@@ -456,7 +456,7 @@ impl GovernanceCalls {
             let expected_asset_id = encode_asset_id(
                 U256::from(l1_chain_id),
                 expected_asset_data,
-                verifiers.address_verifier.name_to_address["l1_ctm_deployment_tracker"]
+                verifiers.address_verifier.name_to_address["ctm_deployment_tracker_proxy_addr"]
             );
             if data.chainAssetId != expected_asset_id {
                 result.report_error(&format!("Invalid asset id. Expected: {}, Recevied: {}", expected_asset_id, data.chainAssetId));
@@ -471,7 +471,7 @@ impl GovernanceCalls {
             result.expect_address(
                 verifiers, 
                 &params.toWhom, 
-                "l1_asset_router_proxy"
+                "l1_asset_router_addr"
             );
 
             call_index += 1;
@@ -482,11 +482,11 @@ impl GovernanceCalls {
             let params = requestL2TransactionTwoBridgesCall::abi_decode(&self.calls.elems[call_index].data, true)?;
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
 
-            result.expect_address(verifiers, &params._request.secondBridgeAddress, "ctm_proxy_address");
+            result.expect_address(verifiers, &params._request.secondBridgeAddress, "chain_type_manager_proxy_addr");
 
             let data = CTMDeploymentTrackerSecondBridgeData::parse(params._request.secondBridgeCalldata.clone().into())?;
-            result.expect_address(verifiers, &data.l1CTMAddress, "ctm_proxy_address");
-            result.expect_address(verifiers, &data.gatewayCTMAddress, "gw_ctm_proxy_address");
+            result.expect_address(verifiers, &data.l1CTMAddress, "chain_type_manager_proxy_addr");
+            result.expect_address(verifiers, &data.gatewayCTMAddress, "gateway_chain_type_manager_proxy_addr");
 
             call_index += 1;
         }
@@ -497,7 +497,7 @@ impl GovernanceCalls {
             result.expect_address(
                 verifiers, 
                 &params.toWhom, 
-                "l1_asset_router_proxy"
+                "l1_asset_router_addr"
             );
 
             call_index += 1;
@@ -509,7 +509,7 @@ impl GovernanceCalls {
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
             result.expect_address(verifiers, &params._request.l2Contract, "gw_rollup_da_manager");
             // We just parse to double check correctness
-            acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true);
+            acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true)?;
 
             call_index += 1;
         }
@@ -520,7 +520,7 @@ impl GovernanceCalls {
             result.expect_address(
                 verifiers, 
                 &params.toWhom, 
-                "l1_asset_router_proxy"
+                "l1_asset_router_addr"
             );
 
             call_index += 1;
@@ -532,7 +532,7 @@ impl GovernanceCalls {
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
             result.expect_address(verifiers, &params._request.l2Contract, "gw_validator_timelock");
             // We just parse to double check correctness
-            acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true);
+            acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true)?;
 
             call_index += 1;
         }
@@ -543,7 +543,7 @@ impl GovernanceCalls {
             result.expect_address(
                 verifiers, 
                 &params.toWhom, 
-                "l1_asset_router_proxy"
+                "l1_asset_router_addr"
             );
 
             call_index += 1;
@@ -553,9 +553,10 @@ impl GovernanceCalls {
         {
             let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
+            // FIXME: this one is missing from the output
             result.expect_address(verifiers, &params._request.l2Contract, "gw_server_notifier");
             // We just parse to double check correctness
-            acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true);
+            acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true)?;
 
             call_index += 1;
         }
@@ -566,7 +567,7 @@ impl GovernanceCalls {
             result.expect_address(
                 verifiers, 
                 &params.toWhom, 
-                "l1_asset_router_proxy"
+                "l1_asset_router_addr"
             );
 
             call_index += 1;
@@ -584,10 +585,9 @@ impl GovernanceCalls {
                 result.report_error("Expected whitelist of the old DA validator pair, found unwhitelisting");
             }
 
-            result.expect_address(verifiers, &data.l1_da_addr, "gw_sl_relayed_da_validator");
+            result.expect_address(verifiers, &data.l1_da_addr, "relayed_sl_da_validator");
+            // FIXME: add this into the addresses.
             result.expect_address(verifiers, &data.l2_da_addr, "old_l2_da_validator");
-
-            call_index += 1;
         }
 
     Ok(())
