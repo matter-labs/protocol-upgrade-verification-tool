@@ -1,20 +1,18 @@
+use std::any;
+
 use super::{
     call_list::{Call, CallList},
     fixed_force_deployment::FixedForceDeploymentsData,
     set_new_version_upgrade::{self, setNewVersionUpgradeCall},
 };
 use crate::{
-    elements::initialize_data_new_chain::InitializeDataNewChain,
-    elements::ContractsConfig,
+    elements::{initialize_data_new_chain::InitializeDataNewChain, ContractsConfig},
     get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
+    utils::{encode_asset_id, facet_cut_set::{self, FacetCutSet, FacetInfo}, fixed_bytes20_to_32},
     verifiers::Verifiers,
 };
 use alloy::{
-    hex,
-    primitives::U256,
-    sol,
-    sol_types::{SolCall, SolValue},
+    dyn_abi::abi, hex, primitives::{ruint::aliases::U256, Address, Bytes, Uint}, sol, sol_types::{SolCall, SolValue}
 };
 use anyhow::Context;
 
@@ -83,7 +81,210 @@ sol! {
     }
 
     function facets() external view returns (Facet[] memory result);
+
+    function registerSettlementLayer(uint256 settlementLayerChainId, bool iaAllowed); 
+    function approve(address toWhom, uint256 amount); 
+    
+    struct L2TransactionRequestDirectInput {
+        uint256 chainId;
+        uint256 mintValue;
+        address l2Contract;
+        uint256 l2Value;
+        bytes l2Calldata;
+        uint256 l2GasLimit;
+        uint256 l2GasPerPubdataByteLimit;
+        bytes[] factoryDeps;
+        address refundRecipient;
+    }
+
+    function requestL2TransactionDirect(
+        L2TransactionRequestDirectInput calldata _request
+    ) external;
+
+    function addChainTypeManager(address _chainTypeManager);
+    
+    function setAssetDeploymentTracker(
+        bytes32 _assetRegistrationData,
+        address _assetDeploymentTracker
+    ) external;
+
+    function registerCTMAssetOnL1(address _ctmAddress) external; 
+
+    struct L2TransactionRequestTwoBridgesOuter {
+        uint256 chainId;
+        uint256 mintValue;
+        uint256 l2Value;
+        uint256 l2GasLimit;
+        uint256 l2GasPerPubdataByteLimit;
+        address refundRecipient;
+        address secondBridgeAddress;
+        uint256 secondBridgeValue;
+        bytes secondBridgeCalldata;
+    }
+
+    function requestL2TransactionTwoBridges(
+        L2TransactionRequestTwoBridgesOuter calldata _request
+    ) external;
+
+    struct SetAssetHandlerCounterpartData {
+        bytes32 chainAssetId;
+        address assetHandler;
+    }
+
+    struct CTMDeploymentTrackerSecondBridgeData {
+        address l1CTMAddress;
+        address gatewayCTMAddress;
+    }
+
+    function acceptOwnership() external;
 }
+
+const EXPECTED_L1_TO_L2_GAS_LIMIT: u64 = 72_000_000;
+const EXPECTED_GAS_PER_PUBDATA: u64 = 800;
+
+impl requestL2TransactionDirectCall {
+    fn verify_basic_params(
+        &self,
+        result: &mut crate::verifiers::VerificationResult,
+        expected_chain_id: U256,
+        expected_refund_recipient: Address,
+    ) {
+        if self._request.chainId != expected_chain_id {
+            result.report_error(&format!(
+                "Invalid chainId for L1->L2 calls. Expected {}. Received: {}",
+                expected_chain_id,
+                self._request.chainId
+            ));
+        }
+
+        if self._request.l2Value != U256::ZERO {
+            result.report_error(&format!(
+                "Invalid l2Value. Expected 0. Received: {}",
+                self._request.l2Value
+            ));
+        }
+
+        if self._request.l2GasLimit != U256::from(EXPECTED_L1_TO_L2_GAS_LIMIT) {
+            result.report_error(&format!(
+                "Invalid l2GasLimit. Expected {}. Received: {}",
+                EXPECTED_L1_TO_L2_GAS_LIMIT, self._request.l2GasLimit
+            ));
+        }
+
+        if self._request.l2GasPerPubdataByteLimit != U256::from(EXPECTED_GAS_PER_PUBDATA) {
+            result.report_error(&format!(
+                "Invalid l2GasPerPubdataByteLimit. Expected {}. Received: {}",
+                EXPECTED_GAS_PER_PUBDATA, self._request.l2GasPerPubdataByteLimit
+            ));
+        }
+
+        if !self._request.factoryDeps.is_empty() {
+            result.report_error("factoryDeps should be empty.");
+        }
+
+        if self._request.refundRecipient != expected_refund_recipient {
+            result.report_error(&format!(
+                "Invalid refundRecipient. Expected {:?}. Received: {:?}",
+                expected_refund_recipient,
+                self._request.refundRecipient
+            ));
+        }
+
+        // Note: We do not check `mintValue` here as it depends on L1 gas price.
+        // It is assumed to be sufficiently funded and tested internally.
+    }
+}
+
+impl requestL2TransactionTwoBridgesCall {
+    fn verify_basic_params(
+        &self,
+        result: &mut crate::verifiers::VerificationResult,
+        expected_chain_id: U256,
+        expected_refund_recipient: Address,
+    ) {
+        if self._request.chainId != expected_chain_id {
+            result.report_error(&format!(
+                "Invalid chainId for L1->L2 calls. Expected {}. Received: {}",
+                expected_chain_id,
+                self._request.chainId
+            ));
+        }
+
+        if self._request.l2Value != U256::ZERO {
+            result.report_error(&format!(
+                "Invalid l2Value. Expected 0. Received: {}",
+                self._request.l2Value
+            ));
+        }
+
+        if self._request.l2GasLimit != U256::from(EXPECTED_L1_TO_L2_GAS_LIMIT) {
+            result.report_error(&format!(
+                "Invalid l2GasLimit. Expected {}. Received: {}",
+                EXPECTED_L1_TO_L2_GAS_LIMIT, self._request.l2GasLimit
+            ));
+        }
+
+        if self._request.l2GasPerPubdataByteLimit != U256::from(EXPECTED_GAS_PER_PUBDATA) {
+            result.report_error(&format!(
+                "Invalid l2GasPerPubdataByteLimit. Expected {}. Received: {}",
+                EXPECTED_GAS_PER_PUBDATA, self._request.l2GasPerPubdataByteLimit
+            ));
+        }
+
+        if self._request.refundRecipient != expected_refund_recipient {
+            result.report_error(&format!(
+                "Invalid refundRecipient. Expected {:?}. Received: {:?}",
+                expected_refund_recipient,
+                self._request.refundRecipient
+            ));
+        }
+
+        if self._request.secondBridgeValue != U256::ZERO {
+            result.report_error(&format!(
+                "Invalid secondBridgeValue. Expected 0. Received: {}",
+                self._request.secondBridgeValue
+            ));
+        }
+
+        // Note: We do not check `mintValue` or `secondBridgeValue` here, as they may depend
+        // on L1 gas price and internal logic, and are assumed to be validated elsewhere.
+    }
+}
+
+impl SetAssetHandlerCounterpartData {
+    fn parse(bytes: Vec<u8>) -> anyhow::Result<Self> {
+        const EXPECTED_ENCODING_VERSION: u8 = 2;
+
+        if bytes.is_empty() {
+            anyhow::bail!("Invalid SetAssetHandlerCounterpartData encoding");
+        }
+
+        let version = bytes[0];
+        if version != EXPECTED_ENCODING_VERSION {
+            anyhow::bail!("Invalid SetAssetHandlerCounterpartData version");
+        }
+
+        Ok(SetAssetHandlerCounterpartData::abi_decode(&bytes[1..], true)?)
+    }
+}
+
+impl CTMDeploymentTrackerSecondBridgeData {
+    fn parse(bytes: Vec<u8>) -> anyhow::Result<Self> {
+        const EXPECTED_ENCODING_VERSION: u8 = 1;
+
+        if bytes.is_empty() {
+            anyhow::bail!("Invalid CTMDeploymentTrackerSecondBridgeData encoding");
+        }
+
+        let version = bytes[0];
+        if version != EXPECTED_ENCODING_VERSION {
+            anyhow::bail!("Invalid CTMDeploymentTrackerSecondBridgeData version");
+        }
+
+        Ok(CTMDeploymentTrackerSecondBridgeData::abi_decode(&bytes[1..], true)?)
+    }
+}
+
 
 impl EcosystemAdminCalls {
     pub async fn verify(
@@ -124,6 +325,9 @@ impl GovernanceCalls {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
+        l1_chain_id: u64,
+        gateway_chain_id: u64,
+        refund_recipient: Address
     ) -> anyhow::Result<()> {
         let list_of_calls = [
            // register settlement layer
@@ -161,255 +365,234 @@ impl GovernanceCalls {
            // Gateway Update DA Pair
            ("bridgehub_proxy_addr", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
         ];
-
         self.calls.verify(&list_of_calls, verifiers, result)?;
-        Ok(())
+
+        let gateway_chain_id = U256::from(gateway_chain_id);
+        let l1_ctm_address = verifiers.address_verifier.name_to_address["ctm_proxy_address"];
+        let expected_asset_data = fixed_bytes20_to_32(l1_ctm_address.0);  
+
+        let mut call_index = 0;
+        // 0: registerSettlementLayer
+        {
+            let params = registerSettlementLayerCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+
+            if params.settlementLayerChainId != gateway_chain_id {
+                result.report_error("Invalid Gateway chainId");
+            }
+
+            call_index+=1;
+        }
+
+        // 1: approve
+        {
+            let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+
+            result.expect_address(
+                verifiers, 
+                &params.toWhom, 
+                "l1_asset_router_proxy"
+            );
+
+            call_index += 1;
+        }
+
+        // 2: requestL2TransactionDirect
+        {
+            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+
+            params.verify_basic_params(result, gateway_chain_id, refund_recipient);
+            result.expect_address(verifiers, &params._request.l2Contract, "l2_bridgehub");
+
+            let inner_params = addChainTypeManagerCall::abi_decode(&params._request.l2Calldata, true)?;
+
+            result.expect_address(verifiers, &inner_params._chainTypeManager, "gw_ctm_address");
+
+            call_index += 1;
+        }
+
+        // 3: setAssetDeploymentTracker
+        {
+            let params = setAssetDeploymentTrackerCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+
+            if params._assetRegistrationData != expected_asset_data {
+                result.report_error(&format!("Unexpected asset registration data. Expected: {}, Received: {}", expected_asset_data, params._assetRegistrationData));
+            }
+            result.expect_address(verifiers, &params._assetDeploymentTracker, "l1_ctm_deployment_tracker");
+
+
+            call_index += 1;
+        }
+
+        // 4: registerCTMAssetOnL1
+        {
+            let params = registerCTMAssetOnL1Call::abi_decode(&self.calls.elems[call_index].data, true)?;
+            result.expect_address(verifiers, &params._ctmAddress, "ctm_proxy_address");
+
+            call_index += 1;
+        }
+
+        // 5: approve
+        {
+            let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            result.expect_address(
+                verifiers, 
+                &params.toWhom, 
+                "l1_asset_router_proxy"
+            );
+
+            call_index += 1;
+        }
+
+        // 6: requestL2TransactionTwoBridges
+        {
+            let params = requestL2TransactionTwoBridgesCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            params.verify_basic_params(result, gateway_chain_id, refund_recipient);
+
+            result.expect_address(verifiers, &params._request.secondBridgeAddress, "l1_asset_router_proxy");
+
+            let data = SetAssetHandlerCounterpartData::parse(params._request.secondBridgeCalldata.clone().into())?;
+            result.expect_address(verifiers, &data.assetHandler, "l2_bridgehub");
+
+            let expected_asset_id = encode_asset_id(
+                U256::from(l1_chain_id),
+                expected_asset_data,
+                verifiers.address_verifier.name_to_address["l1_ctm_deployment_tracker"]
+            );
+            if data.chainAssetId != expected_asset_id {
+                result.report_error(&format!("Invalid asset id. Expected: {}, Recevied: {}", expected_asset_id, data.chainAssetId));
+            }
+
+            call_index += 1;
+        }
+
+        // 7: approve
+        {
+            let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            result.expect_address(
+                verifiers, 
+                &params.toWhom, 
+                "l1_asset_router_proxy"
+            );
+
+            call_index += 1;
+        }
+
+        // 8: requestL2TransactionTwoBridges
+        {
+            let params = requestL2TransactionTwoBridgesCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            params.verify_basic_params(result, gateway_chain_id, refund_recipient);
+
+            result.expect_address(verifiers, &params._request.secondBridgeAddress, "ctm_proxy_address");
+
+            let data = CTMDeploymentTrackerSecondBridgeData::parse(params._request.secondBridgeCalldata.clone().into())?;
+            result.expect_address(verifiers, &data.l1CTMAddress, "ctm_proxy_address");
+            result.expect_address(verifiers, &data.gatewayCTMAddress, "gw_ctm_proxy_address");
+
+            call_index += 1;
+        }
+
+        // 9: approve
+        {
+            let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            result.expect_address(
+                verifiers, 
+                &params.toWhom, 
+                "l1_asset_router_proxy"
+            );
+
+            call_index += 1;
+        }
+
+        // 10: requestL2TransactionDirect (acceptOwnership for RollupDAManager)
+        {
+            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            params.verify_basic_params(result, gateway_chain_id, refund_recipient);
+            result.expect_address(verifiers, &params._request.l2Contract, "gw_rollup_da_manager");
+            // We just parse to double check correctness
+            acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true);
+
+            call_index += 1;
+        }
+
+        // 11: approve
+        {
+            let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            result.expect_address(
+                verifiers, 
+                &params.toWhom, 
+                "l1_asset_router_proxy"
+            );
+
+            call_index += 1;
+        }
+
+        // 12: requestL2TransactionDirect (acceptOwnership for ValidatorTimelock)
+        {
+            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            params.verify_basic_params(result, gateway_chain_id, refund_recipient);
+            result.expect_address(verifiers, &params._request.l2Contract, "gw_validator_timelock");
+            // We just parse to double check correctness
+            acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true);
+
+            call_index += 1;
+        }
+
+        // 13: approve
+        {
+            let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            result.expect_address(
+                verifiers, 
+                &params.toWhom, 
+                "l1_asset_router_proxy"
+            );
+
+            call_index += 1;
+        }
+
+        // 14: requestL2TransactionDirect (acceptOwnership for ServerNotifier)
+        {
+            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            params.verify_basic_params(result, gateway_chain_id, refund_recipient);
+            result.expect_address(verifiers, &params._request.l2Contract, "gw_server_notifier");
+            // We just parse to double check correctness
+            acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true);
+
+            call_index += 1;
+        }
+
+        // 15: approve
+        {
+            let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            result.expect_address(
+                verifiers, 
+                &params.toWhom, 
+                "l1_asset_router_proxy"
+            );
+
+            call_index += 1;
+        }
+
+        // 16: requestL2TransactionDirect (Update DA Pair)
+        {
+            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            params.verify_basic_params(result, gateway_chain_id, refund_recipient);
+            result.expect_address(verifiers, &params._request.l2Contract, "gw_rollup_da_manager");
+
+            let data = updateDAPairCall::abi_decode(&params._request.l2Calldata, true)?;
+            
+            if !data.is_active {
+                result.report_error("Expected whitelist of the old DA validator pair, found unwhitelisting");
+            }
+
+            result.expect_address(verifiers, &data.l1_da_addr, "gw_sl_relayed_da_validator");
+            result.expect_address(verifiers, &data.l2_da_addr, "old_l2_da_validator");
+
+            call_index += 1;
+        }
+
+    Ok(())
     }
 }
-
-// impl GovernanceStage1Calls {
-//     /// Verifies an upgrade call by decoding its data and comparing the proxy and implementation addresses.
-//     pub fn verify_upgrade_call(
-//         &self,
-//         verifiers: &Verifiers,
-//         result: &mut crate::verifiers::VerificationResult,
-//         call: &Call,
-//         proxy_address: &str,
-//         implementation_address: &str,
-//         call_payload: Option<&str>,
-//     ) -> anyhow::Result<()> {
-//         let data = &call.data;
-//         let (proxy, implementation) = if let Some(expected_payload) = call_payload {
-//             let decoded = upgradeAndCallCall::abi_decode(data, true)
-//                 .expect("Failed to decode upgradeAndCall call");
-//             let expected_data = hex::decode(expected_payload)
-//                 .expect("Failed to decode expected call payload from hex");
-//             if decoded.data != expected_data {
-//                 result.report_error(&format!(
-//                     "Expected upgrade call data to be {:x?}, but got {:x?}",
-//                     expected_data, decoded.data
-//                 ));
-//             }
-//             (decoded.proxy, decoded.implementation)
-//         } else {
-//             let decoded =
-//                 upgradeCall::abi_decode(data, true).expect("Failed to decode upgrade call");
-//             (decoded.proxy, decoded.implementation)
-//         };
-
-//         if result.expect_address(verifiers, &proxy, proxy_address)
-//             && result.expect_address(verifiers, &implementation, implementation_address)
-//         {
-//             result.report_ok(&format!(
-//                 "Upgrade call for {} ({}) to {} ({})",
-//                 proxy, proxy_address, implementation, implementation_address
-//             ));
-//         }
-//         Ok(())
-//     }
-
-//     /// Verifies all the governance stage 1 calls.
-//     /// Returns a pair of expected diamond cut data as well as expected fixed force deployments data.
-//     pub async fn verify(
-//         &self,
-//         verifiers: &crate::verifiers::Verifiers,
-//         result: &mut crate::verifiers::VerificationResult,
-//         expected_chain_creation_facets: FacetCutSet,
-//         deployed_addresses: &DeployedAddresses,
-//         expected_upgrade_facets: FacetCutSet,
-//         expected_chain_upgrade_diamond_cut: &str,
-//         config: &ContractsConfig,
-//     ) -> anyhow::Result<(String, String)> {
-//         result.print_info("== Gov stage 1 calls ===");
-
-//         // Stage1 is where most of the upgrade happens.
-//         // It usually consists of 3 parts:
-//         // * upgrading proxies (we deploy a new implementation and point existing proxy to it)
-//         // * upgrading chain creation parameters (telling the system how the new chains should look like)
-//         // * saving the information on how to upgrade existing chains (set new version upgrade)
-
-//         // Optionally for some upgrades we might have additional contract calls
-//         // (for example when we added a new type of bridge, we also included a call to bridgehub to set its address etc)
-
-//         let list_of_calls = [
-//             // stage 0
-//             ("bridgehub_proxy", "pauseMigration()"),
-//             // stage 1 proper
-//             // Proxy upgrades
-//             ("transparent_proxy_admin", "upgrade(address,address)"),
-//             ("transparent_proxy_admin", "upgrade(address,address)"),
-//             ("transparent_proxy_admin", "upgrade(address,address)"),
-//             ("transparent_proxy_admin", "upgrade(address,address)"),
-//             ("transparent_proxy_admin", "upgrade(address,address)"),
-//             // index = 5
-//             (
-//                 "state_transition_manager",
-//                 "setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes),bytes))",
-//             ),
-
-//             ("state_transition_manager",
-//             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
-//             ("rollup_da_manager", "updateDAPair(address,address,bool)"),
-//             // stage 2
-//             ("bridgehub_proxy", "unpauseMigration()")
-//         ];
-//         const STAGE_0_SHIFT: usize = 1;
-//         const UPGRADE_CTM: usize = 0 + STAGE_0_SHIFT;
-//         const UPGRADE_BRIDGEHUB: usize = 1 + STAGE_0_SHIFT;
-//         const UPGRADE_L1_NULLIFIER: usize = 2 + STAGE_0_SHIFT;
-//         const UPGRADE_L1_ASSET_ROUTER: usize = 3 + STAGE_0_SHIFT;
-//         const UPGRADE_NATIVE_TOKEN_VAULT: usize = 4 + STAGE_0_SHIFT;
-//         const SET_CHAIN_CREATION_INDEX: usize = 5 + STAGE_0_SHIFT;
-//         const SET_NEW_VERSION_INDEX: usize = 6 + STAGE_0_SHIFT;
-//         const UPDATE_ROLLUP_DA_PAIR: usize = 7 + STAGE_0_SHIFT;
-
-//         // For calls without any params, we don't have to check
-//         // anything else. This is true for stage 0 and stage 2.
-
-//         self.calls.verify(&list_of_calls, verifiers, result)?;
-
-//         // Verify each upgrade call.
-//         self.verify_upgrade_call(
-//             verifiers,
-//             result,
-//             &self.calls.elems[UPGRADE_CTM],
-//             "state_transition_manager",
-//             "state_transition_implementation_addr",
-//             None,
-//         )?;
-
-//         self.verify_upgrade_call(
-//             verifiers,
-//             result,
-//             &self.calls.elems[UPGRADE_BRIDGEHUB],
-//             "bridgehub_proxy",
-//             "bridgehub_implementation_addr",
-//             None,
-//         )?;
-
-//         self.verify_upgrade_call(
-//             verifiers,
-//             result,
-//             &self.calls.elems[UPGRADE_L1_NULLIFIER],
-//             "l1_nullifier_proxy_addr",
-//             "l1_nullifier_implementation_addr",
-//             None,
-//         )?;
-
-//         self.verify_upgrade_call(
-//             verifiers,
-//             result,
-//             &self.calls.elems[UPGRADE_L1_ASSET_ROUTER],
-//             "l1_asset_router_proxy",
-//             "l1_asset_router_implementation_addr",
-//             None,
-//         )?;
-//         self.verify_upgrade_call(
-//             verifiers,
-//             result,
-//             &self.calls.elems[UPGRADE_NATIVE_TOKEN_VAULT],
-//             "native_token_vault",
-//             "native_token_vault_implementation_addr",
-//             None,
-//         )?;
-
-//         // Verify setNewVersionUpgrade
-//         {
-//             let calldata = &self.calls.elems[SET_NEW_VERSION_INDEX].data;
-//             let data = setNewVersionUpgradeCall::abi_decode(calldata, true).unwrap();
-
-//             if data.oldProtocolVersionDeadline != U256::MAX {
-//                 result.report_error("Wrong old protocol version deadline for stage1 call");
-//             }
-
-//             if data.newProtocolVersion != get_expected_new_protocol_version().into() {
-//                 result.report_error("Wrong new protocol version for stage1 call");
-//             }
-//             if data.oldProtocolVersion != get_expected_old_protocol_version().into() {
-//                 result.report_error("Wrong old protocol version for stage1 call");
-//             }
-
-//             let diamond_cut = data.diamondCut;
-//             if alloy::hex::encode(diamond_cut.abi_encode())
-//                 != expected_chain_upgrade_diamond_cut[2..]
-//             {
-//                 result.report_error(&format!(
-//                     "Invalid chain upgrade diamond cut. Expected: {}\n Received: {}",
-//                     expected_chain_upgrade_diamond_cut,
-//                     alloy::hex::encode(diamond_cut.abi_encode())
-//                 ));
-//             }
-
-//             // should match state_transiton.default_upgrade
-//             result.expect_address(verifiers, &diamond_cut.initAddress, "default_upgrade");
-
-//             verity_facet_cuts(&diamond_cut.facetCuts, result, expected_upgrade_facets).await;
-
-//             let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
-//                 &diamond_cut.initCalldata,
-//                 true,
-//             )
-//             .unwrap();
-
-//             upgrade
-//                 ._proposedUpgrade
-//                 .verify(
-//                     verifiers,
-//                     result,
-//                     deployed_addresses.l1_bytecodes_supplier_addr,
-//                 )
-//                 .await
-//                 .context("proposed upgrade")?;
-//         }
-
-//         // Verify setChainCreationParams call.
-//         let (chain_creation_diamond_cut, force_deployments) = {
-//             let decoded = setChainCreationParamsCall::abi_decode(
-//                 &self.calls.elems[SET_CHAIN_CREATION_INDEX].data,
-//                 true,
-//             )
-//             .expect("Failed to decode setChainCreationParams call");
-//             decoded
-//                 ._chainCreationParams
-//                 .verify(verifiers, result, expected_chain_creation_facets)
-//                 .await?;
-
-//             let ChainCreationParams {
-//                 diamondCut,
-//                 forceDeploymentsData,
-//                 ..
-//             } = decoded._chainCreationParams;
-
-//             (
-//                 hex::encode(diamondCut.abi_encode()),
-//                 hex::encode(forceDeploymentsData),
-//             )
-//         };
-
-//         // Verify rollup_da_manager call
-//         let decoded =
-//             updateDAPairCall::abi_decode(&self.calls.elems[UPDATE_ROLLUP_DA_PAIR].data, true)
-//                 .expect("Failed to decode updateDAPair call");
-//         if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
-//             result.report_error(&format!(
-//                 "Expected l1_da_addr to be {}, but got {}",
-//                 deployed_addresses.rollup_l1_da_validator_addr, decoded.l1_da_addr
-//             ));
-//         }
-
-//         if decoded.l2_da_addr
-//             != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"]
-//         {
-//             result.report_error(&format!(
-//                 "Expected l2_da_addr to be {}, but got {}",
-//                 verifiers.address_verifier.name_to_address["rollup_l2_da_validator"],
-//                 decoded.l2_da_addr
-//             ));
-//         }
-
-//         Ok((chain_creation_diamond_cut, force_deployments))
-//     }
-// }
 
 impl ChainCreationParams {
     /// Verifies the chain creation parameters.

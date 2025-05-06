@@ -90,7 +90,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut result = VerificationResult::default();
 
-    let r = config.verify(&verifiers, &mut result).await;
+    let r = config.verify(
+        &verifiers, 
+        &mut result,
+        verifiers.network_verifier.l1_chain_id,
+        args.gw_chain_id,
+    ).await;
 
     println!("{}", result);
     r.unwrap();

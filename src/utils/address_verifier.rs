@@ -6,6 +6,8 @@ use super::{
     bytecode_verifier::BytecodeVerifier, network_verifier::NetworkVerifier,
 };
 
+pub const L2_BRIDGEHUB_ADDR_STR: &str = "0x0000000000000000000000000000000000010002";
+
 pub struct AddressVerifier {
     pub address_to_name: HashMap<Address, String>,
     pub name_to_address: HashMap<String, Address>,
@@ -27,6 +29,7 @@ impl AddressVerifier {
         // Firstly, we initialize some constant addresses from the config.
 
         result.add_address(Address::ZERO, "zero");
+        result.add_address(L2_BRIDGEHUB_ADDR_STR.parse().unwrap(), "l2_bridgehub");
 
 
         config.add_to_verifier(&mut result, &network_verifier, bridgehub_addr).await;

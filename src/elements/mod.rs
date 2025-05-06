@@ -36,6 +36,8 @@ pub struct UpgradeOutput {
     pub(crate) server_notifier: Address,
 
     pub(crate) gateway_state_transition: GatewayStateTransition,
+
+    pub(crate) refund_recipient: Address,
 }
 
 #[derive(Debug, Deserialize)]
@@ -163,6 +165,8 @@ impl UpgradeOutput {
         &self,
         verifiers: &Verifiers,
         result: &mut VerificationResult,
+        l1_chain_id: u64,
+        gateway_chain_id: u64,
     ) -> anyhow::Result<()> {
         result.print_info("== Config verification ==");
         
@@ -199,6 +203,9 @@ impl UpgradeOutput {
             .verify(
                 verifiers,
                 result,
+                l1_chain_id,
+                gateway_chain_id,
+                self.refund_recipient
             )
             .await
             .context("governance_calls")?;
