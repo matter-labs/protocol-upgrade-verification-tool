@@ -107,6 +107,7 @@ sol! {
         uint256 protocolVersion;
     }
 
+    #[derive(Debug)]
     /// @notice Addresses of state transition related contracts.
     // solhint-disable-next-line gas-struct-packing
     struct StateTransitionContracts {
@@ -144,6 +145,7 @@ sol! {
 
     /// @notice Addresses of Data Availability (DA) related contracts.
     // solhint-disable-next-line gas-struct-packing
+    #[derive(Debug)]
     struct DAContracts {
         /// @notice Address of the RollupDAManager contract.
         address rollupDAManager;
@@ -153,6 +155,7 @@ sol! {
         address validiumDAValidator;
     }
 
+    #[derive(Debug)]
     /// @notice Collection of all deployed contracts by the GatewayCTMDeployer.
     struct DeployedContracts {
         /// @notice Address of the Multicall3 contract.
@@ -322,6 +325,8 @@ pub async fn verify_gateway_ctm_deployer(
         .getDeployedContracts()
         .call()
         .await?;
+
+    dbg!(&deployed_contracts.contracts);
 
     deployed_contracts.contracts.verify(verifiers, result)?;
 

@@ -1,7 +1,7 @@
 use alloy::{
     dyn_abi::SolType,
     hex,
-    primitives::{Address, Bytes, FixedBytes},
+    primitives::{Address, Bytes, FixedBytes, U256},
     sol,
     sol_types::SolCall,
 };
@@ -47,6 +47,30 @@ impl Create2 {
             == config.old_rollup_l2_da_validator
         {
             result.report_error("Incorrect rollupL2DAValidatorAddress");
+        }
+
+        if gateway_deployer_ctm_config.bootloaderHash.to_string() != verifiers.genesis_config.bootloader_hash {
+            result.report_error("Incorrect bootloaderHash");
+        }
+
+        if gateway_deployer_ctm_config.defaultAccountHash.to_string() != verifiers.genesis_config.default_aa_hash {
+            result.report_error("Incorrect defaultAccountHash");
+        }
+
+        if gateway_deployer_ctm_config.evmEmulatorHash.to_string() != verifiers.genesis_config.evm_emulator_hash {
+            result.report_error("Incorrect evmEmulatorHash");
+        }
+
+        if gateway_deployer_ctm_config.genesisRoot.to_string() != verifiers.genesis_config.genesis_root {
+            result.report_error("Incorrect genesisRoot");
+        }
+
+        if gateway_deployer_ctm_config.genesisRollupLeafIndex != U256::from(verifiers.genesis_config.genesis_rollup_leaf_index) {
+            result.report_error("Incorrect genesisRollupLeafIndex");
+        }
+
+        if gateway_deployer_ctm_config.genesisBatchCommitment.to_string() != verifiers.genesis_config.genesis_batch_commitment {
+            result.report_error("Incorrect genesisBatchCommitment");
         }
 
         gateway_deployer_ctm_config.verify(verifiers, result)?;

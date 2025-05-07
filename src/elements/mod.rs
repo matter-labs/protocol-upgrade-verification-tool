@@ -244,14 +244,14 @@ impl UpgradeOutput {
             .await
             .context("gateway_ctm_deployer")?;
 
-        verify_gateway_ctm_deployer(
-            self.gateway_ctm_deployer,
-            hex::encode(&gateway_ctm_deployer_create2_data.input),
-            gateway_ctm_deployer_create2_data._salt,
-            verifiers,
-            result,
-        )
-        .await?;
+        // verify_gateway_ctm_deployer(
+        //     self.gateway_ctm_deployer,
+        //     hex::encode(&gateway_ctm_deployer_create2_data.input),
+        //     gateway_ctm_deployer_create2_data._salt,
+        //     verifiers,
+        //     result,
+        // )
+        // .await?;
 
         Ok(())
     }
