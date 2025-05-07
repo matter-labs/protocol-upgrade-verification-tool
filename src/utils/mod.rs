@@ -5,7 +5,11 @@ use std::{
 };
 
 use alloy::{
-    dyn_abi::abi::encode, hex::{self, FromHex}, primitives::{aliases::B32, keccak256, Address, Bytes, FixedBytes, Keccak256, B256, U160, U256}
+    dyn_abi::abi::encode,
+    hex::{self, FromHex},
+    primitives::{
+        aliases::B32, keccak256, Address, Bytes, FixedBytes, Keccak256, B256, U160, U256,
+    },
 };
 
 pub mod address_verifier;
@@ -73,8 +77,8 @@ pub fn compute_create2_factory_deployed_address_zk(
         address_from_short_hex("10000"),
         salt,
         bytecode_hash,
-        constructor_input_hash
-    )   
+        constructor_input_hash,
+    )
 }
 
 pub fn compute_create2_address_evm(
@@ -139,14 +143,14 @@ pub fn fixed_bytes20_to_32(input: FixedBytes<20>) -> FixedBytes<32> {
 pub fn encode_asset_id(chain_id: U256, asset_data: B256, sender: Address) -> B256 {
     // Equivalent to Solidity's abi.encode (not packed)
     let mut encoded = Vec::with_capacity(32 + 32 + 32); // U256 (32 bytes) + Address (32 bytes padded) + B256 (32 bytes)
-    
+
     // Solidity abi.encode pads address to 32 bytes
     encoded.extend_from_slice(&chain_id.to_be_bytes::<32>());
-    
+
     let mut padded_sender = [0u8; 32];
     padded_sender[12..].copy_from_slice(sender.as_slice()); // right-align 20 bytes into 32 bytes
     encoded.extend_from_slice(&padded_sender);
-    
+
     encoded.extend_from_slice(asset_data.as_slice());
 
     // Compute keccak256 hash

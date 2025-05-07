@@ -60,7 +60,7 @@ impl Verifiers {
             &network_verifier,
             &bytecode_verifier,
             config,
-            bridgehub_address
+            bridgehub_address,
         )
         .await;
 
@@ -106,6 +106,9 @@ pub struct GenesisConfig {
     pub genesis_root: String,
     pub genesis_rollup_leaf_index: u64,
     pub genesis_batch_commitment: String,
+    pub default_aa_hash: String,
+    pub bootloader_hash: String,
+    pub evm_emulator_hash: String,
 }
 
 impl GenesisConfig {

@@ -1,6 +1,11 @@
-use alloy::primitives::{Address, FixedBytes, U256};
+use alloy::{
+    hex,
+    primitives::{Address, FixedBytes, U256},
+};
 use anyhow::Context;
 use call_list::CallList;
+use create2::Create2;
+use gateway_ctm_deployer::verify_gateway_ctm_deployer;
 use gateway_state_transition::GatewayStateTransition;
 use governance_stage_calls::{EcosystemAdminCalls, GovernanceCalls};
 use initialize_data_new_chain::{FeeParams, PubdataPricingMode};
@@ -9,40 +14,47 @@ use serde::Deserialize;
 
 use crate::{
     get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::{address_from_short_hex, address_verifier::AddressVerifier, network_verifier::NetworkVerifier},
+    utils::{
+        address_from_short_hex, address_verifier::AddressVerifier,
+        network_verifier::NetworkVerifier,
+    },
     verifiers::{VerificationResult, Verifiers},
     MAX_PRIORITY_TX_GAS_LIMIT,
 };
 
 pub mod call_list;
+pub mod create2;
 pub mod fixed_force_deployment;
 pub mod force_deployment;
+pub mod gateway_ctm_deployer;
 pub mod gateway_state_transition;
 pub mod governance_stage_calls;
 pub mod initialize_data_new_chain;
 pub mod protocol_version;
 pub mod set_new_version_upgrade;
-pub mod gateway_ctm_deployer;
 
 #[derive(Debug, Deserialize)]
 pub struct UpgradeOutput {
     pub(crate) diamond_cut_data: String,
     pub(crate) ecosystem_admin_calls_to_execute: String,
     pub(crate) governance_calls_to_execute: String,
-    
+
     pub(crate) multicall3_addr: Address,
     pub(crate) relayed_sl_da_validator: Address,
     pub(crate) validium_da_validator: Address,
 
     pub(crate) server_notifier: Address,
+    pub(crate) gateway_server_notifier: Address,
 
     pub(crate) gateway_state_transition: GatewayStateTransition,
-    pub(crate) gateway_server_notifier: Address,
     pub(crate) old_rollup_l2_da_validator: Address,
     pub(crate) gateway_ctm_deployer_create2_data: String,
     pub(crate) gateway_ctm_deployer: Address,
+    pub(crate) rollup_da_manager: Address,
 
     pub(crate) refund_recipient: Address,
+
+    pub(crate) transactions: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,12 +170,26 @@ impl ContractsConfig {
 }
 
 impl UpgradeOutput {
-    pub async fn add_to_verifier(&self, address_verifier: &mut AddressVerifier, network_verifier: &NetworkVerifier, bridgehub_addr: Address) {
+    pub async fn add_to_verifier(
+        &self,
+        address_verifier: &mut AddressVerifier,
+        network_verifier: &NetworkVerifier,
+        bridgehub_addr: Address,
+    ) {
         address_verifier.add_address(self.multicall3_addr, "multicall3_addr");
         address_verifier.add_address(self.relayed_sl_da_validator, "relayed_sl_da_validator");
         address_verifier.add_address(self.validium_da_validator, "validium_da_validator");
         address_verifier.add_address(self.server_notifier, "server_notifier_addr");
-        self.gateway_state_transition.add_to_verifier(address_verifier, network_verifier, bridgehub_addr).await;
+        address_verifier.add_address(self.gateway_server_notifier, "gateway_server_notifier");
+        address_verifier.add_address(
+            self.old_rollup_l2_da_validator,
+            "old_rollup_l2_da_validator",
+        );
+        address_verifier.add_address(self.gateway_ctm_deployer, "gateway_ctm_deployer");
+        address_verifier.add_address(self.rollup_da_manager, "gateway_rollup_da_manager");
+        self.gateway_state_transition
+            .add_to_verifier(address_verifier, network_verifier, bridgehub_addr)
+            .await;
     }
 
     pub async fn verify(
@@ -172,7 +198,7 @@ impl UpgradeOutput {
         result: &mut VerificationResult,
     ) -> anyhow::Result<()> {
         result.print_info("== Config verification ==");
-        
+
         let provider_chain_id = verifiers.network_verifier.get_era_chain_id();
 
         // Check that addresses actually contain correct bytecodes.
@@ -194,7 +220,10 @@ impl UpgradeOutput {
             calls: CallList::parse(&self.ecosystem_admin_calls_to_execute),
         };
 
-        ecosystem_admin_calls.verify(verifiers, result).await.context("ecosystem_admin_calls")?;
+        ecosystem_admin_calls
+            .verify(verifiers, result)
+            .await
+            .context("ecosystem_admin_calls")?;
 
         let governance_calls = GovernanceCalls {
             calls: CallList::parse(&self.governance_calls_to_execute),
@@ -203,13 +232,26 @@ impl UpgradeOutput {
         // let expected_upgrade_facets = facets_to_remove.merge(facets_to_add.clone()).clone();
 
         governance_calls
-            .verify(
-                verifiers,
-                result,
-                self.refund_recipient
-            )
+            .verify(verifiers, result, self.refund_recipient)
             .await
             .context("governance_calls")?;
+
+        let gateway_ctm_deployer_create2_data =
+            Create2::parse(&self.gateway_ctm_deployer_create2_data);
+
+        gateway_ctm_deployer_create2_data
+            .verify(verifiers, result, self)
+            .await
+            .context("gateway_ctm_deployer")?;
+
+        verify_gateway_ctm_deployer(
+            self.gateway_ctm_deployer,
+            hex::encode(&gateway_ctm_deployer_create2_data.input),
+            gateway_ctm_deployer_create2_data._salt,
+            verifiers,
+            result,
+        )
+        .await?;
 
         Ok(())
     }

@@ -2,9 +2,7 @@ use alloy::primitives::{map::HashMap, Address};
 
 use crate::UpgradeOutput;
 
-use super::{
-    bytecode_verifier::BytecodeVerifier, network_verifier::NetworkVerifier,
-};
+use super::{bytecode_verifier::BytecodeVerifier, network_verifier::NetworkVerifier};
 
 pub const L2_BRIDGEHUB_ADDR_STR: &str = "0x0000000000000000000000000000000000010002";
 
@@ -31,8 +29,9 @@ impl AddressVerifier {
         result.add_address(Address::ZERO, "zero");
         result.add_address(L2_BRIDGEHUB_ADDR_STR.parse().unwrap(), "l2_bridgehub");
 
-
-        config.add_to_verifier(&mut result, &network_verifier, bridgehub_addr).await;
+        config
+            .add_to_verifier(&mut result, &network_verifier, bridgehub_addr)
+            .await;
 
         result
     }

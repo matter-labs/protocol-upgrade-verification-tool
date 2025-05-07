@@ -1,20 +1,21 @@
-use std::any;
-
 use super::{
-    call_list::{Call, CallList},
+    call_list::CallList,
     fixed_force_deployment::FixedForceDeploymentsData,
-    set_new_version_upgrade::{self, setNewVersionUpgradeCall},
+    set_new_version_upgrade::{self},
 };
 use crate::{
-    elements::{initialize_data_new_chain::InitializeDataNewChain, ContractsConfig},
-    get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::{encode_asset_id, facet_cut_set::{self, FacetCutSet, FacetInfo}, fixed_bytes20_to_32},
-    verifiers::Verifiers,
+    elements::initialize_data_new_chain::InitializeDataNewChain,
+    utils::{
+        encode_asset_id,
+        facet_cut_set::{self, FacetCutSet, FacetInfo},
+        fixed_bytes20_to_32,
+    },
 };
 use alloy::{
-    dyn_abi::abi, hex, primitives::{ruint::aliases::U256, Address, Bytes, Uint}, sol, sol_types::{SolCall, SolValue}
+    primitives::{ruint::aliases::U256, Address},
+    sol,
+    sol_types::{SolCall, SolValue},
 };
-use anyhow::Context;
 
 sol! {
     function setServerNotifier(address _serverNotifier) external;
@@ -82,9 +83,9 @@ sol! {
 
     function facets() external view returns (Facet[] memory result);
 
-    function registerSettlementLayer(uint256 settlementLayerChainId, bool iaAllowed); 
-    function approve(address toWhom, uint256 amount); 
-    
+    function registerSettlementLayer(uint256 settlementLayerChainId, bool iaAllowed);
+    function approve(address toWhom, uint256 amount);
+
     struct L2TransactionRequestDirectInput {
         uint256 chainId;
         uint256 mintValue;
@@ -102,13 +103,13 @@ sol! {
     ) external;
 
     function addChainTypeManager(address _chainTypeManager);
-    
+
     function setAssetDeploymentTracker(
         bytes32 _assetRegistrationData,
         address _assetDeploymentTracker
     ) external;
 
-    function registerCTMAssetOnL1(address _ctmAddress) external; 
+    function registerCTMAssetOnL1(address _ctmAddress) external;
 
     struct L2TransactionRequestTwoBridgesOuter {
         uint256 chainId;
@@ -152,8 +153,7 @@ impl requestL2TransactionDirectCall {
         if self._request.chainId != expected_chain_id {
             result.report_error(&format!(
                 "Invalid chainId for L1->L2 calls. Expected {}. Received: {}",
-                expected_chain_id,
-                self._request.chainId
+                expected_chain_id, self._request.chainId
             ));
         }
 
@@ -185,8 +185,7 @@ impl requestL2TransactionDirectCall {
         if self._request.refundRecipient != expected_refund_recipient {
             result.report_error(&format!(
                 "Invalid refundRecipient. Expected {:?}. Received: {:?}",
-                expected_refund_recipient,
-                self._request.refundRecipient
+                expected_refund_recipient, self._request.refundRecipient
             ));
         }
 
@@ -205,8 +204,7 @@ impl requestL2TransactionTwoBridgesCall {
         if self._request.chainId != expected_chain_id {
             result.report_error(&format!(
                 "Invalid chainId for L1->L2 calls. Expected {}. Received: {}",
-                expected_chain_id,
-                self._request.chainId
+                expected_chain_id, self._request.chainId
             ));
         }
 
@@ -234,8 +232,7 @@ impl requestL2TransactionTwoBridgesCall {
         if self._request.refundRecipient != expected_refund_recipient {
             result.report_error(&format!(
                 "Invalid refundRecipient. Expected {:?}. Received: {:?}",
-                expected_refund_recipient,
-                self._request.refundRecipient
+                expected_refund_recipient, self._request.refundRecipient
             ));
         }
 
@@ -264,7 +261,10 @@ impl SetAssetHandlerCounterpartData {
             anyhow::bail!("Invalid SetAssetHandlerCounterpartData version");
         }
 
-        Ok(SetAssetHandlerCounterpartData::abi_decode(&bytes[1..], true)?)
+        Ok(SetAssetHandlerCounterpartData::abi_decode(
+            &bytes[1..],
+            true,
+        )?)
     }
 }
 
@@ -281,10 +281,12 @@ impl CTMDeploymentTrackerSecondBridgeData {
             anyhow::bail!("Invalid CTMDeploymentTrackerSecondBridgeData version");
         }
 
-        Ok(CTMDeploymentTrackerSecondBridgeData::abi_decode(&bytes[1..], true)?)
+        Ok(CTMDeploymentTrackerSecondBridgeData::abi_decode(
+            &bytes[1..],
+            true,
+        )?)
     }
 }
-
 
 impl EcosystemAdminCalls {
     pub async fn verify(
@@ -295,10 +297,13 @@ impl EcosystemAdminCalls {
         result.print_info("== Ecosystem Admin Calls ===");
 
         let list_of_calls = [
-           // Set server notifier
-           ("chain_type_manager_proxy_addr", "setServerNotifier(address)"),
-           // Accept ownership
-           ("server_notifier_addr", "acceptOwnership()")
+            // Set server notifier
+            (
+                "chain_type_manager_proxy_addr",
+                "setServerNotifier(address)",
+            ),
+            // Accept ownership
+            ("server_notifier_addr", "acceptOwnership()"),
         ];
         const SET_SERVER_NOTIFIER: usize = 0;
 
@@ -315,7 +320,6 @@ impl EcosystemAdminCalls {
             result.expect_address(verifiers, &data._serverNotifier, "server_notifier_addr");
         }
 
-
         Ok(())
     }
 }
@@ -325,8 +329,10 @@ impl GovernanceCalls {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
-        refund_recipient: Address
+        refund_recipient: Address,
     ) -> anyhow::Result<()> {
+        result.print_info("== Governance Calls ===");
+
         let list_of_calls = [
            // register settlement layer
            ("bridgehub_proxy_addr", "registerSettlementLayer(uint256,bool)"),
@@ -366,65 +372,85 @@ impl GovernanceCalls {
         self.calls.verify(&list_of_calls, verifiers, result)?;
 
         let gateway_chain_id = U256::from(verifiers.network_verifier.gw_chain_id);
-        let l1_ctm_address = verifiers.address_verifier.name_to_address["chain_type_manager_proxy_addr"];
-        let expected_asset_data = fixed_bytes20_to_32(l1_ctm_address.0);  
+        let l1_ctm_address =
+            verifiers.address_verifier.name_to_address["chain_type_manager_proxy_addr"];
+        let expected_asset_data = fixed_bytes20_to_32(l1_ctm_address.0);
 
         let mut call_index = 0;
         // 0: registerSettlementLayer
         {
-            let params = registerSettlementLayerCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            let params =
+                registerSettlementLayerCall::abi_decode(&self.calls.elems[call_index].data, true)?;
 
             if params.settlementLayerChainId != gateway_chain_id {
                 result.report_error("Invalid Gateway chainId");
             }
 
-            call_index+=1;
+            call_index += 1;
         }
 
         // 1: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
 
-            result.expect_address(
-                verifiers, 
-                &params.toWhom, 
-                "l1_asset_router_addr"
-            );
+            result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
 
             call_index += 1;
         }
 
         // 2: requestL2TransactionDirect
         {
-            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            let params = requestL2TransactionDirectCall::abi_decode(
+                &self.calls.elems[call_index].data,
+                true,
+            )?;
 
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
             result.expect_address(verifiers, &params._request.l2Contract, "l2_bridgehub");
 
-            let inner_params = addChainTypeManagerCall::abi_decode(&params._request.l2Calldata, true)?;
+            let inner_params =
+                addChainTypeManagerCall::abi_decode(&params._request.l2Calldata, true)?;
 
-            result.expect_address(verifiers, &inner_params._chainTypeManager, "gateway_chain_type_manager_proxy_addr");
+            result.expect_address(
+                verifiers,
+                &inner_params._chainTypeManager,
+                "gateway_chain_type_manager_proxy_addr",
+            );
 
             call_index += 1;
         }
 
         // 3: setAssetDeploymentTracker
         {
-            let params = setAssetDeploymentTrackerCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            let params = setAssetDeploymentTrackerCall::abi_decode(
+                &self.calls.elems[call_index].data,
+                true,
+            )?;
 
             if params._assetRegistrationData != expected_asset_data {
-                result.report_error(&format!("Unexpected asset registration data. Expected: {}, Received: {}", expected_asset_data, params._assetRegistrationData));
+                result.report_error(&format!(
+                    "Unexpected asset registration data. Expected: {}, Received: {}",
+                    expected_asset_data, params._assetRegistrationData
+                ));
             }
-            result.expect_address(verifiers, &params._assetDeploymentTracker, "ctm_deployment_tracker_proxy_addr");
-
+            result.expect_address(
+                verifiers,
+                &params._assetDeploymentTracker,
+                "ctm_deployment_tracker_proxy_addr",
+            );
 
             call_index += 1;
         }
 
         // 4: registerCTMAssetOnL1
         {
-            let params = registerCTMAssetOnL1Call::abi_decode(&self.calls.elems[call_index].data, true)?;
-            result.expect_address(verifiers, &params._ctmAddress, "chain_type_manager_proxy_addr");
+            let params =
+                registerCTMAssetOnL1Call::abi_decode(&self.calls.elems[call_index].data, true)?;
+            result.expect_address(
+                verifiers,
+                &params._ctmAddress,
+                "chain_type_manager_proxy_addr",
+            );
 
             call_index += 1;
         }
@@ -432,32 +458,40 @@ impl GovernanceCalls {
         // 5: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
-            result.expect_address(
-                verifiers, 
-                &params.toWhom, 
-                "l1_asset_router_addr"
-            );
+            result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
 
             call_index += 1;
         }
 
         // 6: requestL2TransactionTwoBridges
         {
-            let params = requestL2TransactionTwoBridgesCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            let params = requestL2TransactionTwoBridgesCall::abi_decode(
+                &self.calls.elems[call_index].data,
+                true,
+            )?;
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
 
-            result.expect_address(verifiers, &params._request.secondBridgeAddress, "l1_asset_router_addr");
+            result.expect_address(
+                verifiers,
+                &params._request.secondBridgeAddress,
+                "l1_asset_router_addr",
+            );
 
-            let data = SetAssetHandlerCounterpartData::parse(params._request.secondBridgeCalldata.clone().into())?;
+            let data = SetAssetHandlerCounterpartData::parse(
+                params._request.secondBridgeCalldata.clone().into(),
+            )?;
             result.expect_address(verifiers, &data.assetHandler, "l2_bridgehub");
 
             let expected_asset_id = encode_asset_id(
                 U256::from(verifiers.network_verifier.l1_chain_id),
                 expected_asset_data,
-                verifiers.address_verifier.name_to_address["ctm_deployment_tracker_proxy_addr"]
+                verifiers.address_verifier.name_to_address["ctm_deployment_tracker_proxy_addr"],
             );
             if data.chainAssetId != expected_asset_id {
-                result.report_error(&format!("Invalid asset id. Expected: {}, Recevied: {}", expected_asset_id, data.chainAssetId));
+                result.report_error(&format!(
+                    "Invalid asset id. Expected: {}, Recevied: {}",
+                    expected_asset_id, data.chainAssetId
+                ));
             }
 
             call_index += 1;
@@ -466,25 +500,38 @@ impl GovernanceCalls {
         // 7: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
-            result.expect_address(
-                verifiers, 
-                &params.toWhom, 
-                "l1_asset_router_addr"
-            );
+            result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
 
             call_index += 1;
         }
 
         // 8: requestL2TransactionTwoBridges
         {
-            let params = requestL2TransactionTwoBridgesCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            let params = requestL2TransactionTwoBridgesCall::abi_decode(
+                &self.calls.elems[call_index].data,
+                true,
+            )?;
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
 
-            result.expect_address(verifiers, &params._request.secondBridgeAddress, "chain_type_manager_proxy_addr");
+            result.expect_address(
+                verifiers,
+                &params._request.secondBridgeAddress,
+                "ctm_deployment_tracker_proxy_addr",
+            );
 
-            let data = CTMDeploymentTrackerSecondBridgeData::parse(params._request.secondBridgeCalldata.clone().into())?;
-            result.expect_address(verifiers, &data.l1CTMAddress, "chain_type_manager_proxy_addr");
-            result.expect_address(verifiers, &data.gatewayCTMAddress, "gateway_chain_type_manager_proxy_addr");
+            let data = CTMDeploymentTrackerSecondBridgeData::parse(
+                params._request.secondBridgeCalldata.clone().into(),
+            )?;
+            result.expect_address(
+                verifiers,
+                &data.l1CTMAddress,
+                "chain_type_manager_proxy_addr",
+            );
+            result.expect_address(
+                verifiers,
+                &data.gatewayCTMAddress,
+                "gateway_chain_type_manager_proxy_addr",
+            );
 
             call_index += 1;
         }
@@ -492,20 +539,23 @@ impl GovernanceCalls {
         // 9: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
-            result.expect_address(
-                verifiers, 
-                &params.toWhom, 
-                "l1_asset_router_addr"
-            );
+            result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
 
             call_index += 1;
         }
 
         // 10: requestL2TransactionDirect (acceptOwnership for RollupDAManager)
         {
-            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            let params = requestL2TransactionDirectCall::abi_decode(
+                &self.calls.elems[call_index].data,
+                true,
+            )?;
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
-            result.expect_address(verifiers, &params._request.l2Contract, "gw_rollup_da_manager");
+            result.expect_address(
+                verifiers,
+                &params._request.l2Contract,
+                "gateway_rollup_da_manager",
+            );
             // We just parse to double check correctness
             acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true)?;
 
@@ -515,20 +565,23 @@ impl GovernanceCalls {
         // 11: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
-            result.expect_address(
-                verifiers, 
-                &params.toWhom, 
-                "l1_asset_router_addr"
-            );
+            result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
 
             call_index += 1;
         }
 
         // 12: requestL2TransactionDirect (acceptOwnership for ValidatorTimelock)
         {
-            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            let params = requestL2TransactionDirectCall::abi_decode(
+                &self.calls.elems[call_index].data,
+                true,
+            )?;
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
-            result.expect_address(verifiers, &params._request.l2Contract, "gw_validator_timelock");
+            result.expect_address(
+                verifiers,
+                &params._request.l2Contract,
+                "gateway_validator_timelock_addr",
+            );
             // We just parse to double check correctness
             acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true)?;
 
@@ -538,21 +591,24 @@ impl GovernanceCalls {
         // 13: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
-            result.expect_address(
-                verifiers, 
-                &params.toWhom, 
-                "l1_asset_router_addr"
-            );
+            result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
 
             call_index += 1;
         }
 
         // 14: requestL2TransactionDirect (acceptOwnership for ServerNotifier)
         {
-            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            let params = requestL2TransactionDirectCall::abi_decode(
+                &self.calls.elems[call_index].data,
+                true,
+            )?;
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
             // FIXME: this one is missing from the output
-            result.expect_address(verifiers, &params._request.l2Contract, "gw_server_notifier");
+            result.expect_address(
+                verifiers,
+                &params._request.l2Contract,
+                "gateway_server_notifier",
+            );
             // We just parse to double check correctness
             acceptOwnershipCall::abi_decode(&params._request.l2Calldata, true)?;
 
@@ -562,33 +618,38 @@ impl GovernanceCalls {
         // 15: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
-            result.expect_address(
-                verifiers, 
-                &params.toWhom, 
-                "l1_asset_router_addr"
-            );
+            result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
 
             call_index += 1;
         }
 
         // 16: requestL2TransactionDirect (Update DA Pair)
         {
-            let params = requestL2TransactionDirectCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+            let params = requestL2TransactionDirectCall::abi_decode(
+                &self.calls.elems[call_index].data,
+                true,
+            )?;
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
-            result.expect_address(verifiers, &params._request.l2Contract, "gw_rollup_da_manager");
+            result.expect_address(
+                verifiers,
+                &params._request.l2Contract,
+                "gateway_rollup_da_manager",
+            );
 
             let data = updateDAPairCall::abi_decode(&params._request.l2Calldata, true)?;
-            
+
             if !data.is_active {
-                result.report_error("Expected whitelist of the old DA validator pair, found unwhitelisting");
+                result.report_error(
+                    "Expected whitelist of the old DA validator pair, found unwhitelisting",
+                );
             }
 
             result.expect_address(verifiers, &data.l1_da_addr, "relayed_sl_da_validator");
             // FIXME: add this into the addresses.
-            result.expect_address(verifiers, &data.l2_da_addr, "old_l2_da_validator");
+            result.expect_address(verifiers, &data.l2_da_addr, "old_rollup_l2_da_validator");
         }
 
-    Ok(())
+        Ok(())
     }
 }
 

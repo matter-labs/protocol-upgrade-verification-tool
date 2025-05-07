@@ -1,8 +1,16 @@
+use alloy::{
+    hex::FromHex,
+    primitives::{Address, U256},
+    sol,
+    sol_types::SolConstructor,
+};
 use anyhow::Result;
-use alloy::{hex::FromHex, primitives::{Address, U256}, sol, sol_types::SolConstructor};
 use serde::Deserialize;
 
-use crate::utils::{address_verifier::AddressVerifier, network_verifier::{self, BridgehubInfo, NetworkVerifier}};
+use crate::utils::{
+    address_verifier::AddressVerifier,
+    network_verifier::{self, BridgehubInfo, NetworkVerifier},
+};
 
 use super::UpgradeOutput;
 
@@ -164,7 +172,6 @@ sol! {
     }
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct GatewayStateTransition {
     pub(crate) admin_facet_addr: Address,
@@ -182,10 +189,21 @@ pub struct GatewayStateTransition {
 }
 
 impl GatewayStateTransition {
-    pub async fn add_to_verifier(&self, address_verifier: &mut AddressVerifier, network_verifier: &NetworkVerifier, bridgehub_addr: Address) {
+    pub async fn add_to_verifier(
+        &self,
+        address_verifier: &mut AddressVerifier,
+        network_verifier: &NetworkVerifier,
+        bridgehub_addr: Address,
+    ) {
         address_verifier.add_address(self.admin_facet_addr, "gateway_admin_facet_addr");
-        address_verifier.add_address(self.chain_type_manager_implementation_addr, "gateway_chain_type_manager_implementation_addr");
-        address_verifier.add_address(self.chain_type_manager_proxy_addr, "gateway_chain_type_manager_proxy_addr");
+        address_verifier.add_address(
+            self.chain_type_manager_implementation_addr,
+            "gateway_chain_type_manager_implementation_addr",
+        );
+        address_verifier.add_address(
+            self.chain_type_manager_proxy_addr,
+            "gateway_chain_type_manager_proxy_addr",
+        );
         address_verifier.add_address(self.default_upgrade_addr, "gateway_default_upgrade_addr");
         address_verifier.add_address(self.diamond_init_addr, "gateway_diamond_init_addr");
         address_verifier.add_address(self.diamond_proxy_addr, "gateway_diamond_proxy_addr");
@@ -193,14 +211,26 @@ impl GatewayStateTransition {
         address_verifier.add_address(self.genesis_upgrade_addr, "gateway_genesis_upgrade_addr");
         address_verifier.add_address(self.getters_facet_addr, "gateway_getters_facet_addr");
         address_verifier.add_address(self.mailbox_facet_addr, "gateway_mailbox_facet_addr");
-        address_verifier.add_address(self.validator_timelock_addr, "gateway_validator_timelock_addr");
+        address_verifier.add_address(
+            self.validator_timelock_addr,
+            "gateway_validator_timelock_addr",
+        );
         address_verifier.add_address(self.verifier_addr, "gateway_verifier_addr");
 
         let bridgehub_info = network_verifier.get_bridgehub_info(bridgehub_addr).await;
-        
-        address_verifier.add_address(bridgehub_info.l1_asset_router_proxy_addr, "l1_asset_router_addr");
-        address_verifier.add_address(bridgehub_info.ctm_deployment_tracker_proxy_addr, "ctm_deployment_tracker_proxy_addr");
-        address_verifier.add_address(bridgehub_info.gateway_base_token_addr, "gateway_base_token_addr");
+
+        address_verifier.add_address(
+            bridgehub_info.l1_asset_router_proxy_addr,
+            "l1_asset_router_addr",
+        );
+        address_verifier.add_address(
+            bridgehub_info.ctm_deployment_tracker_proxy_addr,
+            "ctm_deployment_tracker_proxy_addr",
+        );
+        address_verifier.add_address(
+            bridgehub_info.gateway_base_token_addr,
+            "gateway_base_token_addr",
+        );
         address_verifier.add_address(bridgehub_addr, "bridgehub_proxy_addr");
         address_verifier.add_address(bridgehub_info.stm_address, "chain_type_manager_proxy_addr");
     }
@@ -212,5 +242,4 @@ impl GatewayStateTransition {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-
 }

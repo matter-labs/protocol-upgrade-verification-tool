@@ -218,13 +218,8 @@ impl NetworkVerifier {
             .await
             .unwrap()
             ._0;
-        
-        let ctm_deployment_tracker_proxy_addr = bridgehub
-            .l1CtmDeployer()
-            .call()
-            .await
-            .unwrap()
-            ._0;
+
+        let ctm_deployment_tracker_proxy_addr = bridgehub.l1CtmDeployer().call().await.unwrap()._0;
 
         BridgehubInfo {
             shared_bridge: shared_bridge_address,
@@ -240,7 +235,7 @@ impl NetworkVerifier {
             l1_nullifier,
             l1_asset_router_proxy_addr,
             gateway_base_token_addr,
-            ctm_deployment_tracker_proxy_addr
+            ctm_deployment_tracker_proxy_addr,
         }
     }
 }

@@ -9,7 +9,7 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "f6c41ebc5cc0c031a72342d2ca4431954574a114";
+const DEFAULT_CONTRACTS_COMMIT: &str = "be09b8f50b6537269e7b557c215cab83c5d0e121";
 // Current commit after v27 merge to main branch (PR 3713)
 const DEFAULT_ERA_COMMIT: &str = "9cbacb86634f00cfabb55f94a73b5c564c74bf36";
 
@@ -90,10 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut result = VerificationResult::default();
 
-    let r = config.verify(
-        &verifiers, 
-        &mut result,
-    ).await;
+    let r = config.verify(&verifiers, &mut result).await;
 
     println!("{}", result);
     r.unwrap();
