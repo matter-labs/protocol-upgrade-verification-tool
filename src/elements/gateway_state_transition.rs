@@ -1,8 +1,5 @@
 use alloy::{
-    hex::FromHex,
-    primitives::{Address, U256},
-    sol,
-    sol_types::SolConstructor,
+    hex::FromHex, primitives::{Address, U256}, providers::Provider, sol, sol_types::SolConstructor
 };
 use anyhow::Result;
 use serde::Deserialize;
@@ -146,8 +143,11 @@ sol! {
         constructor(uint256 _initialDelay, uint256 _maxAdditionalDelay, address _timerGovernance, address _initialOwner);
     }
 
+    #[sol(rpc)]
     contract DualVerifier {
         constructor(address _fflonkVerifier, address _plonkVerifier);
+        address public immutable FFLONK_VERIFIER;
+        address public immutable PLONK_VERIFIER;
     }
 
     #[sol(rpc)]
@@ -195,6 +195,9 @@ impl GatewayStateTransition {
         network_verifier: &NetworkVerifier,
         bridgehub_addr: Address,
     ) {
+        let proxy_admin_slot = U256::from_str_radix("81955473079516046949633743016697847541294818689821282749996681496272635257091", 10).unwrap();
+
+        let gw_provider = network_verifier.gw_provider.clone();
         address_verifier.add_address(self.admin_facet_addr, "gateway_admin_facet_addr");
         address_verifier.add_address(
             self.chain_type_manager_implementation_addr,
@@ -216,6 +219,18 @@ impl GatewayStateTransition {
             "gateway_validator_timelock_addr",
         );
         address_verifier.add_address(self.verifier_addr, "gateway_verifier_addr");
+
+        let dual_verifier = DualVerifier::new(self.verifier_addr, gw_provider.clone());
+        let plonk_verifier_addr = dual_verifier.PLONK_VERIFIER().call().await.unwrap().PLONK_VERIFIER;
+        let fflonk_verifier_addr = dual_verifier.FFLONK_VERIFIER().call().await.unwrap().FFLONK_VERIFIER;
+
+        address_verifier.add_address(plonk_verifier_addr, "gateway_verifier_plonk_addr");
+        address_verifier.add_address(fflonk_verifier_addr, "gateway_verifier_fflonk_addr");
+
+        let gw_ctm_proxy_admin_bytes = gw_provider.get_storage_at(self.chain_type_manager_proxy_addr, proxy_admin_slot).await.unwrap();
+        let gw_ctm_proxy_admin: [u8; 20] = gw_ctm_proxy_admin_bytes.to_be_bytes::<32>()[12..].try_into().unwrap();
+
+        address_verifier.add_address(Address::from_slice(&gw_ctm_proxy_admin), "gateway_chain_type_manager_proxy_admin_addr");
 
         let bridgehub_info = network_verifier.get_bridgehub_info(bridgehub_addr).await;
 

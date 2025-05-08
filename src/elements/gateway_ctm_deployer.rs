@@ -1,9 +1,7 @@
 use std::any;
 
 use super::{
-    call_list::{Call, CallList},
-    fixed_force_deployment::FixedForceDeploymentsData,
-    set_new_version_upgrade::{self, setNewVersionUpgradeCall},
+    call_list::{Call, CallList}, fixed_force_deployment::FixedForceDeploymentsData, gateway_state_transition::DualVerifier, set_new_version_upgrade::{self, setNewVersionUpgradeCall}
 };
 use crate::{
     elements::{initialize_data_new_chain::InitializeDataNewChain, ContractsConfig},
@@ -251,7 +249,7 @@ impl DeployedContracts {
         result.expect_address(
             verifiers,
             &st.serverNotifierProxy,
-            "gateway_server_notifier_proxy_addr",
+            "gateway_server_notifier",
         );
         result.expect_address(
             verifiers,
@@ -262,16 +260,16 @@ impl DeployedContracts {
         // ── data‑availability contracts ───────────────────────────────────────
         // all of the below are missing missing
         let da = &self.daContracts;
-        result.expect_address(verifiers, &da.rollupDAManager, "rollup_da_manager_addr");
+        result.expect_address(verifiers, &da.rollupDAManager, "gateway_rollup_da_manager");
         result.expect_address(
             verifiers,
             &da.relayedSLDAValidator,
-            "relayed_slda_validator_addr",
+            "relayed_sl_da_validator",
         );
         result.expect_address(
             verifiers,
             &da.validiumDAValidator,
-            "validium_da_validator_addr",
+            "validium_da_validator",
         );
 
         // NOTE: `diamondCutData` is raw bytes, not an address, so no check needed.
@@ -325,8 +323,6 @@ pub async fn verify_gateway_ctm_deployer(
         .getDeployedContracts()
         .call()
         .await?;
-
-    dbg!(&deployed_contracts.contracts);
 
     deployed_contracts.contracts.verify(verifiers, result)?;
 

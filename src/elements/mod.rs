@@ -1,6 +1,6 @@
 use alloy::{
     hex,
-    primitives::{Address, FixedBytes, U256},
+    primitives::{Address, FixedBytes, U256}, providers::Provider,
 };
 use anyhow::Context;
 use call_list::CallList;
@@ -176,6 +176,9 @@ impl UpgradeOutput {
         network_verifier: &NetworkVerifier,
         bridgehub_addr: Address,
     ) {
+        let implementation_slot = U256::from_str_radix("24440054405305269366569402256811496959409073762505157381672968839269610695612", 10).unwrap();
+        let gw_provider = network_verifier.gw_provider.clone();
+
         address_verifier.add_address(self.multicall3_addr, "multicall3_addr");
         address_verifier.add_address(self.relayed_sl_da_validator, "relayed_sl_da_validator");
         address_verifier.add_address(self.validium_da_validator, "validium_da_validator");
@@ -187,6 +190,12 @@ impl UpgradeOutput {
         );
         address_verifier.add_address(self.gateway_ctm_deployer, "gateway_ctm_deployer");
         address_verifier.add_address(self.rollup_da_manager, "gateway_rollup_da_manager");
+
+        let server_notifier_implementation_bytes = gw_provider.get_storage_at(self.gateway_server_notifier, implementation_slot).await.unwrap();
+        let server_notifier_implementation: [u8; 20] = server_notifier_implementation_bytes.to_be_bytes::<32>()[12..].try_into().unwrap();
+
+        address_verifier.add_address(Address::from_slice(&server_notifier_implementation), "gateway_server_notifier_implementation_addr");
+
         self.gateway_state_transition
             .add_to_verifier(address_verifier, network_verifier, bridgehub_addr)
             .await;
@@ -244,14 +253,14 @@ impl UpgradeOutput {
             .await
             .context("gateway_ctm_deployer")?;
 
-        // verify_gateway_ctm_deployer(
-        //     self.gateway_ctm_deployer,
-        //     hex::encode(&gateway_ctm_deployer_create2_data.input),
-        //     gateway_ctm_deployer_create2_data._salt,
-        //     verifiers,
-        //     result,
-        // )
-        // .await?;
+        verify_gateway_ctm_deployer(
+            self.gateway_ctm_deployer,
+            hex::encode(&gateway_ctm_deployer_create2_data.input),
+            gateway_ctm_deployer_create2_data._salt,
+            verifiers,
+            result,
+        )
+        .await?;
 
         Ok(())
     }
