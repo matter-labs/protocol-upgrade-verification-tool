@@ -55,7 +55,7 @@ struct Args {
     #[clap(long)]
     testnet_contracts: bool,
 
-    // fixme: can it be an address rightaway?
+    // The address of the bridgehub
     #[clap(long)]
     bridgehub_address: String,
 }

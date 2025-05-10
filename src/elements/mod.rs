@@ -59,7 +59,6 @@ pub(crate) struct ContractsConfig {
     diamond_init_max_pubdata_per_batch: u32,
     diamond_init_minimal_l2_gas_price: u64,
     diamond_init_priority_tx_max_pubdata: u32,
-    // todo: maybe convert to enum rightaway
     diamond_init_pubdata_pricing_mode: u32,
     force_deployments_data: String,
     l1_legacy_shared_bridge: Address,

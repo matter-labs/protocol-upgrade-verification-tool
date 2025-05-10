@@ -68,9 +68,9 @@ pub struct NetworkVerifier {
     pub l2_chain_id: u64,
     pub l1_chain_id: u64,
 
-    // todo: maybe merge into one struct.
-    pub create2_known_bytecodes: HashMap<Address, String>,
-    pub create2_constructor_params: HashMap<Address, Vec<u8>>,
+    // Stores a mapping from the address to the tuple of the bytecode's string identifier
+    // as well as the constructor parameters.
+    pub create2_known_bytecodes: HashMap<Address, (String, Vec<u8>)>,
 }
 
 impl NetworkVerifier {
@@ -80,7 +80,6 @@ impl NetworkVerifier {
         bytecode_verifier: &BytecodeVerifier,
         config: &UpgradeOutput,
     ) -> Self {
-        let mut create2_constructor_params = HashMap::new();
         let mut create2_known_bytecodes = HashMap::new();
         let l1_provider = ProviderBuilder::new().on_http(l1_rpc.parse().unwrap());
         println!(
@@ -98,15 +97,8 @@ impl NetworkVerifier {
             )
             .await
             {
-                if create2_constructor_params
-                    .insert(address, constructor_param)
-                    .is_some()
-                {
-                    panic!("Duplicate deployment for {:#?}", address)
-                }
-
                 if create2_known_bytecodes
-                    .insert(address, contract.clone())
+                    .insert(address, (contract.clone(), constructor_param))
                     .is_some()
                 {
                     panic!("Duplicate deployment for {:#?}", address)
@@ -118,7 +110,6 @@ impl NetworkVerifier {
             l1_chain_id: l1_provider.get_chain_id().await.unwrap(),
             l1_provider,
             l2_chain_id,
-            create2_constructor_params,
             create2_known_bytecodes,
         }
     }
