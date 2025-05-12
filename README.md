@@ -38,7 +38,7 @@ cargo run -- --ecosystem-yaml data/v28-ecosystem-stage.yaml --l1-rpc https://1rp
 ### Testnet verification
 
 ```
-cargo run -- --ecosystem-yaml data/v27-testnet-output.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 300 --testnet-contracts  --bridgehub-address 0x35A54c8C757806eB6820629bc82d90E056394C92
+cargo run -- --ecosystem-yaml data/v28-ecosystem-testnet.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 300 --testnet-contracts  --bridgehub-address 0x35A54c8C757806eB6820629bc82d90E056394C92
 ```
 
 
