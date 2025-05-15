@@ -38,6 +38,7 @@ sol! {
     function setValidatorTimelock(address addr);
     function setProtocolVersionDeadline(uint256 protocolVersion, uint256 newDeadline);
     function updateDAPair(address l1_da_addr, address l2_da_addr, bool is_active);
+    function setPendingAdmin(address pendingAdmin);
 
     #[derive(Debug, PartialEq)]
     enum Action {
@@ -340,6 +341,10 @@ impl GovernanceCalls {
            ("gateway_base_token_addr", "approve(address,uint256)"),
            // Gateway Add Chain Type Manager
            ("bridgehub_proxy_addr", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+           // Approve base token
+           ("gateway_base_token_addr", "approve(address,uint256)"),
+           // Set Pending Admin
+           ("bridgehub_proxy_addr", "requestL2TransactionTwoBridges((uint256,uint256,uint256,uint256,uint256,address,address,uint256,bytes))"),
            // Set asset deployment tracker
            ("l1_asset_router_addr", "setAssetDeploymentTracker(bytes32,address)"),
            // Register CTM asset on L1
@@ -420,7 +425,38 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 3: setAssetDeploymentTracker
+        // 3: approve
+        {
+            let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
+
+            result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
+
+            call_index += 1;
+        }
+
+        // 4: requestL2TransactionDirect
+        {
+            let params = requestL2TransactionDirectCall::abi_decode(
+                &self.calls.elems[call_index].data,
+                true,
+            )?;
+
+            params.verify_basic_params(result, gateway_chain_id, refund_recipient);
+            result.expect_address(verifiers, &params._request.l2Contract, "l2_bridgehub");
+
+            let inner_params =
+                setPendingAdminCall::abi_decode(&params._request.l2Calldata, true)?;
+
+            result.expect_address(
+                verifiers,
+                &inner_params.pendingAdmin,
+                "ecosystem_admin",
+            );
+
+            call_index += 1;
+        }
+
+        // 5: setAssetDeploymentTracker
         {
             let params = setAssetDeploymentTrackerCall::abi_decode(
                 &self.calls.elems[call_index].data,
@@ -442,7 +478,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 4: registerCTMAssetOnL1
+        // 6: registerCTMAssetOnL1
         {
             let params =
                 registerCTMAssetOnL1Call::abi_decode(&self.calls.elems[call_index].data, true)?;
@@ -455,7 +491,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 5: approve
+        // 7: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
             result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
@@ -463,7 +499,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 6: requestL2TransactionTwoBridges
+        // 8: requestL2TransactionTwoBridges
         {
             let params = requestL2TransactionTwoBridgesCall::abi_decode(
                 &self.calls.elems[call_index].data,
@@ -497,7 +533,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 7: approve
+        // 9: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
             result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
@@ -505,7 +541,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 8: requestL2TransactionTwoBridges
+        // 10: requestL2TransactionTwoBridges
         {
             let params = requestL2TransactionTwoBridgesCall::abi_decode(
                 &self.calls.elems[call_index].data,
@@ -536,7 +572,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 9: approve
+        // 11: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
             result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
@@ -544,7 +580,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 10: requestL2TransactionDirect (acceptOwnership for RollupDAManager)
+        // 12: requestL2TransactionDirect (acceptOwnership for RollupDAManager)
         {
             let params = requestL2TransactionDirectCall::abi_decode(
                 &self.calls.elems[call_index].data,
@@ -562,7 +598,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 11: approve
+        // 13: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
             result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
@@ -570,7 +606,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 12: requestL2TransactionDirect (acceptOwnership for ValidatorTimelock)
+        // 14: requestL2TransactionDirect (acceptOwnership for ValidatorTimelock)
         {
             let params = requestL2TransactionDirectCall::abi_decode(
                 &self.calls.elems[call_index].data,
@@ -588,7 +624,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 13: approve
+        // 15: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
             result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
@@ -596,7 +632,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 14: requestL2TransactionDirect (acceptOwnership for ServerNotifier)
+        // 16: requestL2TransactionDirect (acceptOwnership for ServerNotifier)
         {
             let params = requestL2TransactionDirectCall::abi_decode(
                 &self.calls.elems[call_index].data,
@@ -615,7 +651,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 15: approve
+        // 17: approve
         {
             let params = approveCall::abi_decode(&self.calls.elems[call_index].data, true)?;
             result.expect_address(verifiers, &params.toWhom, "l1_asset_router_addr");
@@ -623,7 +659,7 @@ impl GovernanceCalls {
             call_index += 1;
         }
 
-        // 16: requestL2TransactionDirect (Update DA Pair)
+        // 18: requestL2TransactionDirect (Update DA Pair)
         {
             let params = requestL2TransactionDirectCall::abi_decode(
                 &self.calls.elems[call_index].data,

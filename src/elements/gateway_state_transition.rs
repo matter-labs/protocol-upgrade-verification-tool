@@ -248,6 +248,7 @@ impl GatewayStateTransition {
         );
         address_verifier.add_address(bridgehub_addr, "bridgehub_proxy_addr");
         address_verifier.add_address(bridgehub_info.stm_address, "chain_type_manager_proxy_addr");
+        address_verifier.add_address(bridgehub_info.ecosystem_admin, "ecosystem_admin");
     }
 
     pub async fn verify(
