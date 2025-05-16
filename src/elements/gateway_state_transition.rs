@@ -5,8 +5,7 @@ use anyhow::Result;
 use serde::Deserialize;
 
 use crate::utils::{
-    address_verifier::AddressVerifier,
-    network_verifier::{self, BridgehubInfo, NetworkVerifier},
+    address_verifier::AddressVerifier, apply_l2_to_l1_alias, network_verifier::{self, BridgehubInfo, NetworkVerifier}
 };
 
 use super::UpgradeOutput;
@@ -248,7 +247,7 @@ impl GatewayStateTransition {
         );
         address_verifier.add_address(bridgehub_addr, "bridgehub_proxy_addr");
         address_verifier.add_address(bridgehub_info.stm_address, "chain_type_manager_proxy_addr");
-        address_verifier.add_address(bridgehub_info.ecosystem_admin, "ecosystem_admin");
+        address_verifier.add_address(apply_l2_to_l1_alias(bridgehub_info.ecosystem_admin), "ecosystem_admin");
     }
 
     pub async fn verify(

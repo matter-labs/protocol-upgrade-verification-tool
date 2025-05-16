@@ -38,6 +38,7 @@ sol! {
     function setValidatorTimelock(address addr);
     function setProtocolVersionDeadline(uint256 protocolVersion, uint256 newDeadline);
     function updateDAPair(address l1_da_addr, address l2_da_addr, bool is_active);
+    #[derive(Debug)]
     function setPendingAdmin(address pendingAdmin);
 
     #[derive(Debug, PartialEq)]
@@ -87,6 +88,7 @@ sol! {
     function registerSettlementLayer(uint256 settlementLayerChainId, bool iaAllowed);
     function approve(address toWhom, uint256 amount);
 
+    #[derive(Debug)]
     struct L2TransactionRequestDirectInput {
         uint256 chainId;
         uint256 mintValue;
@@ -99,6 +101,7 @@ sol! {
         address refundRecipient;
     }
 
+    #[derive(Debug)]
     function requestL2TransactionDirect(
         L2TransactionRequestDirectInput calldata _request
     ) external;
@@ -344,7 +347,7 @@ impl GovernanceCalls {
            // Approve base token
            ("gateway_base_token_addr", "approve(address,uint256)"),
            // Set Pending Admin
-           ("bridgehub_proxy_addr", "requestL2TransactionTwoBridges((uint256,uint256,uint256,uint256,uint256,address,address,uint256,bytes))"),
+           ("bridgehub_proxy_addr", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
            // Set asset deployment tracker
            ("l1_asset_router_addr", "setAssetDeploymentTracker(bytes32,address)"),
            // Register CTM asset on L1
@@ -442,7 +445,7 @@ impl GovernanceCalls {
             )?;
 
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
-            result.expect_address(verifiers, &params._request.l2Contract, "l2_bridgehub");
+            result.expect_address(verifiers, &params._request.l2Contract, "gateway_chain_type_manager_proxy_addr");
 
             let inner_params =
                 setPendingAdminCall::abi_decode(&params._request.l2Calldata, true)?;
