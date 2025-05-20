@@ -56,7 +56,6 @@ impl Verifiers {
             Address::from_hex(bridgehub_address.as_ref()).expect("Bridgehub address");
 
         let address_verifier = AddressVerifier::new(
-            bridgehub_address,
             &network_verifier,
             &bytecode_verifier,
             config,

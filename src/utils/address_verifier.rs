@@ -13,9 +13,8 @@ pub struct AddressVerifier {
 
 impl AddressVerifier {
     pub async fn new(
-        _bridgehub_addr: Address,
         network_verifier: &NetworkVerifier,
-        _bytecode_verifier: &BytecodeVerifier,
+        bytecode_verifier: &BytecodeVerifier,
         config: &UpgradeOutput,
         bridgehub_addr: Address,
     ) -> Self {
@@ -30,7 +29,12 @@ impl AddressVerifier {
         result.add_address(L2_BRIDGEHUB_ADDR_STR.parse().unwrap(), "l2_bridgehub");
 
         config
-            .add_to_verifier(&mut result, &network_verifier, bridgehub_addr)
+            .add_to_verifier(
+                &mut result,
+                &bytecode_verifier,
+                network_verifier,
+                bridgehub_addr,
+            )
             .await;
 
         result

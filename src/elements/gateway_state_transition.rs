@@ -1,14 +1,14 @@
 use alloy::{
-    hex::FromHex, primitives::{Address, U256}, providers::Provider, sol, sol_types::SolConstructor
+    primitives::{Address, FixedBytes, U256},
+    providers::Provider,
+    sol,
 };
-use anyhow::Result;
 use serde::Deserialize;
 
 use crate::utils::{
-    address_verifier::AddressVerifier, apply_l2_to_l1_alias, network_verifier::{self, BridgehubInfo, NetworkVerifier}
+    address_verifier::AddressVerifier, apply_l2_to_l1_alias, bytecode_verifier::BytecodeVerifier,
+    network_verifier::NetworkVerifier,
 };
-
-use super::UpgradeOutput;
 
 sol! {
     contract L1NativeTokenVault {
@@ -176,6 +176,7 @@ pub struct GatewayStateTransition {
     pub(crate) admin_facet_addr: Address,
     pub(crate) chain_type_manager_implementation_addr: Address,
     pub(crate) chain_type_manager_proxy_addr: Address,
+    pub(crate) chain_type_manager_proxy_admin_addr: Address,
     pub(crate) default_upgrade_addr: Address,
     pub(crate) diamond_init_addr: Address,
     pub(crate) diamond_proxy_addr: Address,
@@ -191,11 +192,10 @@ impl GatewayStateTransition {
     pub async fn add_to_verifier(
         &self,
         address_verifier: &mut AddressVerifier,
+        _bytecode_verifier: &BytecodeVerifier,
         network_verifier: &NetworkVerifier,
         bridgehub_addr: Address,
     ) {
-        let proxy_admin_slot = U256::from_str_radix("81955473079516046949633743016697847541294818689821282749996681496272635257091", 10).unwrap();
-
         let gw_provider = network_verifier.gw_provider.clone();
         address_verifier.add_address(self.admin_facet_addr, "gateway_admin_facet_addr");
         address_verifier.add_address(
@@ -220,16 +220,26 @@ impl GatewayStateTransition {
         address_verifier.add_address(self.verifier_addr, "gateway_verifier_addr");
 
         let dual_verifier = DualVerifier::new(self.verifier_addr, gw_provider.clone());
-        let plonk_verifier_addr = dual_verifier.PLONK_VERIFIER().call().await.unwrap().PLONK_VERIFIER;
-        let fflonk_verifier_addr = dual_verifier.FFLONK_VERIFIER().call().await.unwrap().FFLONK_VERIFIER;
+        let plonk_verifier_addr = dual_verifier
+            .PLONK_VERIFIER()
+            .call()
+            .await
+            .unwrap()
+            .PLONK_VERIFIER;
+        let fflonk_verifier_addr = dual_verifier
+            .FFLONK_VERIFIER()
+            .call()
+            .await
+            .unwrap()
+            .FFLONK_VERIFIER;
 
         address_verifier.add_address(plonk_verifier_addr, "gateway_verifier_plonk_addr");
         address_verifier.add_address(fflonk_verifier_addr, "gateway_verifier_fflonk_addr");
 
-        let gw_ctm_proxy_admin_bytes = gw_provider.get_storage_at(self.chain_type_manager_proxy_addr, proxy_admin_slot).await.unwrap();
-        let gw_ctm_proxy_admin: [u8; 20] = gw_ctm_proxy_admin_bytes.to_be_bytes::<32>()[12..].try_into().unwrap();
-
-        address_verifier.add_address(Address::from_slice(&gw_ctm_proxy_admin), "gateway_chain_type_manager_proxy_admin_addr");
+        address_verifier.add_address(
+            self.chain_type_manager_proxy_admin_addr,
+            "gateway_chain_type_manager_proxy_admin_addr",
+        );
 
         let bridgehub_info = network_verifier.get_bridgehub_info(bridgehub_addr).await;
 
@@ -247,7 +257,10 @@ impl GatewayStateTransition {
         );
         address_verifier.add_address(bridgehub_addr, "bridgehub_proxy_addr");
         address_verifier.add_address(bridgehub_info.stm_address, "chain_type_manager_proxy_addr");
-        address_verifier.add_address(apply_l2_to_l1_alias(bridgehub_info.ecosystem_admin), "ecosystem_admin");
+        address_verifier.add_address(
+            apply_l2_to_l1_alias(bridgehub_info.ecosystem_admin),
+            "ecosystem_admin",
+        );
     }
 
     pub async fn verify(
@@ -255,6 +268,59 @@ impl GatewayStateTransition {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
     ) -> anyhow::Result<()> {
+        let gw_provider = verifiers.network_verifier.gw_provider.clone();
+
+        let proxy_admin_slot = U256::from_str_radix(
+            "81955473079516046949633743016697847541294818689821282749996681496272635257091",
+            10,
+        )
+        .unwrap();
+        let gw_ctm_proxy_admin_bytes = gw_provider
+            .get_storage_at(self.chain_type_manager_proxy_addr, proxy_admin_slot)
+            .await
+            .unwrap();
+        let gw_ctm_proxy_admin: [u8; 20] = gw_ctm_proxy_admin_bytes.to_be_bytes::<32>()[12..]
+            .try_into()
+            .unwrap();
+
+        result.expect_address(
+            verifiers,
+            &Address::from_slice(&gw_ctm_proxy_admin),
+            "gateway_chain_type_manager_proxy_admin_addr",
+        );
+
+        let gateway_ctm_deployer =
+            verifiers.address_verifier.name_to_address["gateway_ctm_deployer"];
+
+        let plonk_verifier_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/L2VerifierPlonk",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let fflonk_verifier_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/L2VerifierFflonk",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        result.expect_address(
+            verifiers,
+            &plonk_verifier_addr,
+            "gateway_verifier_plonk_addr",
+        );
+        result.expect_address(
+            verifiers,
+            &fflonk_verifier_addr,
+            "gateway_verifier_fflonk_addr",
+        );
+
         Ok(())
     }
 }

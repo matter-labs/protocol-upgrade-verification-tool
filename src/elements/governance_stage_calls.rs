@@ -445,16 +445,15 @@ impl GovernanceCalls {
             )?;
 
             params.verify_basic_params(result, gateway_chain_id, refund_recipient);
-            result.expect_address(verifiers, &params._request.l2Contract, "gateway_chain_type_manager_proxy_addr");
-
-            let inner_params =
-                setPendingAdminCall::abi_decode(&params._request.l2Calldata, true)?;
-
             result.expect_address(
                 verifiers,
-                &inner_params.pendingAdmin,
-                "ecosystem_admin",
+                &params._request.l2Contract,
+                "gateway_chain_type_manager_proxy_addr",
             );
+
+            let inner_params = setPendingAdminCall::abi_decode(&params._request.l2Calldata, true)?;
+
+            result.expect_address(verifiers, &inner_params.pendingAdmin, "ecosystem_admin");
 
             call_index += 1;
         }
@@ -804,6 +803,7 @@ pub async fn verify_chain_creation_diamond_cut(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn verity_facet_cuts(
     facet_cuts: &[set_new_version_upgrade::FacetCut],
     result: &mut crate::verifiers::VerificationResult,

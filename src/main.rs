@@ -8,12 +8,13 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
-// Current top of release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "be09b8f50b6537269e7b557c215cab83c5d0e121";
+// Current top of sb-improve-gw-action-test branch
+const DEFAULT_CONTRACTS_COMMIT: &str = "a1e0f5fa5d33442eb30ad79f98e169f04a7f1c8c";
 // Current commit after v27 merge to main branch (PR 3713)
 const DEFAULT_ERA_COMMIT: &str = "9cbacb86634f00cfabb55f94a73b5c564c74bf36";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.27.0";
+#[allow(dead_code)]
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.26.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
@@ -22,6 +23,7 @@ pub(crate) fn get_expected_new_protocol_version() -> ProtocolVersion {
     ProtocolVersion::from_str(EXPECTED_NEW_PROTOCOL_VERSION_STR).unwrap()
 }
 
+#[allow(dead_code)]
 pub(crate) fn get_expected_old_protocol_version() -> ProtocolVersion {
     ProtocolVersion::from_str(EXPECTED_OLD_PROTOCOL_VERSION_STR).unwrap()
 }
@@ -59,7 +61,7 @@ struct Args {
     #[clap(long)]
     bridgehub_address: String,
 
-    // Gateway Chain Id
+    // Gateway RPC url
     #[clap(long)]
     gw_rpc: String,
 }

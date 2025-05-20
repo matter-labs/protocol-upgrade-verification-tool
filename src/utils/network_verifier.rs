@@ -92,8 +92,8 @@ impl NetworkVerifier {
         l1_rpc: String,
         gw_rpc: String,
         l2_chain_id: u64,
-        bytecode_verifier: &BytecodeVerifier,
-        config: &UpgradeOutput,
+        _bytecode_verifier: &BytecodeVerifier,
+        _config: &UpgradeOutput,
     ) -> Self {
         let l1_provider = ProviderBuilder::new().on_http(l1_rpc.parse().unwrap());
         let gw_provider = ProviderBuilder::new().on_http(gw_rpc.parse().unwrap());
@@ -244,7 +244,7 @@ impl NetworkVerifier {
 /// transaction.
 /// If successful, it returns a tuple of three items: the address of the deployed contract,
 /// the path to the contract and its constructor params.
-async fn check_create2_deploy(
+async fn _check_create2_deploy(
     l1_provider: RootProvider<Http<Client>>,
     transaction: &str,
     expected_create2_address: &Address,
@@ -312,7 +312,7 @@ async fn check_create2_deploy(
     None
 }
 
-async fn check_gw_create2_deploy(
+async fn _check_gw_create2_deploy(
     l1_provider: RootProvider<Http<Client>>,
     bridgehub_addr: &Address,
     transaction: &str,

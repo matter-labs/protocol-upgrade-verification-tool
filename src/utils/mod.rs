@@ -5,11 +5,8 @@ use std::{
 };
 
 use alloy::{
-    dyn_abi::abi::encode,
     hex::{self, FromHex},
-    primitives::{
-        aliases::B32, keccak256, Address, Bytes, FixedBytes, Keccak256, B256, U160, U256,
-    },
+    primitives::{keccak256, Address, Bytes, FixedBytes, Keccak256, B256, U160, U256},
 };
 
 pub mod address_verifier;
@@ -81,6 +78,7 @@ pub fn compute_create2_factory_deployed_address_zk(
     )
 }
 
+#[allow(dead_code)]
 pub fn compute_create2_address_evm(
     sender: Address,
     salt: FixedBytes<32>,

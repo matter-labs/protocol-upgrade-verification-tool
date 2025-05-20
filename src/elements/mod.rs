@@ -1,6 +1,7 @@
 use alloy::{
     hex,
-    primitives::{Address, FixedBytes, U256}, providers::Provider,
+    primitives::{Address, FixedBytes, U256},
+    providers::Provider,
 };
 use anyhow::Context;
 use call_list::CallList;
@@ -15,7 +16,7 @@ use serde::Deserialize;
 use crate::{
     get_expected_new_protocol_version, get_expected_old_protocol_version,
     utils::{
-        address_from_short_hex, address_verifier::AddressVerifier,
+        address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier,
         network_verifier::NetworkVerifier,
     },
     verifiers::{VerificationResult, Verifiers},
@@ -33,8 +34,11 @@ pub mod initialize_data_new_chain;
 pub mod protocol_version;
 pub mod set_new_version_upgrade;
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct UpgradeOutput {
+    pub(crate) deployer_address: Address,
+    pub(crate) create2_factory_salt: FixedBytes<32>,
     pub(crate) diamond_cut_data: String,
     pub(crate) ecosystem_admin_calls_to_execute: String,
     pub(crate) governance_calls_to_execute: String,
@@ -57,6 +61,7 @@ pub struct UpgradeOutput {
     pub(crate) transactions: Vec<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub(crate) struct ContractsConfig {
     diamond_cut_data: String,
@@ -79,6 +84,7 @@ pub(crate) struct ContractsConfig {
 }
 
 impl ContractsConfig {
+    #[allow(dead_code)]
     pub async fn verify(
         &self,
         verifiers: &Verifiers,
@@ -173,12 +179,10 @@ impl UpgradeOutput {
     pub async fn add_to_verifier(
         &self,
         address_verifier: &mut AddressVerifier,
+        bytecode_verifier: &BytecodeVerifier,
         network_verifier: &NetworkVerifier,
         bridgehub_addr: Address,
     ) {
-        let implementation_slot = U256::from_str_radix("24440054405305269366569402256811496959409073762505157381672968839269610695612", 10).unwrap();
-        let gw_provider = network_verifier.gw_provider.clone();
-
         address_verifier.add_address(self.multicall3_addr, "multicall3_addr");
         address_verifier.add_address(self.relayed_sl_da_validator, "relayed_sl_da_validator");
         address_verifier.add_address(self.validium_da_validator, "validium_da_validator");
@@ -191,13 +195,34 @@ impl UpgradeOutput {
         address_verifier.add_address(self.gateway_ctm_deployer, "gateway_ctm_deployer");
         address_verifier.add_address(self.rollup_da_manager, "gateway_rollup_da_manager");
 
-        let server_notifier_implementation_bytes = gw_provider.get_storage_at(self.gateway_server_notifier, implementation_slot).await.unwrap();
-        let server_notifier_implementation: [u8; 20] = server_notifier_implementation_bytes.to_be_bytes::<32>()[12..].try_into().unwrap();
+        let implementation_slot = U256::from_str_radix(
+            "24440054405305269366569402256811496959409073762505157381672968839269610695612",
+            10,
+        )
+        .unwrap();
+        let gw_provider = network_verifier.gw_provider.clone();
 
-        address_verifier.add_address(Address::from_slice(&server_notifier_implementation), "gateway_server_notifier_implementation_addr");
+        let server_notifier_implementation_bytes = gw_provider
+            .get_storage_at(self.gateway_server_notifier, implementation_slot)
+            .await
+            .unwrap();
+        let server_notifier_implementation: [u8; 20] = server_notifier_implementation_bytes
+            .to_be_bytes::<32>()[12..]
+            .try_into()
+            .unwrap();
+
+        address_verifier.add_address(
+            Address::from_slice(&server_notifier_implementation),
+            "gateway_server_notifier_implementation_addr",
+        );
 
         self.gateway_state_transition
-            .add_to_verifier(address_verifier, network_verifier, bridgehub_addr)
+            .add_to_verifier(
+                address_verifier,
+                bytecode_verifier,
+                network_verifier,
+                bridgehub_addr,
+            )
             .await;
     }
 
@@ -207,8 +232,6 @@ impl UpgradeOutput {
         result: &mut VerificationResult,
     ) -> anyhow::Result<()> {
         result.print_info("== Config verification ==");
-
-        let provider_chain_id = verifiers.network_verifier.get_era_chain_id();
 
         // Check that addresses actually contain correct bytecodes.
         self.gateway_state_transition
@@ -224,6 +247,39 @@ impl UpgradeOutput {
         // result
         //     .expect_deployed_bytecode(verifiers, &create2_factory_addr, "Create2Factory")
         //     .await;
+
+        let implementation_slot = U256::from_str_radix(
+            "24440054405305269366569402256811496959409073762505157381672968839269610695612",
+            10,
+        )
+        .unwrap();
+        let gw_provider = verifiers.network_verifier.gw_provider.clone();
+
+        let server_notifier_implementation_bytes = gw_provider
+            .get_storage_at(self.gateway_server_notifier, implementation_slot)
+            .await
+            .unwrap();
+        let server_notifier_implementation: [u8; 20] = server_notifier_implementation_bytes
+            .to_be_bytes::<32>()[12..]
+            .try_into()
+            .unwrap();
+        let server_notififer_implementation = Address::from_slice(&server_notifier_implementation);
+
+        let computed_server_notifier_implementation = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/ServerNotifier",
+                self.gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        if server_notifier_implementation != computed_server_notifier_implementation {
+            result.report_error(&format!(
+                "Unexpected address for ServerNotifier. Expected: {}, Found: {}",
+                computed_server_notifier_implementation, server_notififer_implementation
+            ));
+        }
 
         let ecosystem_admin_calls = EcosystemAdminCalls {
             calls: CallList::parse(&self.ecosystem_admin_calls_to_execute),

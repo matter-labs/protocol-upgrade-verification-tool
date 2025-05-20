@@ -1,27 +1,16 @@
-use std::any;
-
-use super::{
-    call_list::{Call, CallList}, fixed_force_deployment::FixedForceDeploymentsData, gateway_state_transition::DualVerifier, set_new_version_upgrade::{self, setNewVersionUpgradeCall}
-};
 use crate::{
-    elements::{initialize_data_new_chain::InitializeDataNewChain, ContractsConfig},
-    get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::{
-        compute_create2_factory_deployed_address_zk, encode_asset_id,
-        facet_cut_set::{self, FacetCutSet, FacetInfo},
-        fixed_bytes20_to_32,
-    },
+    utils::{address_verifier::L2_BRIDGEHUB_ADDR_STR, compute_create2_factory_deployed_address_zk},
     verifiers::{VerificationResult, Verifiers},
 };
 use alloy::{
-    dyn_abi::abi,
     hex,
-    primitives::{keccak256, ruint::aliases::U256, Address, Bytes, FixedBytes, Uint},
+    primitives::{keccak256, Address, FixedBytes, U256},
     providers::Provider,
     sol,
-    sol_types::{SolCall, SolValue},
+    sol_types::{SolConstructor, SolValue},
 };
-use anyhow::Context;
+
+use super::gateway_state_transition::{AdminFacet, DualVerifier, MailboxFacet, ValidatorTimelock};
 
 sol! {
 
@@ -181,8 +170,8 @@ sol! {
 impl GatewayCTMDeployerConfig {
     pub fn verify(
         &self,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
+        _verifiers: &crate::verifiers::Verifiers,
+        _result: &mut crate::verifiers::VerificationResult,
     ) -> anyhow::Result<()> {
         // TODO: verify all the fields provided here
         Ok(())
@@ -266,13 +255,237 @@ impl DeployedContracts {
             &da.relayedSLDAValidator,
             "relayed_sl_da_validator",
         );
-        result.expect_address(
-            verifiers,
-            &da.validiumDAValidator,
-            "validium_da_validator",
-        );
+        result.expect_address(verifiers, &da.validiumDAValidator, "validium_da_validator");
 
         // NOTE: `diamondCutData` is raw bytes, not an address, so no check needed.
+        // verify create2 addresses are as expected
+        let gateway_ctm_deployer =
+            verifiers.address_verifier.name_to_address["gateway_ctm_deployer"];
+        let l2_bridgehub_addr: Address = L2_BRIDGEHUB_ADDR_STR.parse().unwrap();
+
+        let multicall_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l2-contracts/Multicall3",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let ctm_implementation_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/ChainTypeManager",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &l2_bridgehub_addr.abi_encode(),
+            );
+
+        let plonk_verifier_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/L2VerifierPlonk",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let fflonk_verifier_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/L2VerifierFflonk",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let verifier_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/DualVerifier",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &DualVerifier::constructorCall::new((fflonk_verifier_addr, plonk_verifier_addr))
+                    .abi_encode(),
+            );
+
+        let admin_facet_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/AdminFacet",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &AdminFacet::constructorCall::new((
+                    U256::from(verifiers.network_verifier.l1_chain_id),
+                    self.daContracts.rollupDAManager,
+                ))
+                .abi_encode(),
+            );
+
+        let mailbox_facet_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/MailboxFacet",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &MailboxFacet::constructorCall::new((
+                    U256::from(verifiers.network_verifier.l2_chain_id),
+                    U256::from(verifiers.network_verifier.l1_chain_id),
+                ))
+                .abi_encode(),
+            );
+
+        let executor_facet_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/ExecutorFacet",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &U256::from(verifiers.network_verifier.l1_chain_id).abi_encode(),
+            );
+
+        let getters_facet_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/GettersFacet",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let diamond_init_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/DiamondInit",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let genesis_upgrade_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/L1GenesisUpgrade",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let validator_timelock_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/ValidatorTimelock",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &ValidatorTimelock::constructorCall::new((gateway_ctm_deployer, 0u32)).abi_encode(),
+            );
+
+        let proxy_admin_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/ProxyAdmin",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let server_notifier_impl_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/ServerNotifier",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let rollup_da_manager_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/RollupDAManager",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let relayed_sl_da_validator_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/RelayedSLDAValidator",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        let validium_da_validator_addr = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/ValidiumL1DAValidator",
+                gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
+
+        result.expect_address(verifiers, &multicall_addr, "multicall3_addr");
+        result.expect_address(
+            verifiers,
+            &ctm_implementation_addr,
+            "gateway_chain_type_manager_implementation_addr",
+        );
+        result.expect_address(
+            verifiers,
+            &plonk_verifier_addr,
+            "gateway_verifier_plonk_addr",
+        );
+        result.expect_address(
+            verifiers,
+            &fflonk_verifier_addr,
+            "gateway_verifier_fflonk_addr",
+        );
+        result.expect_address(verifiers, &verifier_addr, "gateway_verifier_addr");
+        result.expect_address(verifiers, &admin_facet_addr, "gateway_admin_facet_addr");
+        result.expect_address(verifiers, &mailbox_facet_addr, "gateway_mailbox_facet_addr");
+        result.expect_address(
+            verifiers,
+            &executor_facet_addr,
+            "gateway_executor_facet_addr",
+        );
+        result.expect_address(verifiers, &getters_facet_addr, "gateway_getters_facet_addr");
+        result.expect_address(verifiers, &diamond_init_addr, "gateway_diamond_init_addr");
+        result.expect_address(
+            verifiers,
+            &genesis_upgrade_addr,
+            "gateway_genesis_upgrade_addr",
+        );
+        result.expect_address(
+            verifiers,
+            &validator_timelock_addr,
+            "gateway_validator_timelock_addr",
+        );
+        result.expect_address(
+            verifiers,
+            &proxy_admin_addr,
+            "gateway_chain_type_manager_proxy_admin_addr",
+        );
+        result.expect_address(
+            verifiers,
+            &server_notifier_impl_addr,
+            "gateway_server_notifier_implementation_addr",
+        );
+        result.expect_address(
+            verifiers,
+            &rollup_da_manager_addr,
+            "gateway_rollup_da_manager",
+        );
+        result.expect_address(
+            verifiers,
+            &relayed_sl_da_validator_addr,
+            "relayed_sl_da_validator",
+        );
+        result.expect_address(
+            verifiers,
+            &validium_da_validator_addr,
+            "validium_da_validator",
+        );
 
         Ok(())
     }
