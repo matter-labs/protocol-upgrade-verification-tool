@@ -266,7 +266,7 @@ impl DeployedContracts {
         let multicall_addr = verifiers
             .bytecode_verifier
             .compute_expected_address_for_file_with_custom_args(
-                "l2-contracts/Multicall3",
+                "l1-contracts/Multicall3",
                 gateway_ctm_deployer,
                 FixedBytes::ZERO,
                 &[],

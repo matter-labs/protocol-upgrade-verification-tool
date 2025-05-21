@@ -9,7 +9,7 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of sb-improve-gw-action-test branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "a1e0f5fa5d33442eb30ad79f98e169f04a7f1c8c";
+const DEFAULT_CONTRACTS_COMMIT: &str = "f08015898e3e47cdf48fbcb3ed2e3c5b2ab3b426";
 // Current commit after v27 merge to main branch (PR 3713)
 const DEFAULT_ERA_COMMIT: &str = "9cbacb86634f00cfabb55f94a73b5c564c74bf36";
 
