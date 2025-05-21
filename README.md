@@ -1,8 +1,8 @@
-# Protocol Upgrade Verification Tool v27
+# Protocol Upgrade Verification Tool Gateway Whitelisting
 
 Tool to analyze the zkSync upgrades.
 
-**This is a version for $${\color{red} v27}$$ upgrade.**
+**This is a version for $${\color{red} Gateway Whitelisting}$$ upgrade.**
 
 **IMPORTANT**
 
@@ -32,20 +32,20 @@ cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output.yaml --l1-rp
 ### Stage verification
 
 ```
-cargo run -- --ecosystem-yaml data/stage_ecosystem_upgrade_output.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE
+cargo run -- --ecosystem-yaml data/gateway-vote-preparation-stage.yaml --l1-rpc <your-l1-rpc>  --era-chain-id 270 --bridgehub-address 0xb244E9B485fc872e3242960b786dB5189f6A6d2A --testnet-contracts --gw-rpc https://rpc.era-gateway-stage.zksync.dev/
 ```
 
 ### Testnet verification
 
 ```
-cargo run -- --ecosystem-yaml data/v27-testnet-output.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 300 --testnet-contracts  --bridgehub-address 0x35A54c8C757806eB6820629bc82d90E056394C92
+cargo run -- --ecosystem-yaml data/gateway-vote-preparation-testnet.yaml --l1-rpc <your-l1-rpc>  --era-chain-id 300 --bridgehub-address 0x35A54c8C757806eB6820629bc82d90E056394C92 --testnet-contracts --gw-rpc https://rpc.era-gateway-testnet.zksync.dev/
 ```
 
 
 ### Mainnet verification
 
 ```
-cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output_mainnet.yaml --l1-rpc <your-l1-rpc> --contracts-commit a80a24beb7cfe97387bcc9359ad023a4b5b56943 --era-commit 99c3905a9e92416e76d37b0858da7f6c7e123e0b  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213
+cargo run -- --ecosystem-yaml data/gateway-vote-preparation-mainnet.yaml --l1-rpc <your-l1-rpc>  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --gw-rpc https://rpc.era-gateway-mainnet.zksync.dev
 ```
 
 #### Tally upgrade data

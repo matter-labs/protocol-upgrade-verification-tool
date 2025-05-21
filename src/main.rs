@@ -8,12 +8,13 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
-// Current top of release-27 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "13cc1366fd348772ccfac5a585c4e4701a5dfe45";
+// Current top of sb-improve-gw-action-test branch
+const DEFAULT_CONTRACTS_COMMIT: &str = "f08015898e3e47cdf48fbcb3ed2e3c5b2ab3b426";
 // Current commit after v27 merge to main branch (PR 3713)
 const DEFAULT_ERA_COMMIT: &str = "9cbacb86634f00cfabb55f94a73b5c564c74bf36";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.27.0";
+#[allow(dead_code)]
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.26.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
@@ -22,6 +23,7 @@ pub(crate) fn get_expected_new_protocol_version() -> ProtocolVersion {
     ProtocolVersion::from_str(EXPECTED_NEW_PROTOCOL_VERSION_STR).unwrap()
 }
 
+#[allow(dead_code)]
 pub(crate) fn get_expected_old_protocol_version() -> ProtocolVersion {
     ProtocolVersion::from_str(EXPECTED_OLD_PROTOCOL_VERSION_STR).unwrap()
 }
@@ -58,6 +60,10 @@ struct Args {
     // fixme: can it be an address rightaway?
     #[clap(long)]
     bridgehub_address: String,
+
+    // Gateway RPC url
+    #[clap(long)]
+    gw_rpc: String,
 }
 
 #[tokio::main]
@@ -78,6 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &args.era_commit,
         &args.contracts_commit,
         args.l1_rpc,
+        args.gw_rpc,
         args.era_chain_id,
         &config,
     )
@@ -92,17 +99,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.display_upgrade_data.unwrap_or_default() {
         println!(
-            "Stage0 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+            "Ecosystem Admin encoded upgrade data = {}",
+            encode_upgrade_data(&config.ecosystem_admin_calls_to_execute)
         );
 
         println!(
-            "Stage1 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
-        );
-        println!(
-            "Stage2 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
+            "Governance Calls encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_calls_to_execute)
         );
     }
 

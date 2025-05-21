@@ -41,12 +41,13 @@ impl Verifiers {
         era_commit: &str,
         contracts_commit: &str,
         l1_rpc: String,
+        gw_rpc: String,
         era_chain_id: u64,
         config: &UpgradeOutput,
     ) -> Self {
         let bytecode_verifier = BytecodeVerifier::init_from_github(contracts_commit).await;
         let network_verifier =
-            NetworkVerifier::new(l1_rpc, era_chain_id, &bytecode_verifier, config).await;
+            NetworkVerifier::new(l1_rpc, gw_rpc, era_chain_id, &bytecode_verifier, config).await;
 
         if testnet_contracts && network_verifier.get_l1_chain_id() == 1 {
             panic!("Testnet contracts are not expected to be deployed on L1 mainnet - you passed --testnet-contracts flag.");
@@ -55,10 +56,10 @@ impl Verifiers {
             Address::from_hex(bridgehub_address.as_ref()).expect("Bridgehub address");
 
         let address_verifier = AddressVerifier::new(
-            bridgehub_address,
             &network_verifier,
             &bytecode_verifier,
             config,
+            bridgehub_address,
         )
         .await;
 
@@ -104,6 +105,9 @@ pub struct GenesisConfig {
     pub genesis_root: String,
     pub genesis_rollup_leaf_index: u64,
     pub genesis_batch_commitment: String,
+    pub default_aa_hash: String,
+    pub bootloader_hash: String,
+    pub evm_emulator_hash: String,
 }
 
 impl GenesisConfig {

@@ -121,7 +121,7 @@ impl BytecodeVerifier {
             .insert(bytecode_hash, file);
     }
 
-    pub(crate) fn compute_expected_address_for_file(&self, file: &str) -> Address {
+    pub(crate) fn _compute_expected_address_for_file(&self, file: &str) -> Address {
         let code = self
             .file_to_zk_bytecode_hash(file)
             .unwrap_or_else(|| panic!("Bytecode not found for file: {}", file));
@@ -131,6 +131,25 @@ impl BytecodeVerifier {
             FixedBytes::ZERO,
             *code,
             keccak256([]),
+        )
+    }
+
+    pub(crate) fn compute_expected_address_for_file_with_custom_args(
+        &self,
+        file: &str,
+        sender: Address,
+        salt: FixedBytes<32>,
+        constructor_args: &[u8],
+    ) -> Address {
+        let code = self
+            .file_to_zk_bytecode_hash(file)
+            .unwrap_or_else(|| panic!("Bytecode not found for file: {}", file));
+        compute_create2_address_zk(
+            // Create2Factory address
+            sender,
+            salt,
+            *code,
+            keccak256(constructor_args),
         )
     }
 

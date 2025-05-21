@@ -6,7 +6,7 @@ use std::{
 
 use alloy::{
     hex::{self, FromHex},
-    primitives::{keccak256, Address, Bytes, FixedBytes, Keccak256, U160},
+    primitives::{keccak256, Address, Bytes, FixedBytes, Keccak256, B256, U160, U256},
 };
 
 pub mod address_verifier;
@@ -65,6 +65,20 @@ pub fn compute_create2_address_zk(
     Address::from_slice(&keccak256(address_payload).0[12..])
 }
 
+pub fn compute_create2_factory_deployed_address_zk(
+    salt: FixedBytes<32>,
+    bytecode_hash: FixedBytes<32>,
+    constructor_input_hash: FixedBytes<32>,
+) -> Address {
+    compute_create2_address_zk(
+        address_from_short_hex("10000"),
+        salt,
+        bytecode_hash,
+        constructor_input_hash,
+    )
+}
+
+#[allow(dead_code)]
 pub fn compute_create2_address_evm(
     sender: Address,
     salt: FixedBytes<32>,
@@ -113,4 +127,30 @@ pub fn compute_selector(method_name: &str) -> String {
 pub fn address_from_short_hex(hex: &str) -> Address {
     let padded_hex = format!("{:0>40}", hex);
     Address::from_hex(format!("0x{}", padded_hex)).expect("Invalid hex address provided")
+}
+
+pub fn fixed_bytes20_to_32(input: FixedBytes<20>) -> FixedBytes<32> {
+    let mut padded = [0u8; 32];
+    padded[12..].copy_from_slice(&input.0); // left-pad with 12 zero bytes
+    FixedBytes::<32>::from(padded)
+}
+
+/// Encodes the asset ID using chainId, sender address, and assetData.
+/// Mirrors the Solidity function:
+/// keccak256(abi.encode(_chainId, _sender, _assetData))
+pub fn encode_asset_id(chain_id: U256, asset_data: B256, sender: Address) -> B256 {
+    // Equivalent to Solidity's abi.encode (not packed)
+    let mut encoded = Vec::with_capacity(32 + 32 + 32); // U256 (32 bytes) + Address (32 bytes padded) + B256 (32 bytes)
+
+    // Solidity abi.encode pads address to 32 bytes
+    encoded.extend_from_slice(&chain_id.to_be_bytes::<32>());
+
+    let mut padded_sender = [0u8; 32];
+    padded_sender[12..].copy_from_slice(sender.as_slice()); // right-align 20 bytes into 32 bytes
+    encoded.extend_from_slice(&padded_sender);
+
+    encoded.extend_from_slice(asset_data.as_slice());
+
+    // Compute keccak256 hash
+    keccak256(&encoded)
 }

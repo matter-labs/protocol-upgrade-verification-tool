@@ -1,56 +1,67 @@
-use alloy::primitives::{Address, FixedBytes, U256};
+use alloy::{
+    hex,
+    primitives::{Address, FixedBytes, U256},
+    providers::Provider,
+};
 use anyhow::Context;
 use call_list::CallList;
-use deployed_addresses::DeployedAddresses;
-use governance_stage_calls::{GovernanceStage0Calls, GovernanceStage1Calls, GovernanceStage2Calls};
+use create2::Create2;
+use gateway_ctm_deployer::verify_gateway_ctm_deployer;
+use gateway_state_transition::GatewayStateTransition;
+use governance_stage_calls::{EcosystemAdminCalls, GovernanceCalls};
 use initialize_data_new_chain::{FeeParams, PubdataPricingMode};
 use protocol_version::ProtocolVersion;
 use serde::Deserialize;
 
 use crate::{
     get_expected_new_protocol_version, get_expected_old_protocol_version,
-    utils::address_verifier::AddressVerifier,
+    utils::{
+        address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier,
+        network_verifier::NetworkVerifier,
+    },
     verifiers::{VerificationResult, Verifiers},
     MAX_PRIORITY_TX_GAS_LIMIT,
 };
 
 pub mod call_list;
-pub mod deployed_addresses;
+pub mod create2;
 pub mod fixed_force_deployment;
 pub mod force_deployment;
+pub mod gateway_ctm_deployer;
+pub mod gateway_state_transition;
 pub mod governance_stage_calls;
 pub mod initialize_data_new_chain;
 pub mod protocol_version;
 pub mod set_new_version_upgrade;
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct UpgradeOutput {
-    pub(crate) chain_upgrade_diamond_cut: String,
-    pub(crate) create2_factory_addr: Address,
+    pub(crate) deployer_address: Address,
     pub(crate) create2_factory_salt: FixedBytes<32>,
-    pub(crate) deployer_addr: Address,
-    pub(crate) era_chain_id: u64,
+    pub(crate) diamond_cut_data: String,
+    pub(crate) ecosystem_admin_calls_to_execute: String,
+    pub(crate) governance_calls_to_execute: String,
 
-    pub(crate) governance_calls: GovernanceCalls,
+    pub(crate) multicall3_addr: Address,
+    pub(crate) relayed_sl_da_validator: Address,
+    pub(crate) validium_da_validator: Address,
 
-    pub(crate) l1_chain_id: u64,
+    pub(crate) server_notifier: Address,
+    pub(crate) gateway_server_notifier: Address,
 
-    pub(crate) protocol_upgrade_handler_proxy_address: Address,
+    pub(crate) gateway_state_transition: GatewayStateTransition,
+    pub(crate) old_rollup_l2_da_validator: Address,
+    pub(crate) gateway_ctm_deployer_create2_data: String,
+    pub(crate) gateway_ctm_deployer: Address,
+    pub(crate) rollup_da_manager: Address,
 
-    #[serde(rename = "contracts_newConfig")]
-    pub(crate) contracts_config: ContractsConfig,
-    pub(crate) deployed_addresses: DeployedAddresses,
+    pub(crate) refund_recipient: Address,
 
     pub(crate) transactions: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct GovernanceCalls {
-    pub(crate) governance_stage0_calls: String,
-    pub(crate) governance_stage1_calls: String,
-    pub(crate) governance_stage2_calls: String,
-}
-
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub(crate) struct ContractsConfig {
     diamond_cut_data: String,
@@ -73,6 +84,7 @@ pub(crate) struct ContractsConfig {
 }
 
 impl ContractsConfig {
+    #[allow(dead_code)]
     pub async fn verify(
         &self,
         verifiers: &Verifiers,
@@ -164,8 +176,54 @@ impl ContractsConfig {
 }
 
 impl UpgradeOutput {
-    pub fn add_to_verifier(&self, address_verifier: &mut AddressVerifier) {
-        self.deployed_addresses.add_to_verifier(address_verifier);
+    pub async fn add_to_verifier(
+        &self,
+        address_verifier: &mut AddressVerifier,
+        bytecode_verifier: &BytecodeVerifier,
+        network_verifier: &NetworkVerifier,
+        bridgehub_addr: Address,
+    ) {
+        address_verifier.add_address(self.multicall3_addr, "multicall3_addr");
+        address_verifier.add_address(self.relayed_sl_da_validator, "relayed_sl_da_validator");
+        address_verifier.add_address(self.validium_da_validator, "validium_da_validator");
+        address_verifier.add_address(self.server_notifier, "server_notifier_addr");
+        address_verifier.add_address(self.gateway_server_notifier, "gateway_server_notifier");
+        address_verifier.add_address(
+            self.old_rollup_l2_da_validator,
+            "old_rollup_l2_da_validator",
+        );
+        address_verifier.add_address(self.gateway_ctm_deployer, "gateway_ctm_deployer");
+        address_verifier.add_address(self.rollup_da_manager, "gateway_rollup_da_manager");
+
+        let implementation_slot = U256::from_str_radix(
+            "24440054405305269366569402256811496959409073762505157381672968839269610695612",
+            10,
+        )
+        .unwrap();
+        let gw_provider = network_verifier.gw_provider.clone();
+
+        let server_notifier_implementation_bytes = gw_provider
+            .get_storage_at(self.gateway_server_notifier, implementation_slot)
+            .await
+            .unwrap();
+        let server_notifier_implementation: [u8; 20] = server_notifier_implementation_bytes
+            .to_be_bytes::<32>()[12..]
+            .try_into()
+            .unwrap();
+
+        address_verifier.add_address(
+            Address::from_slice(&server_notifier_implementation),
+            "gateway_server_notifier_implementation_addr",
+        );
+
+        self.gateway_state_transition
+            .add_to_verifier(
+                address_verifier,
+                bytecode_verifier,
+                network_verifier,
+                bridgehub_addr,
+            )
+            .await;
     }
 
     pub async fn verify(
@@ -175,80 +233,90 @@ impl UpgradeOutput {
     ) -> anyhow::Result<()> {
         result.print_info("== Config verification ==");
 
-        let provider_chain_id = verifiers.network_verifier.get_era_chain_id();
-        if provider_chain_id == self.era_chain_id {
-            result.report_ok("Chain id");
-        } else {
-            result.report_error(&format!(
-                "chain id mismatch: {} vs {} ",
-                self.era_chain_id, provider_chain_id
-            ));
-        }
-
-        if self.l1_chain_id == verifiers.network_verifier.get_l1_chain_id() {
-            result.report_ok("L1 chain id");
-        } else {
-            result.report_error(&format!(
-                "L1 chain id mismatch: {} vs {} ",
-                self.l1_chain_id,
-                verifiers.network_verifier.get_l1_chain_id()
-            ));
-        }
-
         // Check that addresses actually contain correct bytecodes.
-        self.deployed_addresses
-            .verify(self, verifiers, result)
+        self.gateway_state_transition
+            .verify(verifiers, result)
             .await
             .context("checking deployed addresses")?;
-        let (facets_to_remove, facets_to_add) = self
-            .deployed_addresses
-            .get_expected_facet_cuts(verifiers, result)
+        // let (facets_to_remove, facets_to_add) = self
+        //     .deployed_addresses
+        //     .get_expected_facet_cuts(verifiers, result)
+        //     .await
+        //     .context("checking facets")?;
+
+        // result
+        //     .expect_deployed_bytecode(verifiers, &create2_factory_addr, "Create2Factory")
+        //     .await;
+
+        let implementation_slot = U256::from_str_radix(
+            "24440054405305269366569402256811496959409073762505157381672968839269610695612",
+            10,
+        )
+        .unwrap();
+        let gw_provider = verifiers.network_verifier.gw_provider.clone();
+
+        let server_notifier_implementation_bytes = gw_provider
+            .get_storage_at(self.gateway_server_notifier, implementation_slot)
             .await
-            .context("checking facets")?;
+            .unwrap();
+        let server_notifier_implementation: [u8; 20] = server_notifier_implementation_bytes
+            .to_be_bytes::<32>()[12..]
+            .try_into()
+            .unwrap();
+        let server_notififer_implementation = Address::from_slice(&server_notifier_implementation);
 
-        result
-            .expect_deployed_bytecode(verifiers, &self.create2_factory_addr, "Create2Factory")
-            .await;
+        let computed_server_notifier_implementation = verifiers
+            .bytecode_verifier
+            .compute_expected_address_for_file_with_custom_args(
+                "l1-contracts/ServerNotifier",
+                self.gateway_ctm_deployer,
+                FixedBytes::ZERO,
+                &[],
+            );
 
-        let stage0 = GovernanceStage0Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage0_calls),
+        if server_notifier_implementation != computed_server_notifier_implementation {
+            result.report_error(&format!(
+                "Unexpected address for ServerNotifier. Expected: {}, Found: {}",
+                computed_server_notifier_implementation, server_notififer_implementation
+            ));
+        }
+
+        let ecosystem_admin_calls = EcosystemAdminCalls {
+            calls: CallList::parse(&self.ecosystem_admin_calls_to_execute),
         };
 
-        stage0.verify(verifiers, result).await.context("stage0")?;
-
-        let stage1 = GovernanceStage1Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage1_calls),
-        };
-
-        let expected_upgrade_facets = facets_to_remove.merge(facets_to_add.clone()).clone();
-
-        let (expected_chain_creation_data, expected_force_deployments) = stage1
-            .verify(
-                verifiers,
-                result,
-                facets_to_add,
-                &self.deployed_addresses,
-                expected_upgrade_facets,
-                &self.chain_upgrade_diamond_cut,
-                &self.contracts_config,
-            )
+        ecosystem_admin_calls
+            .verify(verifiers, result)
             .await
-            .context("stage1")?;
+            .context("ecosystem_admin_calls")?;
 
-        let stage2 = GovernanceStage2Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage2_calls),
+        let governance_calls = GovernanceCalls {
+            calls: CallList::parse(&self.governance_calls_to_execute),
         };
 
-        stage2.verify(verifiers, result).await.context("stage2")?;
+        // let expected_upgrade_facets = facets_to_remove.merge(facets_to_add.clone()).clone();
 
-        self.contracts_config
-            .verify(
-                verifiers,
-                result,
-                expected_chain_creation_data,
-                expected_force_deployments,
-            )
-            .await;
+        governance_calls
+            .verify(verifiers, result, self.refund_recipient)
+            .await
+            .context("governance_calls")?;
+
+        let gateway_ctm_deployer_create2_data =
+            Create2::parse(&self.gateway_ctm_deployer_create2_data);
+
+        gateway_ctm_deployer_create2_data
+            .verify(verifiers, result, self)
+            .await
+            .context("gateway_ctm_deployer")?;
+
+        verify_gateway_ctm_deployer(
+            self.gateway_ctm_deployer,
+            hex::encode(&gateway_ctm_deployer_create2_data.input),
+            gateway_ctm_deployer_create2_data._salt,
+            verifiers,
+            result,
+        )
+        .await?;
 
         Ok(())
     }
