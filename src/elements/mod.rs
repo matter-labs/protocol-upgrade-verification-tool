@@ -47,6 +47,7 @@ pub struct UpgradeOutput {
 
     pub(crate) gateway: Gateway,
 
+    #[allow(dead_code)]
     pub(crate) max_expected_l1_gas_price: u64,
     pub(crate) priority_txs_l2_gas_limit: u64,
 }
