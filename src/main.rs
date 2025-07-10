@@ -8,13 +8,13 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
-// Current top of release-v28 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "9fcd28238cf749462b22e513a9f545008637f301";
+// Current top of draft-v29 branch
+const DEFAULT_CONTRACTS_COMMIT: &str = "9b7104396ad9bde5698e43c5eba2e464adbe1a43";
 // Current commit on top of main
-const DEFAULT_ERA_COMMIT: &str = "b7aeab64ce5c915233a773542ef64e79bf3893ee";
+const DEFAULT_ERA_COMMIT: &str = "f0f291c69b2c641c947fb626da0779a6450ebe55";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.28.0";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.27.0";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.0";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 

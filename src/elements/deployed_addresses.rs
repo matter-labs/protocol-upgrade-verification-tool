@@ -854,7 +854,7 @@ impl DeployedAddresses {
             verifiers,
             &self.state_transition.default_upgrade_addr,
             Vec::new(),
-            "l1-contracts/DefaultUpgrade",
+            "l1-contracts/L1V29Upgrade",
         );
         result.expect_create2_params(
             verifiers,

@@ -11,10 +11,7 @@ use crate::{
     verifiers::Verifiers,
 };
 use alloy::{
-    hex,
-    primitives::{Bytes, U256},
-    sol,
-    sol_types::{SolCall, SolValue},
+    eips::eip7251::ConsolidationRequest, hex, primitives::{Bytes, U256}, sol, sol_types::{SolCall, SolValue}
 };
 use anyhow::Context;
 
@@ -702,6 +699,7 @@ pub async fn verify_chain_creation_diamond_cut(
         "diamond_init"
     };
     result.expect_address(verifiers, &diamond_cut.initAddress, name);
+    println!("Initcalldata: {:?} ", diamond_cut.initCalldata.clone());
     let initialize_data_new_chain =
         InitializeDataNewChain::abi_decode(&diamond_cut.initCalldata, true)
             .expect("Failed to decode InitializeDataNewChain");

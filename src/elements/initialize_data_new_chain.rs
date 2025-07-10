@@ -36,7 +36,6 @@ sol! {
         bytes32 l2EvmEmulatorBytecodeHash;
         uint256 priorityTxMaxGasLimit;
         FeeParams feeParams;
-        address blobVersionedHashRetriever;
     }
 }
 

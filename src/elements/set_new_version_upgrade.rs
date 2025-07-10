@@ -11,13 +11,14 @@ use crate::get_expected_new_protocol_version;
 
 use super::{
     force_deployment::{
-        expected_force_deployments, forceDeployOnAddressesCall, verify_force_deployments,
+        expected_force_deployments, forceDeployAndUpgradeCall, IL2V29Upgrade, verify_force_deployments_and_upgrade,
     },
     protocol_version::ProtocolVersion,
 };
 
 const DEPLOYER_SYSTEM_CONTRACT: u32 = 0x8006;
 const FORCE_DEPLOYER_ADDRESS: u32 = 0x8007;
+const COMPLEX_UPGRADER_ADDRESS: u32 = 0x800F;
 
 sol! {
     #[derive(Debug)]
@@ -111,7 +112,7 @@ sol! {
 
 impl upgradeCall {} // Placeholder implementation.
 
-const EXPECTED_BYTECODES: [&str; 44] = [
+const EXPECTED_BYTECODES: [&str; 45] = [
     "Bootloader",
     "CodeOracle",
     "EcAdd",
@@ -151,6 +152,7 @@ const EXPECTED_BYTECODES: [&str; 44] = [
     "system-contracts/L1Messenger",
     "system-contracts/L2BaseToken",
     "system-contracts/L2GenesisUpgrade",
+    "system-contracts/L2V29Upgrade",
     "system-contracts/MsgValueSimulator",
     "system-contracts/NonceHolder",
     "system-contracts/PubdataChunkPublisher",
@@ -174,7 +176,8 @@ impl ProposedUpgrade {
         if tx.from != U256::from(FORCE_DEPLOYER_ADDRESS) {
             result.report_error("Invalid from");
         }
-        if tx.to != U256::from(DEPLOYER_SYSTEM_CONTRACT) {
+        if tx.to != U256::from(COMPLEX_UPGRADER_ADDRESS) { // Check if we expect it
+            println!("To destination address: {}", tx.to);
             result.report_error("Invalid to");
         }
         if tx.gasLimit != U256::from(72_000_000) {
@@ -263,11 +266,21 @@ impl ProposedUpgrade {
                 expected_bytecodes
             ));
         }
+
         // Check calldata.
-        let calldata = forceDeployOnAddressesCall::abi_decode(&tx.data, true).unwrap();
+        let complex_upgrade_call = forceDeployAndUpgradeCall::abi_decode(&tx.data, true).unwrap(); // TODO check if we need to verify complex upgrade?
+            // TODO: add check for calldata
+        let Ok(upgrade_calldata) =
+            IL2V29Upgrade::upgradeCall::abi_decode(complex_upgrade_call._calldata.as_ref(), true)
+        else {
+            result.report_error("Failed to decode delegate upgrade calldata");
+            return Ok(());
+        };
+        
         let expected_deployments = expected_force_deployments();
-        verify_force_deployments(
-            &calldata._deployParams,
+        verify_force_deployments_and_upgrade(
+            &complex_upgrade_call,
+            upgrade_calldata,
             &expected_deployments,
             verifiers,
             result,
