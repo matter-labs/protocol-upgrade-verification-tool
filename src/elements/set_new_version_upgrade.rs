@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use alloy::{
+    hex::{self, FromHex},
     primitives::{Address, FixedBytes, U256},
     sol,
     sol_types::SolCall,
@@ -112,7 +113,7 @@ sol! {
 
 impl upgradeCall {} // Placeholder implementation.
 
-const EXPECTED_BYTECODES: [&str; 45] = [
+const EXPECTED_BYTECODES: [&str; 44] = [
     "Bootloader",
     "CodeOracle",
     "EcAdd",
@@ -151,7 +152,6 @@ const EXPECTED_BYTECODES: [&str; 45] = [
     "system-contracts/KnownCodesStorage",
     "system-contracts/L1Messenger",
     "system-contracts/L2BaseToken",
-    "system-contracts/L2GenesisUpgrade",
     "system-contracts/L2V29Upgrade",
     "system-contracts/MsgValueSimulator",
     "system-contracts/NonceHolder",
@@ -269,7 +269,7 @@ impl ProposedUpgrade {
 
         // Check calldata.
         let complex_upgrade_call = forceDeployAndUpgradeCall::abi_decode(&tx.data, true).unwrap(); // TODO check if we need to verify complex upgrade?
-            // TODO: add check for calldata
+
         let Ok(upgrade_calldata) =
             IL2V29Upgrade::upgradeCall::abi_decode(complex_upgrade_call._calldata.as_ref(), true)
         else {
@@ -278,12 +278,16 @@ impl ProposedUpgrade {
         };
         
         let expected_deployments = expected_force_deployments();
+        let expected_governance = Address::from_hex("0xa019627524aed610192132a425d6b9c32a173900").expect("Invalid hex address of expected governance provided");
+        let expected_asset_id = hex::decode("6337a96bd2cd359fa0bae3bbedfca736753213c95037ae158c5fa7c048ae2112").unwrap().try_into().unwrap();
         verify_force_deployments_and_upgrade(
             &complex_upgrade_call,
             upgrade_calldata,
             &expected_deployments,
             verifiers,
             result,
+            expected_governance,
+            expected_asset_id,
         )?;
 
         Ok(())

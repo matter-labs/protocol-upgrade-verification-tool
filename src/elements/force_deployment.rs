@@ -1,9 +1,8 @@
 use std::fmt::Display;
-use std::collections::HashSet;
 
 use alloy::{
     hex,
-    primitives::{Address, U256, Bytes},
+    primitives::{Address, U256},
     sol,
 };
 
@@ -160,11 +159,6 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             false,
         ),
         (
-            "system-contracts/L2GenesisUpgrade".into(),
-            address_from_short_hex("10001"),
-            false,
-        ),
-        (
             "system-contracts/SloadContract".into(),
             address_from_short_hex("10006"),
             false,
@@ -194,6 +188,11 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             address_from_short_hex("10007"),
             false,
         ),
+        (
+            "system-contracts/L2V29Upgrade".into(),
+            address_from_short_hex("10001"),
+            false,
+        )
     ]
 }
 
@@ -203,6 +202,8 @@ pub fn verify_force_deployments_and_upgrade(
     expected_deployments: &[(String, Address, bool)],
     verifiers: &crate::verifiers::Verifiers,
     result: &mut crate::verifiers::VerificationResult,
+    expected_governance: Address,
+    expected_asset_id: [u8; 32],
 ) -> anyhow::Result<()> {
     if complex_upgrade_call._forceDeployments.len() != expected_deployments.len() {
         result.report_error(&format!(
@@ -267,7 +268,7 @@ pub fn verify_force_deployments_and_upgrade(
         ));
     }
 
-    if upgrade_calldata._aliasedGovernance != expected_governance { // What is expected governance ? 
+    if upgrade_calldata._aliasedGovernance != expected_governance {
         result.report_error(&format!(
             "Unexpected aliased governance: expected {}, got {}",
             expected_governance,
@@ -275,7 +276,7 @@ pub fn verify_force_deployments_and_upgrade(
         ));
     }
     
-    if upgrade_calldata._bridgedEthAssetId != expected_asset_id { // What is expected asset id ? 
+    if upgrade_calldata._bridgedEthAssetId != expected_asset_id {
         result.report_error(&format!(
             "Unexpected bridgedEthAssetId: expected {:?}, got {:?}",
             expected_asset_id,

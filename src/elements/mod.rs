@@ -39,7 +39,7 @@ pub struct UpgradeOutput {
 
     pub(crate) protocol_upgrade_handler_proxy_address: Address,
 
-    #[serde(rename = "contracts_newConfig")]
+    #[serde(rename = "contracts_config")]
     pub(crate) contracts_config: ContractsConfig,
     pub(crate) deployed_addresses: DeployedAddresses,
 
