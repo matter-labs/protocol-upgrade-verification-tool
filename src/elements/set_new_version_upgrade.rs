@@ -17,7 +17,6 @@ use super::{
     protocol_version::ProtocolVersion,
 };
 
-const DEPLOYER_SYSTEM_CONTRACT: u32 = 0x8006;
 const FORCE_DEPLOYER_ADDRESS: u32 = 0x8007;
 const COMPLEX_UPGRADER_ADDRESS: u32 = 0x800F;
 

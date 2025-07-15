@@ -11,7 +11,7 @@ use crate::{
     verifiers::Verifiers,
 };
 use alloy::{
-    eips::eip7251::ConsolidationRequest, hex, primitives::{Bytes, U256}, sol, sol_types::{SolCall, SolValue}
+    hex, primitives::{Bytes, U256}, sol, sol_types::{SolCall, SolValue}
 };
 use anyhow::Context;
 
