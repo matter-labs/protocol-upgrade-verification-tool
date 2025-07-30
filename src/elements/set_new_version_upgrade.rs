@@ -12,7 +12,8 @@ use crate::get_expected_new_protocol_version;
 
 use super::{
     force_deployment::{
-        expected_force_deployments, forceDeployAndUpgradeCall, IL2V29Upgrade, verify_force_deployments_and_upgrade,
+        expected_force_deployments, forceDeployAndUpgradeCall,
+        verify_force_deployments_and_upgrade, IL2V29Upgrade,
     },
     protocol_version::ProtocolVersion,
 };
@@ -112,7 +113,7 @@ sol! {
 
 impl upgradeCall {} // Placeholder implementation.
 
-const EXPECTED_BYTECODES: [&str; 44] = [
+const EXPECTED_BYTECODES: [&str; 47] = [
     "Bootloader",
     "CodeOracle",
     "EcAdd",
@@ -135,6 +136,8 @@ const EXPECTED_BYTECODES: [&str; 44] = [
     "l1-contracts/L2WrappedBaseToken",
     "l1-contracts/MessageRoot",
     "l1-contracts/DiamondProxy",
+    "l1-contracts/L2MessageVerification",
+    "l1-contracts/ChainAssetHandler",
     "l2-contracts/RollupL2DAValidator",
     "l2-contracts/ValidiumL2DAValidator",
     "system-contracts/AccountCodeStorage",
@@ -157,6 +160,7 @@ const EXPECTED_BYTECODES: [&str; 44] = [
     "system-contracts/PubdataChunkPublisher",
     "system-contracts/SloadContract",
     "system-contracts/SystemContext",
+    "system-contracts/L2InteropRootStorage",
 ];
 
 impl ProposedUpgrade {
@@ -175,7 +179,8 @@ impl ProposedUpgrade {
         if tx.from != U256::from(FORCE_DEPLOYER_ADDRESS) {
             result.report_error("Invalid from");
         }
-        if tx.to != U256::from(COMPLEX_UPGRADER_ADDRESS) { // Check if we expect it
+        if tx.to != U256::from(COMPLEX_UPGRADER_ADDRESS) {
+            // Check if we expect it
             println!("To destination address: {}", tx.to);
             result.report_error("Invalid to");
         }
@@ -275,10 +280,15 @@ impl ProposedUpgrade {
             result.report_error("Failed to decode delegate upgrade calldata");
             return Ok(());
         };
-        
+
         let expected_deployments = expected_force_deployments();
-        let expected_governance = Address::from_hex("0xa019627524aed610192132a425d6b9c32a173900").expect("Invalid hex address of expected governance provided");
-        let expected_asset_id = hex::decode("6337a96bd2cd359fa0bae3bbedfca736753213c95037ae158c5fa7c048ae2112").unwrap().try_into().unwrap();
+        let expected_governance = Address::from_hex("0xa019627524aed610192132a425d6b9c32a173900")
+            .expect("Invalid hex address of expected governance provided");
+        let expected_asset_id =
+            hex::decode("6337a96bd2cd359fa0bae3bbedfca736753213c95037ae158c5fa7c048ae2112")
+                .unwrap()
+                .try_into()
+                .unwrap();
         verify_force_deployments_and_upgrade(
             &complex_upgrade_call,
             upgrade_calldata,
@@ -345,8 +355,8 @@ impl ProposedUpgrade {
             result.report_error("l1ContractsUpgradeCalldata is not empty");
         }
 
-        if self.postUpgradeCalldata.len() != 0 {
-            result.report_error("Expected empty post upgrade calldata");
+        if self.postUpgradeCalldata.len() == 0 {
+            result.report_error("Expected post upgrade calldata");
         }
 
         if self.upgradeTimestamp != U256::default() {

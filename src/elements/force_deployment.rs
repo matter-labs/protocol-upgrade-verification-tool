@@ -164,6 +164,11 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             false,
         ),
         (
+            "system-contracts/L2InteropRootStorage".into(),
+            address_from_short_hex("10008"),
+            false,
+        ),
+        (
             "l1-contracts/Bridgehub".into(),
             address_from_short_hex("10002"),
             false,
@@ -189,10 +194,20 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             false,
         ),
         (
+            "l1-contracts/L2MessageVerification".into(),
+            address_from_short_hex("10009"),
+            false,
+        ),
+        (
+            "l1-contracts/ChainAssetHandler".into(),
+            address_from_short_hex("1000a"),
+            true,
+        ),
+        (
             "system-contracts/L2V29Upgrade".into(),
             address_from_short_hex("10001"),
             false,
-        )
+        ),
     ]
 }
 
@@ -214,7 +229,10 @@ pub fn verify_force_deployments_and_upgrade(
     }
 
     for (force_deployment, (contract, expected_address, expected_constructor)) in
-        complex_upgrade_call._forceDeployments.iter().zip(expected_deployments.iter())
+        complex_upgrade_call
+            ._forceDeployments
+            .iter()
+            .zip(expected_deployments.iter())
     {
         if &force_deployment.newAddress != expected_address {
             result.report_error(&format!(
@@ -240,10 +258,12 @@ pub fn verify_force_deployments_and_upgrade(
             ));
         }
         if !force_deployment.input.is_empty() {
-            result.report_error(&format!(
-                "Force deployment for {} should not have input",
-                contract
-            ));
+            if contract != "l1-contracts/ChainAssetHandler" {
+                result.report_error(&format!(
+                    "Force deployment for {} should not have input",
+                    contract
+                ));
+            }
         }
     }
 
@@ -271,19 +291,17 @@ pub fn verify_force_deployments_and_upgrade(
     if upgrade_calldata._aliasedGovernance != expected_governance {
         result.report_error(&format!(
             "Unexpected aliased governance: expected {}, got {}",
-            expected_governance,
-            upgrade_calldata._aliasedGovernance
+            expected_governance, upgrade_calldata._aliasedGovernance
         ));
     }
-    
+
     if upgrade_calldata._bridgedEthAssetId != expected_asset_id {
         result.report_error(&format!(
             "Unexpected bridgedEthAssetId: expected {:?}, got {:?}",
-            expected_asset_id,
-            upgrade_calldata._bridgedEthAssetId
+            expected_asset_id, upgrade_calldata._bridgedEthAssetId
         ));
     }
-    
+
     Ok(())
 }
 

@@ -88,6 +88,12 @@ impl FixedForceDeploymentsData {
             "l1-contracts/MessageRoot",
         );
 
+        result.expect_zk_bytecode(
+            verifiers,
+            &self.chainAssetHandlerBytecodeHash,
+            "l1-contracts/ChainAssetHandler",
+        );
+
         result.expect_address(verifiers, &self.l2SharedBridgeLegacyImpl, "zero");
 
         result.expect_address(verifiers, &self.l2BridgedStandardERC20Impl, "zero");

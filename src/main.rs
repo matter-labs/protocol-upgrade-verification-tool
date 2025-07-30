@@ -9,9 +9,9 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of draft-v29 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "d930f92694fe9d1287132c1edee7bb8295afacd5";
+const DEFAULT_CONTRACTS_COMMIT: &str = "2efce60e6d3ef7ebe4878c04643e1df009caf344";
 // Current commit on top of main
-const DEFAULT_ERA_COMMIT: &str = "f0f291c69b2c641c947fb626da0779a6450ebe55";
+const DEFAULT_ERA_COMMIT: &str = "9e4755edb16328baf6f3e0632d700eb4c545eea6";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.0";
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.0";
@@ -99,16 +99,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.display_upgrade_data.unwrap_or_default() {
         println!(
             "Stage0 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+            encode_upgrade_data(&config.governance_calls.stage0_calls)
         );
 
         println!(
             "Stage1 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
+            encode_upgrade_data(&config.governance_calls.stage1_calls)
         );
         println!(
             "Stage2 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
+            encode_upgrade_data(&config.governance_calls.stage2_calls)
         );
     }
 

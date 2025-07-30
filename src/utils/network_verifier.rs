@@ -42,6 +42,8 @@ sol! {
         function requestL2TransactionDirect(
             L2TransactionRequestDirect calldata _request
         ) external payable returns (bytes32 canonicalTxHash);
+        function chainAssetHandler() external view returns (address);
+        function l1CtmDeployer() external view returns (address);
     }
 
     #[sol(rpc)]
@@ -86,6 +88,7 @@ pub struct BridgehubInfo {
     pub l1_nullifier: Address,
     pub l1_asset_router_proxy_addr: Address,
     pub gateway_base_token_addr: Address,
+    pub chain_type_manager_deployment_tracker: Address,
 }
 
 pub struct NetworkVerifier {
@@ -271,6 +274,8 @@ impl NetworkVerifier {
             .await
             .unwrap()
             ._0;
+        let chain_type_manager_deployment_tracker =
+            bridgehub.l1CtmDeployer().call().await.unwrap()._0;
         let chain_type_manager = ChainTypeManager::new(stm_address, l1_provider);
         let era_address = chain_type_manager
             .getHyperchain(U256::from(era_chain_id))
@@ -320,6 +325,7 @@ impl NetworkVerifier {
             l1_nullifier,
             l1_asset_router_proxy_addr,
             gateway_base_token_addr,
+            chain_type_manager_deployment_tracker,
         }
     }
 }
