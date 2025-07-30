@@ -1,14 +1,17 @@
 use std::fmt::Display;
 
 use alloy::{
+    hex,
     primitives::{Address, U256},
     sol,
 };
 
 use crate::utils::address_from_short_hex;
 
+const L2_GENESIS_UPGRADE_ADDR: u32 = 0x10001;
+
 sol! {
-    #[derive(Debug)]
+    #[derive(Debug, Hash, Eq, PartialEq)]
     struct ForceDeployment {
         bytes32 bytecodeHash;
         address newAddress;
@@ -16,8 +19,23 @@ sol! {
         uint256 value;
         bytes input;
     }
-    function forceDeployOnAddresses(ForceDeployment[] calldata _deployParams) external;
 
+    #[derive(Debug)]
+    struct ForceDeployAndUpgradeInput {
+        ForceDeployment[] _forceDeployments;
+        address _delegateTo;
+        bytes _calldata;
+    }
+
+    function forceDeployAndUpgrade(
+        ForceDeployment[] _forceDeployments,
+        address _delegateTo,
+        bytes _calldata
+    ) external payable;
+
+    interface IL2V29Upgrade {
+        function upgrade(address _aliasedGovernance, bytes32 _bridgedEthAssetId) external;
+    }
 }
 
 impl Display for ForceDeployment {
@@ -141,13 +159,13 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             false,
         ),
         (
-            "system-contracts/L2GenesisUpgrade".into(),
-            address_from_short_hex("10001"),
+            "system-contracts/SloadContract".into(),
+            address_from_short_hex("10006"),
             false,
         ),
         (
-            "system-contracts/SloadContract".into(),
-            address_from_short_hex("10006"),
+            "system-contracts/L2InteropRootStorage".into(),
+            address_from_short_hex("10008"),
             false,
         ),
         (
@@ -175,25 +193,46 @@ pub fn expected_force_deployments() -> Vec<(String, Address, bool)> {
             address_from_short_hex("10007"),
             false,
         ),
+        (
+            "l1-contracts/L2MessageVerification".into(),
+            address_from_short_hex("10009"),
+            false,
+        ),
+        (
+            "l1-contracts/ChainAssetHandler".into(),
+            address_from_short_hex("1000a"),
+            true,
+        ),
+        (
+            "system-contracts/L2V29Upgrade".into(),
+            address_from_short_hex("10001"),
+            false,
+        ),
     ]
 }
 
-pub fn verify_force_deployments(
-    force_deployments: &[ForceDeployment],
+pub fn verify_force_deployments_and_upgrade(
+    complex_upgrade_call: &forceDeployAndUpgradeCall,
+    upgrade_calldata: IL2V29Upgrade::upgradeCall,
     expected_deployments: &[(String, Address, bool)],
     verifiers: &crate::verifiers::Verifiers,
     result: &mut crate::verifiers::VerificationResult,
+    expected_governance: Address,
+    expected_asset_id: [u8; 32],
 ) -> anyhow::Result<()> {
-    if force_deployments.len() != expected_deployments.len() {
+    if complex_upgrade_call._forceDeployments.len() != expected_deployments.len() {
         result.report_error(&format!(
             "Expected {} force deployments, got {}",
             expected_deployments.len(),
-            force_deployments.len()
+            complex_upgrade_call._forceDeployments.len()
         ));
     }
 
     for (force_deployment, (contract, expected_address, expected_constructor)) in
-        force_deployments.iter().zip(expected_deployments.iter())
+        complex_upgrade_call
+            ._forceDeployments
+            .iter()
+            .zip(expected_deployments.iter())
     {
         if &force_deployment.newAddress != expected_address {
             result.report_error(&format!(
@@ -219,13 +258,55 @@ pub fn verify_force_deployments(
             ));
         }
         if !force_deployment.input.is_empty() {
+            if contract != "l1-contracts/ChainAssetHandler" {
+                result.report_error(&format!(
+                    "Force deployment for {} should not have input",
+                    contract
+                ));
+            }
+        }
+    }
+
+    // Check for extra deployments beyond expected count
+    if complex_upgrade_call._forceDeployments.len() > expected_deployments.len() {
+        let extra_start = expected_deployments.len();
+        for extra in &complex_upgrade_call._forceDeployments[extra_start..] {
             result.report_error(&format!(
-                "Force deployment for {} should not have input",
-                contract
+                "Extra force deployment found at address {} with bytecode hash {}",
+                extra.newAddress,
+                hex::encode(&extra.bytecodeHash)
             ));
         }
     }
 
     result.report_ok("Force deployments verified");
+
+    if complex_upgrade_call._delegateTo != convert_u32_to_address(L2_GENESIS_UPGRADE_ADDR) {
+        result.report_error(&format!(
+            "Expected delegate_to to be L2_GENESIS_UPGRADE_ADDR, got {}",
+            complex_upgrade_call._delegateTo
+        ));
+    }
+
+    if upgrade_calldata._aliasedGovernance != expected_governance {
+        result.report_error(&format!(
+            "Unexpected aliased governance: expected {}, got {}",
+            expected_governance, upgrade_calldata._aliasedGovernance
+        ));
+    }
+
+    if upgrade_calldata._bridgedEthAssetId != expected_asset_id {
+        result.report_error(&format!(
+            "Unexpected bridgedEthAssetId: expected {:?}, got {:?}",
+            expected_asset_id, upgrade_calldata._bridgedEthAssetId
+        ));
+    }
+
     Ok(())
+}
+
+fn convert_u32_to_address(val: u32) -> Address {
+    let mut bytes = [0u8; 20];
+    bytes[16..20].copy_from_slice(&val.to_be_bytes());
+    Address::from_slice(&bytes)
 }
