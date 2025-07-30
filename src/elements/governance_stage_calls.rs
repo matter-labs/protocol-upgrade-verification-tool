@@ -946,7 +946,6 @@ pub async fn verify_chain_creation_diamond_cut(
         "diamond_init"
     };
     result.expect_address(verifiers, &diamond_cut.initAddress, name);
-    println!("Initcalldata: {:?} ", diamond_cut.initCalldata.clone());
     let initialize_data_new_chain =
         InitializeDataNewChain::abi_decode(&diamond_cut.initCalldata, true)
             .expect("Failed to decode InitializeDataNewChain");
