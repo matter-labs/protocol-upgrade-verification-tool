@@ -250,7 +250,7 @@ impl V28UpgradeComparator {
 
         let v28_patch_upgrade_cut = v28_patch_upgrade_config.chain_upgrade_diamond_cut.clone();
         let v28_gw_path_upgrade_call =v28_patch_upgrade_config.gateway.upgrade_cut_data.clone();
-        println!("=== Gov stage 1 calls ===");
+        println!("=== Gov stage 1 calls v28 ===");
 
         // TODO
         validate_new_set_chain_creation_call(
@@ -258,108 +258,61 @@ impl V28UpgradeComparator {
             &stage1_upgrade_calls.elems[SET_CHAIN_CREATION_PARAMS_L1_INDEX],
             new_l1_verifier
         )?;
+        println!("=== kl todo 1");
         validate_set_new_version_upgrade_call(
             &self.v28_set_new_version_call,
             &stage1_upgrade_calls.elems[2],
             new_l1_verifier,
             v28_patch_upgrade_cut
         )?;
+        println!("=== kl todo 2");
+
         validate_set_upgrade_diamond_cut_call(
             &self.v28_set_new_version_call,
             &stage1_upgrade_calls.elems[3],
             new_l1_verifier
         )?;
 
-        // let gw_new_set_new_version_call = check_and_parse_inner_call_from_gateway_transaction(
-        //     result,
-        //     &stage1_upgrade_calls.elems[1].data,
-        //     v28_patch_upgrade_config.gateway_chain_id,
-        //     Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
-        // );
-        // validate_set_new_version_upgrade_call(
-        //     &self.v28_gw_set_new_version_call,
-        //     &gw_new_set_new_version_call,
-        //     new_gw_verifier,
-        //     v28_gw_path_upgrade_call
-        // )?;
+        let gw_new_set_new_version_call = check_and_parse_inner_call_from_gateway_transaction(
+            result,
+            &stage1_upgrade_calls.elems[5].data,
+            v28_patch_upgrade_config.gateway_chain_id,
+            Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
+        );
+        validate_set_new_version_upgrade_call(
+            &self.v28_gw_set_new_version_call,
+            &gw_new_set_new_version_call,
+            new_gw_verifier,
+            v28_gw_path_upgrade_call
+        )?;
 
-        // let gw_chain_creation_params_call = check_and_parse_inner_call_from_gateway_transaction(
-        //     result,
-        //     &stage1_upgrade_calls.elems[4].data,
-        //     v28_patch_upgrade_config.gateway_chain_id,
-        //     Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
-        // );
-        // validate_new_set_chain_creation_call(
-        //     &self.v28_gw_set_chain_creation_call,
-        //     &gw_chain_creation_params_call,
-        //     new_gw_verifier
-        // )?;
+        let gw_chain_creation_params_call = check_and_parse_inner_call_from_gateway_transaction(
+            result,
+            &stage1_upgrade_calls.elems[7].data,
+            v28_patch_upgrade_config.gateway_chain_id,
+            Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
+        );
+        validate_new_set_chain_creation_call(
+            &self.v28_gw_set_chain_creation_call,
+            &gw_chain_creation_params_call,
+            new_gw_verifier
+        )?;
 
-        // let set_upgrade_diamond_cut_params_call = check_and_parse_inner_call_from_gateway_transaction(
-        //     result,
-        //     &stage1_upgrade_calls.elems[4].data,
-        //     v28_patch_upgrade_config.gateway_chain_id,
-        //     Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
-        // );
-        // validate_set_upgrade_diamond_cut_call(
-        //     &self.v28_gw_set_new_version_call,
-        //     &set_upgrade_diamond_cut_params_call,
-        //     new_gw_verifier
-        // )?;
+        let set_upgrade_diamond_cut_params_call = check_and_parse_inner_call_from_gateway_transaction(
+            result,
+            &stage1_upgrade_calls.elems[9].data,
+            v28_patch_upgrade_config.gateway_chain_id,
+            Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
+        );
+        validate_set_upgrade_diamond_cut_call(
+            &self.v28_gw_set_new_version_call,
+            &set_upgrade_diamond_cut_params_call,
+            new_gw_verifier
+        )?;
 
 
         result.report_ok("Set new version upgrade (L1) call is valid");
         return Ok(());
-
-        // const SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 0;   
-        const NEW_VERSION_UPGRADE_INDEX: usize = 1;
-        const SET_CHAIN_CREATION_INDEX: usize = 2;
-        const GATEWAY_SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 3;
-        const GATEWAY_NEW_VERSION_UPGRADE_INDEX: usize = 4;
-        const GATEWAY_SET_CHAIN_CREATION_INDEX: usize = 5;
-
-        let set_upgrade_diamond_cut_call = stage1_upgrade_calls.elems[SET_UPGRADE_DIAMOND_CUT_INDEX].clone();
-        let new_version_upgrade_call = stage1_upgrade_calls.elems[NEW_VERSION_UPGRADE_INDEX].clone();
-        let set_chain_creation_call = stage1_upgrade_calls.elems[SET_CHAIN_CREATION_INDEX].clone();
-        let gw_set_upgrade_diamond_cut_call = stage1_upgrade_calls.elems[GATEWAY_SET_UPGRADE_DIAMOND_CUT_INDEX].clone();
-        let gw_new_version_upgrade_call = stage1_upgrade_calls.elems[GATEWAY_NEW_VERSION_UPGRADE_INDEX].clone();
-        let gw_set_chain_creation_call = stage1_upgrade_calls.elems[GATEWAY_SET_CHAIN_CREATION_INDEX].clone();
-
-        // validate_new_set_chain_creation_call(
-        //     &self.v28_set_chain_creation_call,
-        //     &set_chain_creation_call,
-        //     new_l1_verifier
-        // )?;
-        // validate_set_new_version_upgrade_call(
-        //     &self.v28_set_new_version_call,
-        //     &new_version_upgrade_call,
-        //     new_l1_verifier
-        // )?;
-        // validate_set_upgrade_diamond_cut_call(
-        //     &self.v28_set_new_version_call,
-        //     &set_upgrade_diamond_cut_call,
-        //     new_l1_verifier
-        // )?;
-
-        // validate_new_set_chain_creation_call(
-        //     &self.v28_gw_set_chain_creation_call,
-        //     &gw_set_chain_creation_call,
-        //     new_gw_verifier
-        // )?;
-        // validate_set_new_version_upgrade_call(
-        //     &self.v28_gw_set_new_version_call,
-        //     &gw_new_version_upgrade_call,
-        //     new_gw_verifier
-        // )?;
-        // validate_set_upgrade_diamond_cut_call(
-        //     &self.v28_gw_set_new_version_call,
-        //     &gw_set_upgrade_diamond_cut_call,
-        //     new_gw_verifier
-        // )?;
-
-
-
-        Ok(())
     }
 
     async fn verify_deployed_addresses(
