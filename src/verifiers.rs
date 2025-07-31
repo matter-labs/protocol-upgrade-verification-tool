@@ -1,6 +1,6 @@
 use alloy::{
     hex::{self, FromHex},
-    primitives::{Address, Bytes, FixedBytes},
+    primitives::{keccak256, Address, Bytes, FixedBytes},
     sol,
     sol_types::SolCall,
 };
@@ -11,9 +11,7 @@ use std::panic::Location;
 
 use crate::{
     utils::{
-        address_from_short_hex, address_verifier::AddressVerifier,
-        bytecode_verifier::BytecodeVerifier, fee_param_verifier::FeeParamVerifier,
-        get_contents_from_github, network_verifier::NetworkVerifier,
+        address_from_short_hex, address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier, compute_create2_address_zk, fee_param_verifier::FeeParamVerifier, get_contents_from_github, network_verifier::NetworkVerifier, L2_CREATE2_FACTORY_ADDRESS
     },
     UpgradeOutput,
 };
@@ -277,6 +275,43 @@ impl VerificationResult {
             expected_file,
             true,
         );
+    }
+
+    pub fn expect_zk_create2_address(
+        &mut self,
+        verifiers: &Verifiers,
+        address: &Address,
+        expected_constructor_params: impl AsRef<[u8]>,
+        expected_file: &str,
+        l2_create2_salt: FixedBytes<32>,
+    ) {
+        let bytecode_hash = verifiers
+            .bytecode_verifier
+            .file_to_zk_bytecode_hash(expected_file)
+            .expect("Failed to get bytecode hash from constructor params");
+        let expected_address = compute_create2_address_zk(
+            L2_CREATE2_FACTORY_ADDRESS,
+            l2_create2_salt,
+            *bytecode_hash,
+            keccak256(expected_constructor_params)
+        );
+
+        if expected_address != *address {
+            self.report_error(&format!(
+                "Expected zk create2 address {} for file {} at {}, got {}",
+                expected_address,
+                expected_file,
+                Location::caller(),
+                address
+            ));
+        } else {
+            self.report_ok(&format!(
+                "ZK create2 address {} for file {} with params at {}",
+                expected_address,
+                expected_file,
+                Location::caller()
+            ));
+        }
     }
 
     pub fn expect_create2_params_internal(

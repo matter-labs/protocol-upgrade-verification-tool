@@ -124,55 +124,54 @@ impl NetworkVerifier {
             config.transactions.len()
         );
 
-        // TODO:
-        // for transaction in &config.transactions {
-        //     if let Some((address, contract, constructor_param)) = check_create2_deploy(
-        //         l1_provider.clone(),
-        //         transaction,
-        //         &config.create2_factory_addr,
-        //         &config.create2_factory_salt,
-        //         bytecode_verifier,
-        //     )
-        //     .await
-        //     {
-        //         if create2_constructor_params
-        //             .insert(address, constructor_param)
-        //             .is_some()
-        //         {
-        //             panic!("Duplicate deployment for {:#?}", address)
-        //         }
+        for transaction in &config.transactions {
+            if let Some((address, contract, constructor_param)) = check_create2_deploy(
+                l1_provider.clone(),
+                transaction,
+                &config.create2_factory_addr,
+                &config.create2_factory_salt,
+                bytecode_verifier,
+            )
+            .await
+            {
+                if create2_constructor_params
+                    .insert(address, constructor_param)
+                    .is_some()
+                {
+                    panic!("Duplicate deployment for {:#?}", address)
+                }
 
-        //         if create2_known_bytecodes
-        //             .insert(address, contract.clone())
-        //             .is_some()
-        //         {
-        //             panic!("Duplicate deployment for {:#?}", address)
-        //         }
-        //     }
+                if create2_known_bytecodes
+                    .insert(address, contract.clone())
+                    .is_some()
+                {
+                    panic!("Duplicate deployment for {:#?}", address)
+                }
+            }
 
-        //     if let Some((address, contract, constructor_param)) = check_gw_create2_deploy(
-        //         l1_provider.clone(),
-        //         bridgehub_address,
-        //         transaction,
-        //         bytecode_verifier,
-        //     )
-        //     .await
-        //     {
-        //         if create2_constructor_params
-        //             .insert(address, constructor_param)
-        //             .is_some()
-        //         {
-        //             panic!("Duplicate deployment for {:#?}", address)
-        //         }
+            if let Some((address, contract, constructor_param)) = check_gw_create2_deploy(
+                l1_provider.clone(),
+                bridgehub_address,
+                transaction,
+                bytecode_verifier,
+            )
+            .await
+            {
+                if create2_constructor_params
+                    .insert(address, constructor_param)
+                    .is_some()
+                {
+                    panic!("Duplicate deployment for {:#?}", address)
+                }
 
-        //         if create2_known_bytecodes
-        //             .insert(address, contract.clone())
-        //             .is_some()
-        //         {
-        //             panic!("Duplicate deployment for {:#?}", address)
-        //         }
-        //     }
-        // }
+                if create2_known_bytecodes
+                    .insert(address, contract.clone())
+                    .is_some()
+                {
+                    panic!("Duplicate deployment for {:#?}", address)
+                }
+            }
+        }
 
         Self {
             l1_chain_id: l1_provider.get_chain_id().await.unwrap(),

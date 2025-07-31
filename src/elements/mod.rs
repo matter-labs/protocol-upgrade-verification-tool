@@ -39,7 +39,6 @@ pub struct UpgradeOutput {
 
     pub(crate) protocol_upgrade_handler_proxy_address: Address,
 
-    #[serde(rename = "contracts_newConfig")]
     pub(crate) contracts_config: Option<ContractsConfig>,
     pub(crate) deployed_addresses: DeployedAddresses,
 
@@ -71,8 +70,8 @@ pub(crate) struct ContractsConfig {
     diamond_init_pubdata_pricing_mode: u32,
     force_deployments_data: String,
     l1_legacy_shared_bridge: Address,
-    new_protocol_version: u64,
-    old_protocol_version: u64,
+    pub(crate) new_protocol_version: u64,
+    pub(crate) old_protocol_version: u64,
     old_validator_timelock: Address,
     priority_tx_max_gas_limit: u32,
     recursion_circuits_set_vks_hash: FixedBytes<32>,

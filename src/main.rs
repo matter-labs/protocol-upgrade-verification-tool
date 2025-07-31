@@ -121,9 +121,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &mut result,
         gw_chain_id,
         config.priority_txs_l2_gas_limit
-    ).expect("Failed to verify the upgrade configuration");
-
-    
+    ).await?;
 
     // let r = config.verify(&verifiers, &mut result).await;
 

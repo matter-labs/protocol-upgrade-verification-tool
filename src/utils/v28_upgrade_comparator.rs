@@ -1,9 +1,11 @@
 //! This file is dedicated to parsing the previous v28 upgrade data.
 //! The results will be used to ensure minimal changes in v28.1 patch.
 
-use alloy::{dyn_abi::SolType, hex, primitives::{Address, FixedBytes, U256}, sol_types::{SolCall, SolValue}};
+use std::result;
 
-use crate::{elements::{call_list::{Call, CallList}, governance_stage_calls::{check_and_parse_inner_call_from_gateway_transaction, setChainCreationParamsCall, GovernanceStage0Calls, GovernanceStage1Calls, GovernanceStage2Calls}, initialize_data_new_chain::InitializeDataNewChain, set_new_version_upgrade::{setNewVersionUpgradeCall, setUpgradeDiamondCutCall, upgradeCall}, UpgradeOutput}, verifiers};
+use alloy::{dyn_abi::SolType, hex, primitives::{Address, FixedBytes, U256}, sol_types::{SolCall, SolConstructor, SolValue}};
+
+use crate::{elements::{call_list::{Call, CallList}, deployed_addresses::{DualVerifier, UpgradeStageValidator}, governance_stage_calls::{check_and_parse_inner_call_from_gateway_transaction, setChainCreationParamsCall, GovernanceStage0Calls, GovernanceStage1Calls, GovernanceStage2Calls}, initialize_data_new_chain::InitializeDataNewChain, set_new_version_upgrade::{setNewVersionUpgradeCall, setUpgradeDiamondCutCall, upgradeCall}, UpgradeOutput}, verifiers};
 use alloy::sol;
 
 
@@ -53,8 +55,8 @@ fn validate_new_set_chain_creation_call(
     assert_eq!(previous_init_data.feeParams, new_init_data.feeParams, "Fee params should be the same.");
     assert_eq!(previous_init_data.blobVersionedHashRetriever, new_init_data.blobVersionedHashRetriever, "Blob versioned hash retriever should be the same.");   
 
-    assert!(previous_init_data.verifier != new_verifier, "Verifier address should be changed to the new one.");
-    assert!(new_init_data.verifier == new_verifier, "Verifier address should be changed to the new one.");
+    assert!(previous_init_data.verifier != new_verifier, "Verifier same as the previous one.");
+    assert_eq!(new_init_data.verifier, new_verifier, "New verifier is not consistent with config.");
 
     Ok(())
 }
@@ -132,8 +134,8 @@ fn validate_set_upgrade_diamond_cut_call(
     assert_eq!(previous_upgrade_data._proposedUpgrade.newProtocolVersion, new_upgrade_data._proposedUpgrade.newProtocolVersion, "New protocol version should be the same.");
 
     // The verifier address is expected to change to the new one.
-    assert!(previous_upgrade_data._proposedUpgrade.verifier != new_verifier, "Verifier address should be changed to the new one.");
-    assert!(new_upgrade_data._proposedUpgrade.verifier == new_verifier, "Verifier address should be changed to the new one.");
+    assert!(previous_upgrade_data._proposedUpgrade.verifier != new_verifier, "Verifier same as the previous one.");
+    assert_eq!(new_upgrade_data._proposedUpgrade.verifier, new_verifier, "New verifier is not consistent with config.");
 
     Ok(())
 }
@@ -243,22 +245,43 @@ impl V28UpgradeComparator {
     ) -> anyhow::Result<()> {
         println!("stage1_upgrade_calls {:#?}", stage1_upgrade_calls);
 
+        const SET_CHAIN_CREATION_PARAMS_L1_INDEX: usize = 1;
+        const SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 2;
+
         let v28_patch_upgrade_cut = v28_patch_upgrade_config.chain_upgrade_diamond_cut.clone();
         let v28_gw_path_upgrade_call =v28_patch_upgrade_config.gateway.upgrade_cut_data.clone();
         println!("=== Gov stage 1 calls ===");
 
-        let gw_new_set_new_version_call = check_and_parse_inner_call_from_gateway_transaction(
-            result,
-            &stage1_upgrade_calls.elems[1].data,
-            v28_patch_upgrade_config.gateway_chain_id,
-            Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
-        );
-        validate_set_new_version_upgrade_call(
-            &self.v28_gw_set_new_version_call,
-            &gw_new_set_new_version_call,
-            new_gw_verifier,
-            v28_gw_path_upgrade_call
+        // TODO
+        validate_new_set_chain_creation_call(
+            &self.v28_set_chain_creation_call,
+            &stage1_upgrade_calls.elems[SET_CHAIN_CREATION_PARAMS_L1_INDEX],
+            new_l1_verifier
         )?;
+        validate_set_new_version_upgrade_call(
+            &self.v28_set_new_version_call,
+            &stage1_upgrade_calls.elems[2],
+            new_l1_verifier,
+            v28_patch_upgrade_cut
+        )?;
+        validate_set_upgrade_diamond_cut_call(
+            &self.v28_set_new_version_call,
+            &stage1_upgrade_calls.elems[3],
+            new_l1_verifier
+        )?;
+
+        // let gw_new_set_new_version_call = check_and_parse_inner_call_from_gateway_transaction(
+        //     result,
+        //     &stage1_upgrade_calls.elems[1].data,
+        //     v28_patch_upgrade_config.gateway_chain_id,
+        //     Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
+        // );
+        // validate_set_new_version_upgrade_call(
+        //     &self.v28_gw_set_new_version_call,
+        //     &gw_new_set_new_version_call,
+        //     new_gw_verifier,
+        //     v28_gw_path_upgrade_call
+        // )?;
 
         // let gw_chain_creation_params_call = check_and_parse_inner_call_from_gateway_transaction(
         //     result,
@@ -272,11 +295,23 @@ impl V28UpgradeComparator {
         //     new_gw_verifier
         // )?;
 
+        // let set_upgrade_diamond_cut_params_call = check_and_parse_inner_call_from_gateway_transaction(
+        //     result,
+        //     &stage1_upgrade_calls.elems[4].data,
+        //     v28_patch_upgrade_config.gateway_chain_id,
+        //     Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
+        // );
+        // validate_set_upgrade_diamond_cut_call(
+        //     &self.v28_gw_set_new_version_call,
+        //     &set_upgrade_diamond_cut_params_call,
+        //     new_gw_verifier
+        // )?;
+
 
         result.report_ok("Set new version upgrade (L1) call is valid");
         return Ok(());
 
-        const SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 0;   
+        // const SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 0;   
         const NEW_VERSION_UPGRADE_INDEX: usize = 1;
         const SET_CHAIN_CREATION_INDEX: usize = 2;
         const GATEWAY_SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 3;
@@ -327,7 +362,93 @@ impl V28UpgradeComparator {
         Ok(())
     }
 
-    pub(crate) fn verify(
+    async fn verify_deployed_addresses(
+        &self,
+        result: &mut crate::verifiers::VerificationResult,
+        v28_patch_upgrade_config: &UpgradeOutput,
+        verifiers: &mut verifiers::Verifiers,
+    ) -> anyhow::Result<()> {
+        let bridgehub_info = verifiers.network_verifier.get_bridgehub_info(verifiers.bridgehub_address).await;
+        result.expect_create2_params(
+            verifiers,
+            &v28_patch_upgrade_config.deployed_addresses.upgrade_stage_validator,
+            UpgradeStageValidator::constructorCall::new((
+                bridgehub_info.stm_address,
+                U256::from(v28_patch_upgrade_config.contracts_config.as_ref().unwrap().new_protocol_version),
+            )).abi_encode(),
+            "l1-contracts/UpgradeStageValidator",
+        );
+
+        let state_transition = &v28_patch_upgrade_config.deployed_addresses.state_transition;
+        result.expect_create2_params(
+            verifiers,
+            &state_transition.verifier_plonk_addr,
+            Vec::new(),
+            "l1-contracts/L1VerifierPlonk",
+        );
+
+        result.expect_create2_params(
+            verifiers,
+            &state_transition.verifier_fflonk_addr,
+            Vec::new(),
+            "l1-contracts/L1VerifierFflonk",
+        );
+
+        let expected_constructor_params = DualVerifier::constructorCall::new((
+            state_transition.verifier_fflonk_addr,
+            state_transition.verifier_plonk_addr,
+        ))
+        .abi_encode();
+
+        result.expect_create2_params(
+            verifiers,
+            &state_transition.verifier_addr,
+            expected_constructor_params,
+            if verifiers.testnet_contracts {
+                "l1-contracts/TestnetVerifier"
+            } else {
+                "l1-contracts/DualVerifier"
+            },
+        );
+
+        let gateway_state_transition = &v28_patch_upgrade_config.gateway.gateway_state_transition;
+        
+        // result.expect_zk_create2_address(
+        //     verifiers, 
+        //     &gateway_state_transition.verifier_fflonk_addr, 
+        //     Vec::new(), 
+        //     "l1-contracts/L1VerifierFflonk",
+        //     Default::default()
+        // );
+        // result.expect_zk_create2_address(
+        //     verifiers, 
+        //     &gateway_state_transition.verifier_plonk_addr, 
+        //     Vec::new(), 
+        //     "l1-contracts/L1VerifierPlonk",
+        //     Default::default()
+        // );
+        // let expected_constructor_params = DualVerifier::constructorCall::new((
+        //     gateway_state_transition.verifier_fflonk_addr,
+        //     gateway_state_transition.verifier_plonk_addr,
+        // ))
+        // .abi_encode();
+
+        // result.expect_zk_create2_address(
+        //     verifiers, 
+        //     &gateway_state_transition.verifier_addr, 
+        //     expected_constructor_params, 
+        // if verifiers.testnet_contracts {
+        //         "l1-contracts/TestnetVerifier"
+        //     } else {
+        //         "l1-contracts/DualVerifier"
+        //     },
+        //     Default::default()
+        // );
+
+        Ok(())
+    }
+
+    pub(crate) async fn verify(
         &self,
         v28_patch_upgrade_config: &UpgradeOutput,
         verifiers: &mut verifiers::Verifiers,
@@ -335,6 +456,12 @@ impl V28UpgradeComparator {
         gateway_chain_id: u64,
         priority_txs_l2_gas_limit: u64,
     ) -> anyhow::Result<()> {
+
+        self.verify_deployed_addresses(
+            result,
+            v28_patch_upgrade_config,
+            verifiers
+        ).await?;
 
         let stage0_upgrade_calls = CallList::parse(&v28_patch_upgrade_config.governance_calls.governance_stage0_calls);
 

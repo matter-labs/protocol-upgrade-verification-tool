@@ -155,6 +155,10 @@ sol! {
         constructor(address _fflonkVerifier, address _plonkVerifier);
     }
 
+    contract UpgradeStageValidator {
+        constructor(address chainTypeManager, uint256 newProtocolVersion);
+    }
+
     #[sol(rpc)]
     contract ProtocolUpgradeHandler {
         /// @dev ZKsync smart contract that used to operate with L2 via asynchronous L2 <-> L1 communication.
