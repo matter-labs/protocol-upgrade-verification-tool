@@ -223,8 +223,6 @@ impl V28UpgradeComparator {
         gateway_chain_id: u64,
         priority_txs_l2_gas_limit: u64
     ) -> anyhow::Result<()> {
-        println!("stage2_upgrade_calls {:#?}", stage2_upgrade_calls);
-
         // The stage2 calls are close to the v28, we can reuse the same verification logic.
         let stage2_calls = GovernanceStage2Calls {
             calls: stage2_upgrade_calls,
@@ -243,39 +241,40 @@ impl V28UpgradeComparator {
         new_l1_verifier: Address,
         new_gw_verifier: Address,
     ) -> anyhow::Result<()> {
-        println!("stage1_upgrade_calls {:#?}", stage1_upgrade_calls);
+        println!("=== Gov stage 1 calls v28 ===");
 
         const SET_CHAIN_CREATION_PARAMS_L1_INDEX: usize = 1;
         const SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 2;
+        const SET_NEW_VERSION_UPGRADE_INDEX: usize = 3;
+
+        const GW_SET_NEW_VERSION_UPGRADE_INDEX: usize = 5;
+        const GW_SET_CHAIN_CREATION_PARAMS_INDEX: usize = 7;
+        const GW_SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 9;
+
 
         let v28_patch_upgrade_cut = v28_patch_upgrade_config.chain_upgrade_diamond_cut.clone();
         let v28_gw_path_upgrade_call =v28_patch_upgrade_config.gateway.upgrade_cut_data.clone();
-        println!("=== Gov stage 1 calls v28 ===");
 
-        // TODO
         validate_new_set_chain_creation_call(
             &self.v28_set_chain_creation_call,
             &stage1_upgrade_calls.elems[SET_CHAIN_CREATION_PARAMS_L1_INDEX],
             new_l1_verifier
         )?;
-        println!("=== kl todo 1");
         validate_set_new_version_upgrade_call(
             &self.v28_set_new_version_call,
-            &stage1_upgrade_calls.elems[2],
+            &stage1_upgrade_calls.elems[SET_UPGRADE_DIAMOND_CUT_INDEX],
             new_l1_verifier,
             v28_patch_upgrade_cut
         )?;
-        println!("=== kl todo 2");
-
         validate_set_upgrade_diamond_cut_call(
             &self.v28_set_new_version_call,
-            &stage1_upgrade_calls.elems[3],
+            &stage1_upgrade_calls.elems[SET_NEW_VERSION_UPGRADE_INDEX],
             new_l1_verifier
         )?;
 
         let gw_new_set_new_version_call = check_and_parse_inner_call_from_gateway_transaction(
             result,
-            &stage1_upgrade_calls.elems[5].data,
+            &stage1_upgrade_calls.elems[GW_SET_NEW_VERSION_UPGRADE_INDEX].data,
             v28_patch_upgrade_config.gateway_chain_id,
             Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
         );
@@ -285,10 +284,9 @@ impl V28UpgradeComparator {
             new_gw_verifier,
             v28_gw_path_upgrade_call
         )?;
-
         let gw_chain_creation_params_call = check_and_parse_inner_call_from_gateway_transaction(
             result,
-            &stage1_upgrade_calls.elems[7].data,
+            &stage1_upgrade_calls.elems[GW_SET_CHAIN_CREATION_PARAMS_INDEX].data,
             v28_patch_upgrade_config.gateway_chain_id,
             Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
         );
@@ -297,10 +295,9 @@ impl V28UpgradeComparator {
             &gw_chain_creation_params_call,
             new_gw_verifier
         )?;
-
         let set_upgrade_diamond_cut_params_call = check_and_parse_inner_call_from_gateway_transaction(
             result,
-            &stage1_upgrade_calls.elems[9].data,
+            &stage1_upgrade_calls.elems[GW_SET_UPGRADE_DIAMOND_CUT_INDEX].data,
             v28_patch_upgrade_config.gateway_chain_id,
             Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
         );
@@ -309,7 +306,6 @@ impl V28UpgradeComparator {
             &set_upgrade_diamond_cut_params_call,
             new_gw_verifier
         )?;
-
 
         result.report_ok("Set new version upgrade (L1) call is valid");
         return Ok(());
@@ -366,37 +362,37 @@ impl V28UpgradeComparator {
 
         let gateway_state_transition = &v28_patch_upgrade_config.gateway.gateway_state_transition;
         
-        // result.expect_zk_create2_address(
-        //     verifiers, 
-        //     &gateway_state_transition.verifier_fflonk_addr, 
-        //     Vec::new(), 
-        //     "l1-contracts/L1VerifierFflonk",
-        //     Default::default()
-        // );
-        // result.expect_zk_create2_address(
-        //     verifiers, 
-        //     &gateway_state_transition.verifier_plonk_addr, 
-        //     Vec::new(), 
-        //     "l1-contracts/L1VerifierPlonk",
-        //     Default::default()
-        // );
-        // let expected_constructor_params = DualVerifier::constructorCall::new((
-        //     gateway_state_transition.verifier_fflonk_addr,
-        //     gateway_state_transition.verifier_plonk_addr,
-        // ))
-        // .abi_encode();
+        result.expect_zk_create2_address(
+            verifiers, 
+            &gateway_state_transition.verifier_fflonk_addr, 
+            Vec::new(), 
+            "l1-contracts/L1VerifierFflonk",
+            Default::default()
+        );
+        result.expect_zk_create2_address(
+            verifiers, 
+            &gateway_state_transition.verifier_plonk_addr, 
+            Vec::new(), 
+            "l1-contracts/L1VerifierPlonk",
+            Default::default()
+        );
+        let expected_constructor_params = DualVerifier::constructorCall::new((
+            gateway_state_transition.verifier_fflonk_addr,
+            gateway_state_transition.verifier_plonk_addr,
+        ))
+        .abi_encode();
 
-        // result.expect_zk_create2_address(
-        //     verifiers, 
-        //     &gateway_state_transition.verifier_addr, 
-        //     expected_constructor_params, 
-        // if verifiers.testnet_contracts {
-        //         "l1-contracts/TestnetVerifier"
-        //     } else {
-        //         "l1-contracts/DualVerifier"
-        //     },
-        //     Default::default()
-        // );
+        result.expect_zk_create2_address(
+            verifiers, 
+            &gateway_state_transition.verifier_addr, 
+            expected_constructor_params, 
+        if verifiers.testnet_contracts {
+                "l1-contracts/TestnetVerifier"
+            } else {
+                "l1-contracts/DualVerifier"
+            },
+            Default::default()
+        );
 
         Ok(())
     }
