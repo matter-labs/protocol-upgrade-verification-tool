@@ -755,7 +755,7 @@ pub async fn verity_facet_cuts(
 
 impl GovernanceStage0Calls {
     /// Stage0 is executed before the main upgrade even starts.
-    pub(crate) async fn verify(
+    pub(crate) fn verify(
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
@@ -767,9 +767,8 @@ impl GovernanceStage0Calls {
         // Stage 0 handles pausing migration on L1 and on Gateway
         let list_of_calls = [
             ("bridgehub_proxy", "pauseMigration()"),
-            ("gateway_base_token", "approve(address,uint256)"),
-            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
-            ("upgrade_timer", "startTimer()"),
+            // ("gateway_base_token", "approve(address,uint256)"),
+            // ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
         ];
         const PAUSE_L1_MIGRATION: usize = 0;
         const APPROVE_BASE_TOKEN: usize = 1;
@@ -787,27 +786,27 @@ impl GovernanceStage0Calls {
         }
 
         // Verify approve base token
-        {
-            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
-            let data =
-                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+        // {
+        //     let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
+        //     let data =
+        //         approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
 
-            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
-        }
+        //     result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
+        // }
 
-        // Verify L1 -> Gateway Pause Migration
-        {
-            let calldata = &self.calls.elems[PAUSE_GATEWAY_MIGRATION].data;
-            check_l1_to_gateway_transaction(
-                verifiers,
-                result,
-                calldata,
-                pauseMigrationCall::abi_decode,
-                gateway_chain_id,
-                priority_txs_l2_gas_limit,
-                "l2_bridgehub",
-            );
-        }
+        // // Verify L1 -> Gateway Pause Migration
+        // {
+        //     let calldata = &self.calls.elems[PAUSE_GATEWAY_MIGRATION].data;
+        //     check_l1_to_gateway_transaction(
+        //         verifiers,
+        //         result,
+        //         calldata,
+        //         pauseMigrationCall::abi_decode,
+        //         gateway_chain_id,
+        //         priority_txs_l2_gas_limit,
+        //         "l2_bridgehub",
+        //     );
+        // }
 
         Ok(())
     }
@@ -815,7 +814,7 @@ impl GovernanceStage0Calls {
 
 impl GovernanceStage2Calls {
     /// Stage2 is executed after all the chains have upgraded.
-    pub(crate) async fn verify(
+    pub(crate) fn verify(
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
@@ -832,10 +831,11 @@ impl GovernanceStage2Calls {
             ("upgrade_stage_validator", "checkProtocolUpgradePresence()"),
             // Unpause L1 migration
             ("bridgehub_proxy", "unpauseMigration()"),
+            // TODO
             // Approve base token
-            ("gateway_base_token", "approve(address,uint256)"),
-            // Unpause gateway
-            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // ("gateway_base_token", "approve(address,uint256)"),
+            // // Unpause gateway
+            // ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
             // Check that migrations are unpaused
             ("upgrade_stage_validator", "checkMigrationsUnpaused()"),
         ];
@@ -846,28 +846,29 @@ impl GovernanceStage2Calls {
         // anything else. This is true for stage 0 and stage 1.
         self.calls.verify(&list_of_calls, verifiers, result)?;
 
-        // Verify Approve base token
-        {
-            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
-            let data =
-                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+        // TOOD
+        // // Verify Approve base token
+        // {
+        //     let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
+        //     let data =
+        //         approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
 
-            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
-        }
+        //     result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
+        // }
 
-        // Verify Unpause gateway migration
-        {
-            let calldata = &self.calls.elems[GATEWAY_UNPAUSE_MIGRATION].data;
-            check_l1_to_gateway_transaction(
-                verifiers,
-                result,
-                calldata,
-                unpauseMigrationCall::abi_decode,
-                gateway_chain_id,
-                priority_txs_l2_gas_limit,
-                "l2_bridgehub",
-            );
-        }
+        // // Verify Unpause gateway migration
+        // {
+        //     let calldata = &self.calls.elems[GATEWAY_UNPAUSE_MIGRATION].data;
+        //     check_l1_to_gateway_transaction(
+        //         verifiers,
+        //         result,
+        //         calldata,
+        //         unpauseMigrationCall::abi_decode,
+        //         gateway_chain_id,
+        //         priority_txs_l2_gas_limit,
+        //         "l2_bridgehub",
+        //     );
+        // }
 
         Ok(())
     }

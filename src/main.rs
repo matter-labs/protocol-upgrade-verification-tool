@@ -8,6 +8,8 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
+use crate::utils::v28_upgrade_comparator::V28UpgradeComparator;
+
 // Current top of release-v28 branch
 const DEFAULT_CONTRACTS_COMMIT: &str = "9fcd28238cf749462b22e513a9f545008637f301";
 // Current commit on top of main
@@ -85,7 +87,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse the YAML content
     let config: UpgradeOutput = serde_yaml::from_str(&yaml_content)?;
 
-    let verifiers = Verifiers::new(
+
+    // TODO: double check that other calls are correct.
+
+    let comparator = V28UpgradeComparator::new(v28_upgrade_config, args.bridgehub_address.parse().unwrap());
+
+    let mut verifiers = Verifiers::new(
         args.testnet_contracts,
         args.bridgehub_address.clone(),
         &args.era_commit,
@@ -97,29 +104,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &config,
     )
     .await;
-
     let mut result = VerificationResult::default();
 
-    let r = config.verify(&verifiers, &mut result).await;
+    let gw_chain_id = verifiers.network_verifier.gateway_chain_id;
+    comparator.verify(
+        &config   ,
+        &mut verifiers,
+        &mut result,
+        gw_chain_id,
+        config.priority_txs_l2_gas_limit
+    ).expect("Failed to verify the upgrade configuration");
 
-    println!("{}", result);
-    r.unwrap();
+    
 
-    if args.display_upgrade_data.unwrap_or_default() {
-        println!(
-            "Stage0 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
-        );
+    // let r = config.verify(&verifiers, &mut result).await;
 
-        println!(
-            "Stage1 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
-        );
-        println!(
-            "Stage2 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
-        );
-    }
+    // println!("{}", result);
+    // r.unwrap();
+
+    // if args.display_upgrade_data.unwrap_or_default() {
+    //     println!(
+    //         "Stage0 encoded upgrade data = {}",
+    //         encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+    //     );
+
+    //     println!(
+    //         "Stage1 encoded upgrade data = {}",
+    //         encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
+    //     );
+    //     println!(
+    //         "Stage2 encoded upgrade data = {}",
+    //         encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
+    //     );
+    // }
 
     Ok(())
 }

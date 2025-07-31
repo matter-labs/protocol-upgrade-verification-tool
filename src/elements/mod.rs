@@ -40,7 +40,7 @@ pub struct UpgradeOutput {
     pub(crate) protocol_upgrade_handler_proxy_address: Address,
 
     #[serde(rename = "contracts_newConfig")]
-    pub(crate) contracts_config: ContractsConfig,
+    pub(crate) contracts_config: Option<ContractsConfig>,
     pub(crate) deployed_addresses: DeployedAddresses,
 
     pub(crate) transactions: Vec<String>,
@@ -260,7 +260,6 @@ impl UpgradeOutput {
                 self.gateway_chain_id,
                 self.priority_txs_l2_gas_limit,
             )
-            .await
             .context("stage0")?;
 
         let stage1 = GovernanceStage1Calls {
@@ -306,10 +305,11 @@ impl UpgradeOutput {
                 self.gateway_chain_id,
                 self.priority_txs_l2_gas_limit,
             )
-            .await
             .context("stage2")?;
 
         self.contracts_config
+            .as_ref()
+            .unwrap()
             .verify(
                 verifiers,
                 result,
@@ -318,7 +318,7 @@ impl UpgradeOutput {
             )
             .await;
 
-        let mut config = self.contracts_config.clone();
+        let mut config = self.contracts_config.clone().unwrap();
         config.diamond_cut_data = self.gateway.diamond_cut_data.clone();
 
         config
