@@ -3,7 +3,7 @@
 
 use alloy::{dyn_abi::SolType, hex, primitives::{Address, FixedBytes, U256}, sol_types::{SolCall, SolValue}};
 
-use crate::{elements::{call_list::{Call, CallList}, governance_stage_calls::{setChainCreationParamsCall, GovernanceStage0Calls, GovernanceStage1Calls, GovernanceStage2Calls}, initialize_data_new_chain::InitializeDataNewChain, set_new_version_upgrade::{setNewVersionUpgradeCall, setUpgradeDiamondCutCall, upgradeCall}, UpgradeOutput}, verifiers};
+use crate::{elements::{call_list::{Call, CallList}, governance_stage_calls::{check_and_parse_inner_call_from_gateway_transaction, setChainCreationParamsCall, GovernanceStage0Calls, GovernanceStage1Calls, GovernanceStage2Calls}, initialize_data_new_chain::InitializeDataNewChain, set_new_version_upgrade::{setNewVersionUpgradeCall, setUpgradeDiamondCutCall, upgradeCall}, UpgradeOutput}, verifiers};
 use alloy::sol;
 
 
@@ -138,9 +138,13 @@ fn validate_set_upgrade_diamond_cut_call(
     Ok(())
 }
 
-
 impl V28UpgradeComparator {
-    pub(crate) fn new(v28_upgrade_config: UpgradeOutput, l1_bridgehub_address: Address) -> Self {
+    pub(crate) fn new(
+        result: &mut crate::verifiers::VerificationResult,
+        v28_upgrade_config: UpgradeOutput, 
+        l1_bridgehub_address: Address,
+        gateway_chain_id: u64
+    ) -> Self {
         let UpgradeOutput {
             governance_calls,
             ..
@@ -155,8 +159,18 @@ impl V28UpgradeComparator {
 
         let set_chain_creation_call = stage1_calls.elems[SET_CHAIN_CREATION_INDEX].clone();
         let set_new_version_call = stage1_calls.elems[SET_NEW_VERSION_INDEX].clone();
-        let gw_set_chain_creation_call = stage1_calls.elems[GATEWAY_NEW_CHAIN_CREATION_PARAMS].clone();
-        let gw_set_new_version_call = stage1_calls.elems[GATEWAY_SET_NEW_VERSION].clone();
+        let gw_set_chain_creation_call = check_and_parse_inner_call_from_gateway_transaction(
+            result,
+            &stage1_calls.elems[GATEWAY_NEW_CHAIN_CREATION_PARAMS].data,
+            gateway_chain_id,
+            None
+        );
+        let gw_set_new_version_call = check_and_parse_inner_call_from_gateway_transaction(
+            result,
+            &stage1_calls.elems[GATEWAY_SET_NEW_VERSION].data,
+            gateway_chain_id,
+            None
+        );
 
         Self {
             v28_gw_set_chain_creation_call: gw_set_chain_creation_call,
@@ -167,6 +181,20 @@ impl V28UpgradeComparator {
         }
     }
 
+    pub(crate) fn display_encoded_previous_data(&self) {
+        let previous_chain_creation_call = setChainCreationParamsCall::abi_decode(&self.v28_set_chain_creation_call.data, true).expect("Failed to decode previous set chain creation call");
+        println!("=== v28 previous set chain creation params (L1) ===\n{}\n", hex::encode(&previous_chain_creation_call._chainCreationParams.abi_encode()));
+
+        let previous_chain_creation_call_gw = setChainCreationParamsCall::abi_decode(&self.v28_gw_set_chain_creation_call.data, true).expect("Failed to decode previous set chain creation call");
+        println!("=== v28 previous set chain creation params (GWs) ===\n{}\n", hex::encode(&previous_chain_creation_call_gw._chainCreationParams.abi_encode()));
+
+        let previous_set_new_version_call = setNewVersionUpgradeCall::abi_decode(&self.v28_set_new_version_call.data, true).expect("Failed to decode previous set new version call");
+        println!("===v28 previous set new version call (L1)===\n{}\n", hex::encode(&previous_set_new_version_call.diamondCut.abi_encode()));
+        
+        let previous_set_new_version_call_gw = setNewVersionUpgradeCall::abi_decode(&self.v28_gw_set_new_version_call.data, true).expect("Failed to decode previous set new version call");
+        println!("===v28 previous set new version call (GW)===\n{}\n", hex::encode(&previous_set_new_version_call_gw.diamondCut.abi_encode()));
+    }
+
     fn verify_stage0_calls(
         &self,
         stage0_upgrade_calls: CallList,
@@ -175,6 +203,7 @@ impl V28UpgradeComparator {
         gateway_chain_id: u64,
         priority_txs_l2_gas_limit: u64,
     ) -> anyhow::Result<()> {
+        println!("stage0_upgrade_calls {:#?}", stage0_upgrade_calls);
         // The stage0 calls are close to the v28, we can reuse the same verification logic.
         let stage0_calls = GovernanceStage0Calls {
             calls: stage0_upgrade_calls,
@@ -186,15 +215,17 @@ impl V28UpgradeComparator {
 
     fn verify_stage2_calls(
         &self,
-        stage0_upgrade_calls: CallList,
+        stage2_upgrade_calls: CallList,
         verifiers: &mut verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         gateway_chain_id: u64,
         priority_txs_l2_gas_limit: u64
     ) -> anyhow::Result<()> {
+        println!("stage2_upgrade_calls {:#?}", stage2_upgrade_calls);
+
         // The stage2 calls are close to the v28, we can reuse the same verification logic.
         let stage2_calls = GovernanceStage2Calls {
-            calls: stage0_upgrade_calls,
+            calls: stage2_upgrade_calls,
         };
 
         stage2_calls.verify(verifiers, result, gateway_chain_id, priority_txs_l2_gas_limit)?;
@@ -203,21 +234,45 @@ impl V28UpgradeComparator {
 
     fn verify_stage1_calls(
         &self, 
+        verifiers: &mut verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         v28_patch_upgrade_config: &UpgradeOutput,
-        patch_upgrade_calls: CallList,
+        stage1_upgrade_calls: CallList,
         new_l1_verifier: Address,
-        new_gw_verifier: Address
+        new_gw_verifier: Address,
     ) -> anyhow::Result<()> {
+        println!("stage1_upgrade_calls {:#?}", stage1_upgrade_calls);
+
         let v28_patch_upgrade_cut = v28_patch_upgrade_config.chain_upgrade_diamond_cut.clone();
+        let v28_gw_path_upgrade_call =v28_patch_upgrade_config.gateway.upgrade_cut_data.clone();
         println!("=== Gov stage 1 calls ===");
 
+        let gw_new_set_new_version_call = check_and_parse_inner_call_from_gateway_transaction(
+            result,
+            &stage1_upgrade_calls.elems[1].data,
+            v28_patch_upgrade_config.gateway_chain_id,
+            Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
+        );
         validate_set_new_version_upgrade_call(
-            &self.v28_set_new_version_call,
-            &patch_upgrade_calls.elems[1],
-            new_l1_verifier,
-            v28_patch_upgrade_cut
+            &self.v28_gw_set_new_version_call,
+            &gw_new_set_new_version_call,
+            new_gw_verifier,
+            v28_gw_path_upgrade_call
         )?;
+
+        // let gw_chain_creation_params_call = check_and_parse_inner_call_from_gateway_transaction(
+        //     result,
+        //     &stage1_upgrade_calls.elems[4].data,
+        //     v28_patch_upgrade_config.gateway_chain_id,
+        //     Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit)
+        // );
+        // validate_new_set_chain_creation_call(
+        //     &self.v28_gw_set_chain_creation_call,
+        //     &gw_chain_creation_params_call,
+        //     new_gw_verifier
+        // )?;
+
+
         result.report_ok("Set new version upgrade (L1) call is valid");
         return Ok(());
 
@@ -228,12 +283,12 @@ impl V28UpgradeComparator {
         const GATEWAY_NEW_VERSION_UPGRADE_INDEX: usize = 4;
         const GATEWAY_SET_CHAIN_CREATION_INDEX: usize = 5;
 
-        let set_upgrade_diamond_cut_call = patch_upgrade_calls.elems[SET_UPGRADE_DIAMOND_CUT_INDEX].clone();
-        let new_version_upgrade_call = patch_upgrade_calls.elems[NEW_VERSION_UPGRADE_INDEX].clone();
-        let set_chain_creation_call = patch_upgrade_calls.elems[SET_CHAIN_CREATION_INDEX].clone();
-        let gw_set_upgrade_diamond_cut_call = patch_upgrade_calls.elems[GATEWAY_SET_UPGRADE_DIAMOND_CUT_INDEX].clone();
-        let gw_new_version_upgrade_call = patch_upgrade_calls.elems[GATEWAY_NEW_VERSION_UPGRADE_INDEX].clone();
-        let gw_set_chain_creation_call = patch_upgrade_calls.elems[GATEWAY_SET_CHAIN_CREATION_INDEX].clone();
+        let set_upgrade_diamond_cut_call = stage1_upgrade_calls.elems[SET_UPGRADE_DIAMOND_CUT_INDEX].clone();
+        let new_version_upgrade_call = stage1_upgrade_calls.elems[NEW_VERSION_UPGRADE_INDEX].clone();
+        let set_chain_creation_call = stage1_upgrade_calls.elems[SET_CHAIN_CREATION_INDEX].clone();
+        let gw_set_upgrade_diamond_cut_call = stage1_upgrade_calls.elems[GATEWAY_SET_UPGRADE_DIAMOND_CUT_INDEX].clone();
+        let gw_new_version_upgrade_call = stage1_upgrade_calls.elems[GATEWAY_NEW_VERSION_UPGRADE_INDEX].clone();
+        let gw_set_chain_creation_call = stage1_upgrade_calls.elems[GATEWAY_SET_CHAIN_CREATION_INDEX].clone();
 
         // validate_new_set_chain_creation_call(
         //     &self.v28_set_chain_creation_call,
@@ -294,11 +349,12 @@ impl V28UpgradeComparator {
         println!("{:#?}", stage2_upgrade_calls);
 
         let new_l1_verifier = v28_patch_upgrade_config.deployed_addresses.state_transition.verifier_addr;
-        let new_gw_verifier = Address::ZERO;
+        let new_gw_verifier = v28_patch_upgrade_config.gateway.gateway_state_transition.verifier_addr;
 
         self.verify_stage0_calls(stage0_upgrade_calls, verifiers, result, gateway_chain_id, priority_txs_l2_gas_limit)?;
 
         self.verify_stage1_calls(
+            verifiers,
             result,
             v28_patch_upgrade_config,
             stage1_upgrade_calls,

@@ -52,6 +52,8 @@ cargo run -- --ecosystem-yaml data/v28-ecosystem-mainnet.yaml --l1-rpc <l1-rpc> 
 
 cargo run -- --ecosystem-yaml data/v28-1-ecosystem-stage.yaml --v28-ecosystem-yaml data/v28-ecosystem-stage.yaml --l1-rpc $SEPOLIA  --contracts-commit 43c2dd5f263b964c232ef4359da4ba666fab3c6c --era-commit  2b87e7b8f781b61bc7c13b81639908bd1e0c297d  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE --gw-rpc https://rpc.era-gateway-stage.zksync.dev --display-upgrade-data true
 
+cargo run -- --ecosystem-yaml data/v28-1-ecosystem-stage2.yaml --v28-ecosystem-yaml data/v28-ecosystem-stage.yaml --l1-rpc $SEPOLIA  --contracts-commit 43c2dd5f263b964c232ef4359da4ba666fab3c6c --era-commit  2b87e7b8f781b61bc7c13b81639908bd1e0c297d  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE --gw-rpc https://rpc.era-gateway-stage.zksync.dev --display-upgrade-data true
+
 #### Tally upgrade data
 
 You should provide `--display-upgrade-data true` to the command to also display the `UpgradeData` for both stage1 and stage2 calls, i.e:

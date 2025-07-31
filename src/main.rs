@@ -64,6 +64,9 @@ struct Args {
     #[clap(long)]
     testnet_contracts: bool,
 
+    #[clap(long)]
+    display_previous_data: Option<bool>,
+
     // fixme: can it be an address rightaway?
     #[clap(long)]
     bridgehub_address: String,
@@ -90,8 +93,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // TODO: double check that other calls are correct.
 
-    let comparator = V28UpgradeComparator::new(v28_upgrade_config, args.bridgehub_address.parse().unwrap());
-
     let mut verifiers = Verifiers::new(
         args.testnet_contracts,
         args.bridgehub_address.clone(),
@@ -105,6 +106,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await;
     let mut result = VerificationResult::default();
+
+    let comparator = V28UpgradeComparator::new(&mut result, v28_upgrade_config, args.bridgehub_address.parse().unwrap(), config.gateway_chain_id);
+
+    if args.display_previous_data.unwrap_or_default() {
+        comparator.display_encoded_previous_data();
+        return Ok(());
+    }
 
     let gw_chain_id = verifiers.network_verifier.gateway_chain_id;
     comparator.verify(
