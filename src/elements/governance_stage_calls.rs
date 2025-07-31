@@ -71,7 +71,7 @@ sol! {
         Remove
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     struct FacetCut {
         address facet;
         Action action;

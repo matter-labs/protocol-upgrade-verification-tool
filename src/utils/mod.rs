@@ -15,6 +15,7 @@ pub mod display_upgrade_data;
 pub mod facet_cut_set;
 pub mod fee_param_verifier;
 pub mod network_verifier;
+pub mod v28_upgrade_comparator;
 
 pub async fn get_contents_from_github(commit: &str, repo: &str, file_path: &str) -> String {
     let url = format!(

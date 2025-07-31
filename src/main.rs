@@ -32,6 +32,9 @@ struct Args {
     #[clap(short, long)]
     ecosystem_yaml: String,
 
+    #[clap(long)]
+    v28_ecosystem_yaml: String,
+
     // Commit from zksync-era repository (used for genesis verification)
     #[clap(long, default_value = DEFAULT_ERA_COMMIT)]
     era_commit: String,
@@ -69,6 +72,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     env_logger::init();
+
+    // The upgrade should be a small patch of v28, so we can compare the input to the provided one.
+    let v28_upgrade_config = {
+        let yaml_content = fs::read_to_string(&args.v28_ecosystem_yaml)?;
+        serde_yaml::from_str::<UpgradeOutput>(&yaml_content)?
+    };
 
     // Read the YAML file
     let yaml_content = fs::read_to_string(args.ecosystem_yaml)?;
