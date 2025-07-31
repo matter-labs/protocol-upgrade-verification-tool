@@ -846,29 +846,28 @@ impl GovernanceStage2Calls {
         // anything else. This is true for stage 0 and stage 1.
         self.calls.verify(&list_of_calls, verifiers, result)?;
 
-        // TOOD
-        // // Verify Approve base token
-        // {
-        //     let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
-        //     let data =
-        //         approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+        // Verify Approve base token
+        {
+            let calldata = &self.calls.elems[APPROVE_BASE_TOKEN].data;
+            let data =
+                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
 
-        //     result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
-        // }
+            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
+        }
 
-        // // Verify Unpause gateway migration
-        // {
-        //     let calldata = &self.calls.elems[GATEWAY_UNPAUSE_MIGRATION].data;
-        //     check_l1_to_gateway_transaction(
-        //         verifiers,
-        //         result,
-        //         calldata,
-        //         unpauseMigrationCall::abi_decode,
-        //         gateway_chain_id,
-        //         priority_txs_l2_gas_limit,
-        //         "l2_bridgehub",
-        //     );
-        // }
+        // Verify Unpause gateway migration
+        {
+            let calldata = &self.calls.elems[GATEWAY_UNPAUSE_MIGRATION].data;
+            check_l1_to_gateway_transaction(
+                verifiers,
+                result,
+                calldata,
+                unpauseMigrationCall::abi_decode,
+                gateway_chain_id,
+                priority_txs_l2_gas_limit,
+                "l2_bridgehub",
+            );
+        }
 
         Ok(())
     }
