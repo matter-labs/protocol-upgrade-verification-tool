@@ -11,7 +11,10 @@ use std::panic::Location;
 
 use crate::{
     utils::{
-        address_from_short_hex, address_verifier::AddressVerifier, bytecode_verifier::BytecodeVerifier, compute_create2_address_zk, fee_param_verifier::FeeParamVerifier, get_contents_from_github, network_verifier::NetworkVerifier, L2_CREATE2_FACTORY_ADDRESS
+        address_from_short_hex, address_verifier::AddressVerifier,
+        bytecode_verifier::BytecodeVerifier, compute_create2_address_zk,
+        fee_param_verifier::FeeParamVerifier, get_contents_from_github,
+        network_verifier::NetworkVerifier, L2_CREATE2_FACTORY_ADDRESS,
     },
     UpgradeOutput,
 };
@@ -293,7 +296,7 @@ impl VerificationResult {
             L2_CREATE2_FACTORY_ADDRESS,
             l2_create2_salt,
             *bytecode_hash,
-            keccak256(expected_constructor_params)
+            keccak256(expected_constructor_params),
         );
 
         if expected_address != *address {

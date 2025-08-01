@@ -22,7 +22,6 @@ pub const L2_CREATE2_FACTORY_ADDRESS: Address = Address(FixedBytes([
     0x00, 0x01, 0x00, 0x00,
 ]));
 
-
 pub async fn get_contents_from_github(commit: &str, repo: &str, file_path: &str) -> String {
     let url = format!(
         "https://raw.githubusercontent.com/{repo}/{}/{file_path}",

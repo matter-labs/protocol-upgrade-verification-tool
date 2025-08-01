@@ -884,7 +884,6 @@ pub(crate) fn check_l1_to_gateway_transaction<T, F>(
 where
     F: Fn(&[u8], bool) -> alloy::sol_types::Result<T>,
 {
-
     let inner_call = check_and_parse_inner_call_from_gateway_transaction(
         result,
         calldata,

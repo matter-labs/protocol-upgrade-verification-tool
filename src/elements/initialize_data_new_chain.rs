@@ -22,7 +22,7 @@ sol! {
         uint64 minimalL2GasPrice;
     }
 
-    #[derive(Debug, Default, PartialEq, Eq)]    
+    #[derive(Debug, Default, PartialEq, Eq)]
     struct VerifierParams {
         bytes32 recursionNodeLevelVkHash;
         bytes32 recursionLeafLevelVkHash;

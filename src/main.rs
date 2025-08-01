@@ -104,7 +104,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await;
     let mut result = VerificationResult::default();
 
-    let comparator = V28UpgradeComparator::new(&mut result, v28_upgrade_config, config.gateway_chain_id);
+    let comparator =
+        V28UpgradeComparator::new(&mut result, v28_upgrade_config, config.gateway_chain_id);
 
     if args.display_previous_data.unwrap_or_default() {
         comparator.display_encoded_previous_data();
@@ -112,13 +113,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let gw_chain_id = verifiers.network_verifier.gateway_chain_id;
-    let r = comparator.verify(
-        &config   ,
-        &mut verifiers,
-        &mut result,
-        gw_chain_id,
-        config.priority_txs_l2_gas_limit
-    ).await;
+    let r = comparator
+        .verify(
+            &config,
+            &mut verifiers,
+            &mut result,
+            gw_chain_id,
+            config.priority_txs_l2_gas_limit,
+        )
+        .await;
 
     println!("{}", result);
 
