@@ -58,7 +58,7 @@ cargo run -- --ecosystem-yaml data/v28-1-ecosystem-testnet.yaml --v28-ecosystem-
 
 #### Mainnet 
 
-cargo run -- --ecosystem-yaml data/v28-1-ecosystem-mainnet.yaml --v28-ecosystem-yaml data/v28-ecosystem-mainnet.yaml --l1-rpc $ALCHEMY_MAINNET  --contracts-commit 6754d814334d885574d0a2238449ec64a5ec6100 --era-commit  2b87e7b8f781b61bc7c13b81639908bd1e0c297d  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --gw-rpc https://rpc.era-gateway-mainnet.zksync.dev
+cargo run -- --ecosystem-yaml data/v28-1-ecosystem-mainnet.yaml --v28-ecosystem-yaml data/v28-ecosystem-mainnet.yaml --l1-rpc $ALCHEMY_MAINNET  --contracts-commit 941f3e1c6edcccfd41ccdbbba9ccff7c13a96623 --era-commit  2b87e7b8f781b61bc7c13b81639908bd1e0c297d  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --gw-rpc https://rpc.era-gateway-mainnet.zksync.dev
 
 #### Tally upgrade data
 
