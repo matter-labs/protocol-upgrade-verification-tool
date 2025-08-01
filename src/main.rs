@@ -107,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await;
     let mut result = VerificationResult::default();
 
-    let comparator = V28UpgradeComparator::new(&mut result, v28_upgrade_config, args.bridgehub_address.parse().unwrap(), config.gateway_chain_id);
+    let comparator = V28UpgradeComparator::new(&mut result, v28_upgrade_config, config.gateway_chain_id);
 
     if args.display_previous_data.unwrap_or_default() {
         comparator.display_encoded_previous_data();

@@ -1,21 +1,14 @@
 //! This file is dedicated to parsing the previous v28 upgrade data.
 //! The results will be used to ensure minimal changes in v28.1 patch.
 
-use std::result;
-
 use alloy::{dyn_abi::SolType, hex, primitives::{Address, FixedBytes, U256}, sol_types::{SolCall, SolConstructor, SolValue}};
-
-use crate::{elements::{call_list::{Call, CallList}, deployed_addresses::{DualVerifier, UpgradeStageValidator}, governance_stage_calls::{check_and_parse_inner_call_from_gateway_transaction, setChainCreationParamsCall, GovernanceStage0Calls, GovernanceStage1Calls, GovernanceStage2Calls}, initialize_data_new_chain::InitializeDataNewChain, set_new_version_upgrade::{setNewVersionUpgradeCall, setUpgradeDiamondCutCall, upgradeCall}, UpgradeOutput}, verifiers};
-use alloy::sol;
-
+use crate::{elements::{call_list::{Call, CallList}, deployed_addresses::{DualVerifier, UpgradeStageValidator}, governance_stage_calls::{check_and_parse_inner_call_from_gateway_transaction, setChainCreationParamsCall, GovernanceStage0Calls, GovernanceStage2Calls}, initialize_data_new_chain::InitializeDataNewChain, set_new_version_upgrade::{setNewVersionUpgradeCall, setUpgradeDiamondCutCall, upgradeCall}, UpgradeOutput}, verifiers};
 
 pub(crate) struct V28UpgradeComparator {
     v28_set_chain_creation_call: Call,
     v28_set_new_version_call: Call,
     v28_gw_set_chain_creation_call: Call,
     v28_gw_set_new_version_call: Call,
-    
-    l1_bridgehub_address: Address,
 }
 
 fn validate_new_set_chain_creation_call(
@@ -58,7 +51,7 @@ fn validate_new_set_chain_creation_call(
     assert_eq!(previous_init_data.feeParams, new_init_data.feeParams, "Fee params should be the same.");
     assert_eq!(previous_init_data.blobVersionedHashRetriever, new_init_data.blobVersionedHashRetriever, "Blob versioned hash retriever should be the same.");   
 
-    assert!(previous_init_data.verifier != new_verifier, "Verifier same as the previous one.");
+    assert!(previous_init_data.verifier != new_verifier, "Verifier must change in a patch upgrade.");
     assert_eq!(new_init_data.verifier, new_verifier, "New verifier is not consistent with config.");
 
     Ok(())
@@ -83,13 +76,13 @@ fn validate_set_new_version_upgrade_call(
     assert_eq!(new_params.newProtocolVersion, correct_new_version);
 
     assert_eq!(new_params.oldProtocolVersionDeadline, U256::MAX, "Old protocol version deadline should be max for patch upgrade.");
-    assert_eq!(new_params.diamondCut.facetCuts.len(), 0, "Diamond cut facet cuts should be empty.");
+    assert!(new_params.diamondCut.facetCuts.is_empty(), "Diamond cut facet cuts should be empty.");
     assert_eq!(new_params.diamondCut.initAddress, previous_params.diamondCut.initAddress, "Diamond cut init address should be the same.");
 
     let new_upgrade_data = upgradeCall::abi_decode(&new_params.diamondCut.initCalldata, true)?;
 
     // Updating the verifier address
-    assert_eq!(new_upgrade_data._proposedUpgrade.verifier, new_verifier, "Upgrade timestamp should be zero for patch upgrade.");
+    assert_eq!(new_upgrade_data._proposedUpgrade.verifier, new_verifier, "Verifier was not updated to the new one.");
 
     // The rest of the fields are empty, i.e. not updated.
     assert_eq!(new_upgrade_data._proposedUpgrade.l2ProtocolUpgradeTx, Default::default(), "L2 protocol upgrade tx should be default for patch upgrade.");
@@ -147,7 +140,6 @@ impl V28UpgradeComparator {
     pub(crate) fn new(
         result: &mut crate::verifiers::VerificationResult,
         v28_upgrade_config: UpgradeOutput, 
-        l1_bridgehub_address: Address,
         gateway_chain_id: u64
     ) -> Self {
         let UpgradeOutput {
@@ -182,7 +174,6 @@ impl V28UpgradeComparator {
             v28_gw_set_new_version_call: gw_set_new_version_call,
             v28_set_chain_creation_call: set_chain_creation_call,
             v28_set_new_version_call: set_new_version_call,
-            l1_bridgehub_address,
         }
     }
 
