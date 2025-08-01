@@ -354,7 +354,7 @@ async fn check_create2_deploy(
 
     let salt = &tx.input()[0..32];
     if salt != expected_create2_salt.as_slice() {
-        println!("Salt mismatch: {:?} != {:?}", salt, expected_create2_salt);
+        println!("Salt mismatch: {:?} != {:?}. Tx hash: {:#?}", salt, expected_create2_salt, tx_hash);
         return None;
     }
 

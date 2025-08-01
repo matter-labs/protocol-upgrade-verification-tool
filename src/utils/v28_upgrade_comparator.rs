@@ -39,7 +39,7 @@ fn validate_new_set_chain_creation_call(
     let new_init_data =
         <InitializeDataNewChain as SolType>::abi_decode(&new_params.diamondCut.initCalldata, true)?;
 
-    assert_eq!(expected_diamond_cut, hex::encode(new_params.diamondCut.abi_encode()), "Diamond cut should match the expected one.");
+    assert_eq!(&expected_diamond_cut[2..], hex::encode(new_params.diamondCut.abi_encode()), "Diamond cut should match the expected one.");
 
     // Now we check that all is equal except for veriifer address.
 
