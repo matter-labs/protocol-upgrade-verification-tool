@@ -11,12 +11,12 @@ use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 use crate::utils::v28_upgrade_comparator::V28UpgradeComparator;
 
 // Current top of release-v28 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "9fcd28238cf749462b22e513a9f545008637f301";
+const DEFAULT_CONTRACTS_COMMIT: &str = "6754d814334d885574d0a2238449ec64a5ec6100";
 // Current commit on top of main
 const DEFAULT_ERA_COMMIT: &str = "b7aeab64ce5c915233a773542ef64e79bf3893ee";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.28.0";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.27.0";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.28.1";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
@@ -115,34 +115,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let gw_chain_id = verifiers.network_verifier.gateway_chain_id;
-    comparator.verify(
+    let r = comparator.verify(
         &config   ,
         &mut verifiers,
         &mut result,
         gw_chain_id,
         config.priority_txs_l2_gas_limit
-    ).await?;
+    ).await;
 
-    // let r = config.verify(&verifiers, &mut result).await;
+    println!("{}", result);
 
-    // println!("{}", result);
-    // r.unwrap();
+    r.unwrap();
 
-    // if args.display_upgrade_data.unwrap_or_default() {
-    //     println!(
-    //         "Stage0 encoded upgrade data = {}",
-    //         encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
-    //     );
+    if args.display_upgrade_data.unwrap_or_default() {
+        println!(
+            "Stage0 encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+        );
 
-    //     println!(
-    //         "Stage1 encoded upgrade data = {}",
-    //         encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
-    //     );
-    //     println!(
-    //         "Stage2 encoded upgrade data = {}",
-    //         encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
-    //     );
-    // }
+        println!(
+            "Stage1 encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
+        );
+        println!(
+            "Stage2 encoded upgrade data = {}",
+            encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
+        );
+    }
 
     Ok(())
 }

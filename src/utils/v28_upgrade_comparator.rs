@@ -21,7 +21,8 @@ pub(crate) struct V28UpgradeComparator {
 fn validate_new_set_chain_creation_call(
     previous: &Call,
     new: &Call,
-    new_verifier: Address
+    new_verifier: Address,
+    expected_diamond_cut: String
 ) -> anyhow::Result<()> {
     assert_eq!(previous.target, new.target, "Set chain creation call target should be the same.");
     assert_eq!(previous.value, new.value, "Set chain creation call value should be the same.");
@@ -44,6 +45,8 @@ fn validate_new_set_chain_creation_call(
         <InitializeDataNewChain as SolType>::abi_decode(&previous_params.diamondCut.initCalldata, true)?;
     let new_init_data =
         <InitializeDataNewChain as SolType>::abi_decode(&new_params.diamondCut.initCalldata, true)?;
+
+    assert_eq!(expected_diamond_cut, hex::encode(new_params.diamondCut.abi_encode()), "Diamond cut should match the expected one.");
 
     // Now we check that all is equal except for veriifer address.
 
@@ -79,7 +82,7 @@ fn validate_set_new_version_upgrade_call(
     let correct_new_version = previous_params.newProtocolVersion + U256::from(1);
     assert_eq!(new_params.newProtocolVersion, correct_new_version);
 
-    // TODO: decide on the deadline
+    assert_eq!(new_params.oldProtocolVersionDeadline, U256::MAX, "Old protocol version deadline should be max for patch upgrade.");
     assert_eq!(new_params.diamondCut.facetCuts.len(), 0, "Diamond cut facet cuts should be empty.");
     assert_eq!(new_params.diamondCut.initAddress, previous_params.diamondCut.initAddress, "Diamond cut init address should be the same.");
 
@@ -205,7 +208,6 @@ impl V28UpgradeComparator {
         gateway_chain_id: u64,
         priority_txs_l2_gas_limit: u64,
     ) -> anyhow::Result<()> {
-        println!("stage0_upgrade_calls {:#?}", stage0_upgrade_calls);
         // The stage0 calls are close to the v28, we can reuse the same verification logic.
         let stage0_calls = GovernanceStage0Calls {
             calls: stage0_upgrade_calls,
@@ -243,6 +245,42 @@ impl V28UpgradeComparator {
     ) -> anyhow::Result<()> {
         println!("=== Gov stage 1 calls v28 ===");
 
+        let list_of_calls = [
+            // Check that migrations are paused
+            ("upgrade_stage_validator", "checkMigrationsPaused()"),
+            // Set new version upgrade in the L1 state transition manager (the content will be checked later in this function).
+            // Allows chains to upgrade from v28.0 to v28.1.
+            (
+                "state_transition_manager",
+                "setChainCreationParams((address,bytes32,uint64,bytes32,((address,uint8,bool,bytes4[])[],address,bytes),bytes))",
+            ),
+            // Set chain creation params in the L1 state transition manager (the content will be checked later in this function).
+            // Ensures that new chains will only use the new version.
+            ("state_transition_manager",
+            "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
+            // Update the upgrade diamond cut for v27 in the L1 state transition manager (the content will be checked later in this function).
+            // Ensures that chains that currently have version v27 will be able to upgrade to v28.1 rightaway.
+            ("state_transition_manager",
+            "setUpgradeDiamondCut(((address,uint8,bool,bytes4[])[],address,bytes),uint256)"),
+            // Approve base token
+            ("gateway_base_token", "approve(address,uint256)"),
+            // Set new version upgrade in the GW state transition manager (the content will be checked later in this function).
+            // Allows chains to upgrade from v28.0 to v28.1.
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // Approve base token
+            ("gateway_base_token", "approve(address,uint256)"),
+            // Set chain creation params in the GW state transition manager (the content will be checked later in this function).
+            // Ensures that chains that connect to GW will only use the new version.
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // Approve base token
+            ("gateway_base_token", "approve(address,uint256)"),
+            // Update the upgrade diamond cut for v27 in the GW state transition manager (the content will be checked later in this function).
+            // Ensures that chains that currently have version v27 will be able to upgrade to v28.1 rightaway.
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+        ];
+
+        stage1_upgrade_calls.verify(&list_of_calls, verifiers, result)?;
+
         const SET_CHAIN_CREATION_PARAMS_L1_INDEX: usize = 1;
         const SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 2;
         const SET_NEW_VERSION_UPGRADE_INDEX: usize = 3;
@@ -251,26 +289,35 @@ impl V28UpgradeComparator {
         const GW_SET_CHAIN_CREATION_PARAMS_INDEX: usize = 7;
         const GW_SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 9;
 
-
         let v28_patch_upgrade_cut = v28_patch_upgrade_config.chain_upgrade_diamond_cut.clone();
         let v28_gw_path_upgrade_call =v28_patch_upgrade_config.gateway.upgrade_cut_data.clone();
+
+        let v28_patch_diamond_cut_data = v28_patch_upgrade_config.contracts_config.as_ref().unwrap().diamond_cut_data.clone();
+        let v28_gw_patch_upgrade_call = v28_patch_upgrade_config.gateway.diamond_cut_data.clone();
 
         validate_new_set_chain_creation_call(
             &self.v28_set_chain_creation_call,
             &stage1_upgrade_calls.elems[SET_CHAIN_CREATION_PARAMS_L1_INDEX],
-            new_l1_verifier
+            new_l1_verifier,
+            v28_patch_diamond_cut_data
         )?;
+        result.report_ok("Set chain new creation params (L1) call is valid");
+
         validate_set_new_version_upgrade_call(
             &self.v28_set_new_version_call,
             &stage1_upgrade_calls.elems[SET_UPGRADE_DIAMOND_CUT_INDEX],
             new_l1_verifier,
             v28_patch_upgrade_cut
         )?;
+        result.report_ok("Set new version upgrade (L1) call is valid");
+
         validate_set_upgrade_diamond_cut_call(
             &self.v28_set_new_version_call,
             &stage1_upgrade_calls.elems[SET_NEW_VERSION_UPGRADE_INDEX],
             new_l1_verifier
         )?;
+        result.report_ok("Set upgrade diamond cut (L1) call is valid");
+
 
         let gw_new_set_new_version_call = check_and_parse_inner_call_from_gateway_transaction(
             result,
@@ -284,6 +331,8 @@ impl V28UpgradeComparator {
             new_gw_verifier,
             v28_gw_path_upgrade_call
         )?;
+        result.report_ok("Set new version upgrade (GW) call is valid");
+
         let gw_chain_creation_params_call = check_and_parse_inner_call_from_gateway_transaction(
             result,
             &stage1_upgrade_calls.elems[GW_SET_CHAIN_CREATION_PARAMS_INDEX].data,
@@ -293,8 +342,11 @@ impl V28UpgradeComparator {
         validate_new_set_chain_creation_call(
             &self.v28_gw_set_chain_creation_call,
             &gw_chain_creation_params_call,
-            new_gw_verifier
+            new_gw_verifier,
+            v28_gw_patch_upgrade_call
         )?;
+        result.report_ok("Set chain new creation params (GW) call is valid");
+
         let set_upgrade_diamond_cut_params_call = check_and_parse_inner_call_from_gateway_transaction(
             result,
             &stage1_upgrade_calls.elems[GW_SET_UPGRADE_DIAMOND_CUT_INDEX].data,
@@ -306,8 +358,9 @@ impl V28UpgradeComparator {
             &set_upgrade_diamond_cut_params_call,
             new_gw_verifier
         )?;
+        result.report_ok("Set upgrade diamond cut (GW) call is valid");
 
-        result.report_ok("Set new version upgrade (L1) call is valid");
+
         return Ok(());
     }
 
@@ -405,7 +458,6 @@ impl V28UpgradeComparator {
         gateway_chain_id: u64,
         priority_txs_l2_gas_limit: u64,
     ) -> anyhow::Result<()> {
-
         self.verify_deployed_addresses(
             result,
             v28_patch_upgrade_config,
@@ -413,17 +465,8 @@ impl V28UpgradeComparator {
         ).await?;
 
         let stage0_upgrade_calls = CallList::parse(&v28_patch_upgrade_config.governance_calls.governance_stage0_calls);
-
-        println!("{:#?}", stage0_upgrade_calls);
-
         let stage1_upgrade_calls = CallList::parse(&v28_patch_upgrade_config.governance_calls.governance_stage1_calls);
-
-        println!("{:#?}", stage1_upgrade_calls);
-
         let stage2_upgrade_calls = CallList::parse(&v28_patch_upgrade_config.governance_calls.governance_stage2_calls);
-
-        println!("{:#?}", stage2_upgrade_calls);
-
         let new_l1_verifier = v28_patch_upgrade_config.deployed_addresses.state_transition.verifier_addr;
         let new_gw_verifier = v28_patch_upgrade_config.gateway.gateway_state_transition.verifier_addr;
 

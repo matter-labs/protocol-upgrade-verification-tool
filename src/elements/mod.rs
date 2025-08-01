@@ -60,23 +60,23 @@ pub struct GovernanceCalls {
 
 #[derive(Debug, Deserialize, Clone)]
 pub(crate) struct ContractsConfig {
-    diamond_cut_data: String,
-    diamond_init_batch_overhead_l1_gas: u32,
-    diamond_init_max_l2_gas_per_batch: u32,
-    diamond_init_max_pubdata_per_batch: u32,
-    diamond_init_minimal_l2_gas_price: u64,
-    diamond_init_priority_tx_max_pubdata: u32,
+    pub(crate) diamond_cut_data: String,
+    pub(crate) diamond_init_batch_overhead_l1_gas: u32,
+    pub(crate) diamond_init_max_l2_gas_per_batch: u32,
+    pub(crate) diamond_init_max_pubdata_per_batch: u32,
+    pub(crate) diamond_init_minimal_l2_gas_price: u64,
+    pub(crate) diamond_init_priority_tx_max_pubdata: u32,
     // todo: maybe convert to enum rightaway
-    diamond_init_pubdata_pricing_mode: u32,
-    force_deployments_data: String,
-    l1_legacy_shared_bridge: Address,
+    pub(crate) diamond_init_pubdata_pricing_mode: u32,
+    pub(crate) force_deployments_data: String,
+    pub(crate) l1_legacy_shared_bridge: Address,
     pub(crate) new_protocol_version: u64,
     pub(crate) old_protocol_version: u64,
-    old_validator_timelock: Address,
-    priority_tx_max_gas_limit: u32,
-    recursion_circuits_set_vks_hash: FixedBytes<32>,
-    recursion_leaf_level_vk_hash: FixedBytes<32>,
-    recursion_node_level_vk_hash: FixedBytes<32>,
+    pub(crate) old_validator_timelock: Address,
+    pub(crate) priority_tx_max_gas_limit: u32,
+    pub(crate) recursion_circuits_set_vks_hash: FixedBytes<32>,
+    pub(crate) recursion_leaf_level_vk_hash: FixedBytes<32>,
+    pub(crate) recursion_node_level_vk_hash: FixedBytes<32>,
 }
 
 #[derive(Debug, Deserialize)]
