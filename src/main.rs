@@ -90,9 +90,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse the YAML content
     let config: UpgradeOutput = serde_yaml::from_str(&yaml_content)?;
 
-
-    // TODO: double check that other calls are correct.
-
     let mut verifiers = Verifiers::new(
         args.testnet_contracts,
         args.bridgehub_address.clone(),

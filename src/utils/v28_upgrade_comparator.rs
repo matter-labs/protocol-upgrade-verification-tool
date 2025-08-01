@@ -61,6 +61,7 @@ fn validate_set_new_version_upgrade_call(
     previous: &Call,
     new: &Call,
     new_verifier: Address,
+    expected_new_version: U256,
     expected_upgrade_diamond_cut: String
 ) -> anyhow::Result<()>{
     assert_eq!(previous.target, new.target, "Set chain creation call target should be the same.");
@@ -73,7 +74,8 @@ fn validate_set_new_version_upgrade_call(
     assert_eq!(new_params.oldProtocolVersion, previous_params.newProtocolVersion);
     // Patch upgrade, so should increment the protocol version by 1.
     let correct_new_version = previous_params.newProtocolVersion + U256::from(1);
-    assert_eq!(new_params.newProtocolVersion, correct_new_version);
+    assert_eq!(new_params.newProtocolVersion, correct_new_version, "The protocol version should be incremented by 1 for patch upgrade.");
+    assert_eq!(new_params.newProtocolVersion, expected_new_version, "New protocol version should match the expected one.");
 
     assert_eq!(new_params.oldProtocolVersionDeadline, U256::MAX, "Old protocol version deadline should be max for patch upgrade.");
     assert!(new_params.diamondCut.facetCuts.is_empty(), "Diamond cut facet cuts should be empty.");
@@ -182,7 +184,7 @@ impl V28UpgradeComparator {
         println!("=== v28 previous set chain creation params (L1) ===\n{}\n", hex::encode(&previous_chain_creation_call._chainCreationParams.abi_encode()));
 
         let previous_chain_creation_call_gw = setChainCreationParamsCall::abi_decode(&self.v28_gw_set_chain_creation_call.data, true).expect("Failed to decode previous set chain creation call");
-        println!("=== v28 previous set chain creation params (GWs) ===\n{}\n", hex::encode(&previous_chain_creation_call_gw._chainCreationParams.abi_encode()));
+        println!("=== v28 previous set chain creation params (GW) ===\n{}\n", hex::encode(&previous_chain_creation_call_gw._chainCreationParams.abi_encode()));
 
         let previous_set_new_version_call = setNewVersionUpgradeCall::abi_decode(&self.v28_set_new_version_call.data, true).expect("Failed to decode previous set new version call");
         println!("===v28 previous set new version call (L1)===\n{}\n", hex::encode(&previous_set_new_version_call.diamondCut.abi_encode()));
@@ -298,6 +300,7 @@ impl V28UpgradeComparator {
             &self.v28_set_new_version_call,
             &stage1_upgrade_calls.elems[SET_UPGRADE_DIAMOND_CUT_INDEX],
             new_l1_verifier,
+            U256::from(v28_patch_upgrade_config.contracts_config.as_ref().unwrap().new_protocol_version),
             v28_patch_upgrade_cut
         )?;
         result.report_ok("Set new version upgrade (L1) call is valid");
@@ -320,6 +323,7 @@ impl V28UpgradeComparator {
             &self.v28_gw_set_new_version_call,
             &gw_new_set_new_version_call,
             new_gw_verifier,
+            U256::from(v28_patch_upgrade_config.contracts_config.as_ref().unwrap().new_protocol_version),
             v28_gw_path_upgrade_call
         )?;
         result.report_ok("Set new version upgrade (GW) call is valid");
@@ -462,7 +466,6 @@ impl V28UpgradeComparator {
         let new_gw_verifier = v28_patch_upgrade_config.gateway.gateway_state_transition.verifier_addr;
 
         self.verify_stage0_calls(stage0_upgrade_calls, verifiers, result, gateway_chain_id, priority_txs_l2_gas_limit)?;
-
         self.verify_stage1_calls(
             verifiers,
             result,
@@ -471,11 +474,8 @@ impl V28UpgradeComparator {
             new_l1_verifier,
             new_gw_verifier
         )?;
-
         self.verify_stage2_calls(stage2_upgrade_calls, verifiers, result, gateway_chain_id, priority_txs_l2_gas_limit)?;
 
-
-        Ok(())
-        
+        Ok(())        
     }
 }

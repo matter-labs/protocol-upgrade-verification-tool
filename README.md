@@ -50,11 +50,15 @@ cargo run -- --ecosystem-yaml data/v28-ecosystem-mainnet.yaml --l1-rpc <l1-rpc> 
 
 ### V28.1 patch verification
 
-cargo run -- --ecosystem-yaml data/v28-1-ecosystem-stage.yaml --v28-ecosystem-yaml data/v28-ecosystem-stage.yaml --l1-rpc $SEPOLIA  --contracts-commit 43c2dd5f263b964c232ef4359da4ba666fab3c6c --era-commit  2b87e7b8f781b61bc7c13b81639908bd1e0c297d  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE --gw-rpc https://rpc.era-gateway-stage.zksync.dev --display-upgrade-data true
-
-cargo run -- --ecosystem-yaml data/v28-1-ecosystem-stage2.yaml --v28-ecosystem-yaml data/v28-ecosystem-stage.yaml --l1-rpc $SEPOLIA  --contracts-commit 43c2dd5f263b964c232ef4359da4ba666fab3c6c --era-commit  2b87e7b8f781b61bc7c13b81639908bd1e0c297d  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE --gw-rpc https://rpc.era-gateway-stage.zksync.dev --display-upgrade-data true
+#### Testnet
 
 cargo run -- --ecosystem-yaml data/v28-1-ecosystem-testnet.yaml --v28-ecosystem-yaml data/v28-ecosystem-testnet.yaml --l1-rpc $ALCHEMY_SEPOLIA  --contracts-commit 6754d814334d885574d0a2238449ec64a5ec6100 --era-commit  2b87e7b8f781b61bc7c13b81639908bd1e0c297d  --era-chain-id 300 --bridgehub-address 0x35a54c8c757806eb6820629bc82d90e056394c92 --gw-rpc https://rpc.era-gateway-testnet.zksync.dev --testnet-contracts --display-upgrade-data true
+
+#### Mainnet 
+
+TODO The below is not correct yet
+
+cargo run -- --ecosystem-yaml data/v28-ecosystem-mainnet.yaml --v28-ecosystem-yaml data/v28-ecosystem-mainnet.yaml --l1-rpc $ALCHEMY_MAINNET  --contracts-commit 6754d814334d885574d0a2238449ec64a5ec6100 --era-commit  2b87e7b8f781b61bc7c13b81639908bd1e0c297d  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --gw-rpc https://rpc.era-gateway-mainnet.zksync.dev --display-upgrade-data true --display-previous-data
 
 #### Tally upgrade data
 

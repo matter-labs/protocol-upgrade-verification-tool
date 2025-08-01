@@ -831,10 +831,9 @@ impl GovernanceStage2Calls {
             ("upgrade_stage_validator", "checkProtocolUpgradePresence()"),
             // Unpause L1 migration
             ("bridgehub_proxy", "unpauseMigration()"),
-            // TODO
             // Approve base token
             ("gateway_base_token", "approve(address,uint256)"),
-            // // Unpause gateway
+            // Unpause gateway
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
             // Check that migrations are unpaused
             ("upgrade_stage_validator", "checkMigrationsUnpaused()"),
