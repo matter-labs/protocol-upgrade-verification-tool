@@ -20,14 +20,14 @@ const DEPLOYER_SYSTEM_CONTRACT: u32 = 0x8006;
 const FORCE_DEPLOYER_ADDRESS: u32 = 0x8007;
 
 sol! {
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     enum Action {
         Add,
         Replace,
         Remove
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     struct FacetCut {
         address facet;
         Action action;
@@ -49,14 +49,19 @@ sol! {
         uint256 newProtocolVersion
     );
 
-    #[derive(Debug)]
+    function setUpgradeDiamondCut(
+        DiamondCutData calldata _cutData,
+        uint256 _oldProtocolVersion
+    );
+
+    #[derive(Debug, PartialEq, Default)]
     struct VerifierParams {
         bytes32 recursionNodeLevelVkHash;
         bytes32 recursionLeafLevelVkHash;
         bytes32 recursionCircuitsSetVksHash;
     }
 
-    #[derive(Debug)]
+    #[derive(Default, Debug, PartialEq)]
     struct L2CanonicalTransaction {
         uint256 txType;
         uint256 from;
@@ -86,7 +91,7 @@ sol! {
         bytes reservedDynamic;
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     struct ProposedUpgrade {
         L2CanonicalTransaction l2ProtocolUpgradeTx;
         bytes32 bootloaderHash;

@@ -259,7 +259,7 @@ impl NetworkVerifier {
 
         let bridgehub = Bridgehub::new(bridgehub_addr, l1_provider);
 
-        let shared_bridge_address = bridgehub.sharedBridge().call().await.unwrap().sharedBridge;
+        let shared_bridge_address = bridgehub.assetRouter().call().await.unwrap()._0;
 
         let shared_bridge = L1AssetRouter::new(shared_bridge_address, l1_provider);
 
@@ -354,7 +354,10 @@ async fn check_create2_deploy(
 
     let salt = &tx.input()[0..32];
     if salt != expected_create2_salt.as_slice() {
-        println!("Salt mismatch: {:?} != {:?}", salt, expected_create2_salt);
+        println!(
+            "Salt mismatch: {:?} != {:?}. Tx hash: {:#?}",
+            salt, expected_create2_salt, tx_hash
+        );
         return None;
     }
 
