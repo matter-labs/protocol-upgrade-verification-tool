@@ -41,6 +41,18 @@ sol! {
     }
 
     #[sol(rpc)]
+    contract ChainAssetHandler {
+        constructor(
+            uint256 _l1ChainID,
+            address _owner,
+            address _bridgehub,
+            address _l1AssetRouter,
+            address _messageRoot
+        );
+        address public owner;
+    }
+
+    #[sol(rpc)]
     contract L2WrappedBaseTokenStore {
         constructor(address _initialOwner, address _admin);
         address public admin;
@@ -429,6 +441,41 @@ impl DeployedAddresses {
         Ok(())
     }
 
+    async fn verify_chain_asset_handler(
+        &self,
+        config: &UpgradeOutput,
+        verifiers: &crate::verifiers::Verifiers,
+        result: &mut crate::verifiers::VerificationResult,
+        bridgehub_info: &BridgehubInfo,
+    ) -> Result<()> {
+        result.expect_create2_params(
+            verifiers,
+            &self.bridgehub.chain_asset_handler_implementation_addr,
+            ChainAssetHandler::constructorCall::new((
+                U256::from(config.l1_chain_id),
+                config.owner_address,
+                bridgehub_info.bridgehub_addr,
+                bridgehub_info.l1_asset_router_proxy_addr,
+                config.deployed_addresses.bridgehub.message_root_proxy_addr,
+            ))
+            .abi_encode(),
+            "l1-contracts/ChainAssetHandler",
+        );
+
+        let provider = verifiers.network_verifier.get_l1_provider();
+        let chain_asset_handler =
+            ChainAssetHandler::new(self.bridgehub.chain_asset_handler_proxy_addr, provider);
+        let current_owner = chain_asset_handler.owner().call().await?.owner;
+        ensure!(
+            current_owner == config.owner_address,
+            "Chain asset handler owner mismatch: expected {:?}, got {:?}",
+            config.owner_address,
+            current_owner
+        );
+
+        Ok(())
+    }
+
     async fn verify_per_chain_info(
         &self,
         _config: &UpgradeOutput,
@@ -811,6 +858,9 @@ impl DeployedAddresses {
         self.verify_validator_timelock(config, verifiers, result, &bridgehub_info)
             .await
             .context("validator timelock")?;
+        self.verify_chain_asset_handler(config, verifiers, result, &bridgehub_info)
+            .await
+            .context("chain asset handler")?;
         self.verify_l1_asset_router(config, verifiers, result, &bridgehub_info)
             .await
             .context("l1 asset")?;

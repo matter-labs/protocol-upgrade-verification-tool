@@ -9,9 +9,9 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of draft-v29 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "2efce60e6d3ef7ebe4878c04643e1df009caf344";
+const DEFAULT_CONTRACTS_COMMIT: &str = "65234ab0617c677d8a3d266af9e95506db351280";
 // Current commit on top of main
-const DEFAULT_ERA_COMMIT: &str = "9e4755edb16328baf6f3e0632d700eb4c545eea6";
+const DEFAULT_ERA_COMMIT: &str = "7eb9140a9aef70264f22da033b6b886903293b9d";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.0";
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.0";

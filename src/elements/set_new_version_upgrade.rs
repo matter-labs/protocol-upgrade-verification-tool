@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 use alloy::{
     hex::{self, FromHex},
-    primitives::{Address, FixedBytes, U256},
+    primitives::{Address, Bytes, FixedBytes, U256},
     sol,
-    sol_types::SolCall,
+    sol_types::{SolCall, SolType},
 };
 use anyhow::Context;
 
@@ -16,6 +16,7 @@ use super::{
         verify_force_deployments_and_upgrade, IL2V29Upgrade,
     },
     protocol_version::ProtocolVersion,
+    V29,
 };
 
 const FORCE_DEPLOYER_ADDRESS: u32 = 0x8007;
@@ -170,6 +171,8 @@ impl ProposedUpgrade {
         result: &mut crate::verifiers::VerificationResult,
         expected_version: ProtocolVersion,
         bytecodes_supplier_addr: Address,
+        l1_chain_id: u64,
+        owner_address: Address,
     ) -> anyhow::Result<()> {
         let tx = &self.l2ProtocolUpgradeTx;
 
@@ -297,6 +300,8 @@ impl ProposedUpgrade {
             result,
             expected_governance,
             expected_asset_id,
+            l1_chain_id,
+            owner_address,
         )?;
 
         Ok(())
@@ -307,16 +312,27 @@ impl ProposedUpgrade {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         bytecodes_supplier_addr: Address,
+        l1_chain_id: u64,
+        owner_address: Address,
         is_gateway: bool,
+        v29: &V29,
+        validator_timelock: Address,
     ) -> anyhow::Result<()> {
         result.print_info("== checking chain upgrade init calldata ===");
 
         let expected_version = get_expected_new_protocol_version();
         let initial_error_count = result.errors;
 
-        self.verify_transaction(verifiers, result, expected_version, bytecodes_supplier_addr)
-            .await
-            .context("upgrade tx")?;
+        self.verify_transaction(
+            verifiers,
+            result,
+            expected_version,
+            bytecodes_supplier_addr,
+            l1_chain_id,
+            owner_address,
+        )
+        .await
+        .context("upgrade tx")?;
 
         result.expect_zk_bytecode(verifiers, &self.bootloaderHash, "Bootloader");
         result.expect_zk_bytecode(
@@ -357,6 +373,25 @@ impl ProposedUpgrade {
 
         if self.postUpgradeCalldata.len() == 0 {
             result.report_error("Expected post upgrade calldata");
+        } else {
+            let encoded_old_validator_timelocks = match is_gateway {
+                true => &v29.encoded_old_gateway_validator_timelocks,
+                false => &v29.encoded_old_validator_timelocks,
+            };
+            let old_validator_timelocks = <sol!(address[])>::abi_decode(
+                &hex::decode(encoded_old_validator_timelocks.trim_start_matches("0x")).unwrap(),
+                true,
+            )
+            .unwrap();
+
+            let encoded_post_upgrade_calldata =
+                encode_post_upgrade_calldata(old_validator_timelocks, validator_timelock);
+            if self.postUpgradeCalldata != encoded_post_upgrade_calldata {
+                result.report_error(&format!(
+                    "Got post upgrade calldata {}, expected {:?}.",
+                    self.postUpgradeCalldata, encoded_post_upgrade_calldata
+                ));
+            }
         }
 
         if self.upgradeTimestamp != U256::default() {
@@ -377,4 +412,36 @@ impl ProposedUpgrade {
 
         Ok(())
     }
+}
+
+/// Encodes the V29UpgradeParams struct for abi.encode(...)
+fn encode_post_upgrade_calldata(
+    old_validator_timelocks: Vec<Address>,
+    new_validator_timelock: Address,
+) -> Bytes {
+    let mut encoded = Vec::new();
+
+    // Top-level head: offset to the struct encoding (one head word) => 0x20
+    encoded.extend_from_slice(&U256::from(32).to_be_bytes::<32>());
+
+    // --- struct encoding starts here (at offset 0x20) ---
+    // Struct head has 2 words:
+    // 1) offset to dynamic array (relative to start of *struct* encoding) => 0x40
+    // 2) newValidatorTimelock (padded)
+    encoded.extend_from_slice(&U256::from(64).to_be_bytes::<32>()); // 0x40
+
+    let mut padded_new = [0u8; 32];
+    padded_new[12..].copy_from_slice(new_validator_timelock.as_slice());
+    encoded.extend_from_slice(&padded_new);
+
+    // --- dynamic part for oldValidatorTimelocks (appended after the struct head) ---
+    encoded.extend_from_slice(&U256::from(old_validator_timelocks.len()).to_be_bytes::<32>());
+
+    for addr in old_validator_timelocks {
+        let mut padded = [0u8; 32];
+        padded[12..].copy_from_slice(addr.as_slice());
+        encoded.extend_from_slice(&padded);
+    }
+
+    Bytes::from(encoded)
 }

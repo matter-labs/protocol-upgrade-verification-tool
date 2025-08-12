@@ -3,6 +3,7 @@ use super::{
     deployed_addresses::DeployedAddresses,
     fixed_force_deployment::FixedForceDeploymentsData,
     set_new_version_upgrade::{self, setNewVersionUpgradeCall},
+    V29,
 };
 use crate::utils::address_from_short_hex;
 use crate::{
@@ -184,6 +185,7 @@ impl GovernanceStage1Calls {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         l1_chain_id: u64,
+        owner_address: Address,
         gateway_chain_id: u64,
         priority_txs_l2_gas_limit: u64,
         l1_expected_chain_creation_facets: FacetCutSet,
@@ -194,6 +196,9 @@ impl GovernanceStage1Calls {
         gw_expected_upgrade_facets: FacetCutSet,
         gw_expected_chain_upgrade_diamond_cut: &str,
         gateway_state_transition: &GatewayStateTransition,
+        v29: &V29,
+        validator_timelock: Address,
+        validator_timelock_gateway: Address,
     ) -> anyhow::Result<(String, String, String, String)> {
         result.print_info("== Gov stage 1 calls ===");
 
@@ -406,7 +411,11 @@ impl GovernanceStage1Calls {
                     verifiers,
                     result,
                     deployed_addresses.l1_bytecodes_supplier_addr,
+                    l1_chain_id,
+                    owner_address,
                     false,
+                    v29,
+                    validator_timelock,
                 )
                 .await
                 .context("proposed upgrade")?;
@@ -633,7 +642,11 @@ impl GovernanceStage1Calls {
                     verifiers,
                     result,
                     deployed_addresses.l1_bytecodes_supplier_addr,
+                    l1_chain_id,
+                    owner_address,
                     true,
+                    v29,
+                    validator_timelock_gateway,
                 )
                 .await
                 .context("proposed upgrade")?;
