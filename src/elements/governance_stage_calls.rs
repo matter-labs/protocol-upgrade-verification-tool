@@ -558,12 +558,12 @@ impl GovernanceStage1Calls {
             // should match state_transiton.default_upgrade
             result.expect_address(verifiers, &diamond_cut.initAddress, "default_upgrade");
 
-            // verity_facet_cuts(
-            //     &diamond_cut.facetCuts,
-            //     result,
-            //     l1_expected_upgrade_facets.clone(),
-            // )
-            // .await;
+            verity_facet_cuts(
+                &diamond_cut.facetCuts,
+                result,
+                l1_expected_upgrade_facets.clone(),
+            )
+            .await;
 
             let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
                 &diamond_cut.initCalldata,
