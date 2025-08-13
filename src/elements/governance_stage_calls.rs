@@ -376,15 +376,23 @@ impl GovernanceStage1Calls {
             let data = setNewVersionUpgradeCall::abi_decode(calldata, true).unwrap();
 
             if data.oldProtocolVersionDeadline != U256::MAX {
-                result.report_error("Wrong old protocol version deadline for stage1 call");
+                result.report_error(&format!(
+                    "Wrong old protocol version deadline for stage1 call. Got: {:?}",
+                    data.oldProtocolVersionDeadline
+                ));
             }
 
             if data.newProtocolVersion != get_expected_new_protocol_version().into() {
-                result.report_error("Wrong new protocol version for stage1 call");
+                result.report_error(&format!(
+                    "Wrong new protocol version for stage1 call. Got: {:?}",
+                    data.newProtocolVersion
+                ));
             }
             if data.oldProtocolVersion != get_expected_old_protocol_version().into() {
-                println!("Old protocol version : {:?}", data.oldProtocolVersion);
-                result.report_error("Wrong old protocol version for stage1 call");
+                result.report_error(&format!(
+                    "Wrong old protocol version for stage1 call. Got: {:?}",
+                    data.oldProtocolVersion
+                ));
             }
 
             let diamond_cut = data.diamondCut;
@@ -662,16 +670,24 @@ impl GovernanceStage1Calls {
                 .expect("Failed to decode setNewVersion Inner");
 
             if l2_data.oldProtocolVersionDeadline != U256::MAX {
-                result.report_error("Wrong old protocol version deadline for stage1 call");
+                result.report_error(&format!(
+                    "Wrong old protocol version deadline for stage1 call. Got: {:?}",
+                    l2_data.oldProtocolVersionDeadline
+                ));
             }
 
             if l2_data.newProtocolVersion != get_expected_new_protocol_version().into() {
-                result.report_error("Wrong new protocol version for stage1 call");
+                result.report_error(&format!(
+                    "Wrong new protocol version for stage1 call. Got: {:?}",
+                    l2_data.newProtocolVersion
+                ));
             }
 
             if l2_data.oldProtocolVersion != get_expected_old_protocol_version().into() {
-                println!("Old protocol version : {:?}", l2_data.oldProtocolVersion);
-                result.report_error("Wrong old protocol version for stage1 call");
+                result.report_error(&format!(
+                    "Wrong old protocol version for stage1 call. Got: {:?}",
+                    l2_data.oldProtocolVersion
+                ));
             }
 
             let diamond_cut = l2_data.diamondCut;
