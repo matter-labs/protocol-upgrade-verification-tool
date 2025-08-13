@@ -38,6 +38,8 @@ pub struct UpgradeOutput {
 
     pub(crate) owner_address: Address,
 
+    pub(crate) transparent_proxy_admin: Address,
+
     #[serde(rename = "contracts_config")]
     pub(crate) contracts_config: ContractsConfig,
     pub(crate) deployed_addresses: DeployedAddresses,

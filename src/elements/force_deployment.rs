@@ -4,11 +4,12 @@ use alloy::{
     hex,
     primitives::{Address, Bytes, U256},
     sol,
+    sol_types::SolValue,
 };
 
-use crate::utils::address_from_short_hex;
+use crate::utils::{address_from_short_hex, apply_l2_to_l1_alias};
 
-const L2_GENESIS_UPGRADE_ADDR: u32 = 0x10001;
+const L2_GENESIS_UPGRADE_ADDR: &str = "10001";
 
 sol! {
     #[derive(Debug, Hash, Eq, PartialEq)]
@@ -25,6 +26,15 @@ sol! {
         ForceDeployment[] _forceDeployments;
         address _delegateTo;
         bytes _calldata;
+    }
+
+    #[derive(Debug)]
+    struct ChainAssetHandlerInput {
+        uint256 chainId;
+        address owner;
+        address bridgehub;
+        address assetRouter;
+        address messageRoot;
     }
 
     function forceDeployAndUpgrade(
@@ -266,13 +276,17 @@ pub fn verify_force_deployments_and_upgrade(
                     contract
                 ));
             } else {
-                let encoded_chain_asset_handler_input = encode_chain_asset_handler_input(
-                    U256::from(l1_chain_id),
-                    owner_address,
-                    address_from_short_hex("10002"),
-                    address_from_short_hex("10003"),
-                    address_from_short_hex("10005"),
+                let encoded_chain_asset_handler_input = Bytes::from(
+                    ChainAssetHandlerInput {
+                        chainId: U256::from(l1_chain_id),
+                        owner: apply_l2_to_l1_alias(owner_address),
+                        bridgehub: address_from_short_hex("10002"),
+                        assetRouter: address_from_short_hex("10003"),
+                        messageRoot: address_from_short_hex("10005"),
+                    }
+                    .abi_encode(),
                 );
+
                 let encoded_chain_asset_handler_input_bytes =
                     Bytes::from(encoded_chain_asset_handler_input.to_vec());
 
@@ -300,7 +314,7 @@ pub fn verify_force_deployments_and_upgrade(
 
     result.report_ok("Force deployments verified");
 
-    if complex_upgrade_call._delegateTo != convert_u32_to_address(L2_GENESIS_UPGRADE_ADDR) {
+    if complex_upgrade_call._delegateTo != address_from_short_hex(L2_GENESIS_UPGRADE_ADDR) {
         result.report_error(&format!(
             "Expected delegate_to to be L2_GENESIS_UPGRADE_ADDR, got {}",
             complex_upgrade_call._delegateTo
@@ -322,35 +336,4 @@ pub fn verify_force_deployments_and_upgrade(
     }
 
     Ok(())
-}
-
-fn convert_u32_to_address(val: u32) -> Address {
-    let mut bytes = [0u8; 20];
-    bytes[16..20].copy_from_slice(&val.to_be_bytes());
-    Address::from_slice(&bytes)
-}
-
-fn encode_chain_asset_handler_input(
-    chain_id: U256,
-    owner: Address,
-    bridgehub: Address,
-    asset_router: Address,
-    message_root: Address,
-) -> Bytes {
-    let mut encoded = Vec::with_capacity(160);
-
-    encoded.extend_from_slice(&chain_id.to_be_bytes::<32>());
-
-    fn pad_address(addr: &Address) -> [u8; 32] {
-        let mut padded = [0u8; 32];
-        padded[12..].copy_from_slice(addr.as_slice());
-        padded
-    }
-
-    encoded.extend_from_slice(&pad_address(&owner));
-    encoded.extend_from_slice(&pad_address(&bridgehub));
-    encoded.extend_from_slice(&pad_address(&asset_router));
-    encoded.extend_from_slice(&pad_address(&message_root));
-
-    Bytes::from(encoded)
 }

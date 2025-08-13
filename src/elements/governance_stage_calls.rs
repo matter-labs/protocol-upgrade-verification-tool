@@ -5,13 +5,13 @@ use super::{
     set_new_version_upgrade::{self, setNewVersionUpgradeCall},
     V29,
 };
-use crate::utils::address_from_short_hex;
 use crate::{
     elements::{initialize_data_new_chain::InitializeDataNewChain, GatewayStateTransition},
     get_expected_new_protocol_version, get_expected_old_protocol_version,
     utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
     verifiers::Verifiers,
 };
+use crate::{get_expected_v28_protocol_version, utils::address_from_short_hex};
 use alloy::{
     hex,
     primitives::{keccak256, Address, Bytes, FixedBytes, U256},
@@ -236,6 +236,7 @@ impl GovernanceStage1Calls {
             ("state_transition_manager","setValidatorTimelockPostV29(address)"),
             ("bridgehub_proxy", "setChainAssetHandler(address)"),
             ("chain_type_manager_deployment_tracker", "setCtmAssetHandlerAddressOnL1(address)"),
+            ("state_transition_manager", "setUpgradeDiamondCut(((address,uint8,bool,bytes4[])[],address,bytes),uint256)"),
             // Approve base token
             ("gateway_base_token", "approve(address,uint256)"),
             // Set new version for upgrade
@@ -260,6 +261,10 @@ impl GovernanceStage1Calls {
             ("gateway_base_token", "approve(address,uint256)"),
             // Set Validator Timelock Post V29 GW
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // Approve base token
+            ("gateway_base_token", "approve(address,uint256)"),
+            // Set Upgrade Diamond Cut GW
+            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
         ];
         const UPGRADE_CTM: usize = 2;
         const UPGRADE_BRIDGEHUB: usize = 3;
@@ -275,18 +280,21 @@ impl GovernanceStage1Calls {
         const SET_VALIDATOR_TIMELOCK_POST_V29_L1: usize = 13;
         const SET_CHAIN_ASSET_HANDLER_ON_BH: usize = 14;
         const SET_CTM_ASSET_HANDLER_ON_L1: usize = 15;
-        const APPROVE_BASE_TOKEN_NEW_PROTOCOL_VERSION: usize = 16;
-        const GATEWAY_SET_NEW_VERSION: usize = 17;
-        const APPROVE_BASE_TOKEN_NEW_CHAIN_CREATION_PARAMS: usize = 18;
-        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 19;
-        const APPROVE_BASE_TOKEN_UPGRADE_CTM: usize = 20;
-        const GATEWAY_UPGRADE_CTM: usize = 21;
-        const APPROVE_TOKEN_GATEWAY_UPDATE_DA_PAIR: usize = 22;
-        const GATEWAY_UPDATE_DA_PAIR: usize = 23;
-        const APPROVE_TOKEN_GATEWAY_SET_CTM_AH: usize = 24;
-        const SET_CTM_ASSET_HANDLER_ON_GW: usize = 25;
-        const APPROVE_TOKEN_GATEWAY_SET_VALIDATOR_TIMELOCK_POST_V29: usize = 26;
-        const SET_VALIDATOR_TIMELOCK_POST_V29_GW: usize = 27;
+        const SET_UPGRADE_DIAMOND_CUT_ON_L1: usize = 16;
+        const APPROVE_BASE_TOKEN_NEW_PROTOCOL_VERSION: usize = 17;
+        const GATEWAY_SET_NEW_VERSION: usize = 18;
+        const APPROVE_BASE_TOKEN_NEW_CHAIN_CREATION_PARAMS: usize = 19;
+        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 20;
+        const APPROVE_BASE_TOKEN_UPGRADE_CTM: usize = 21;
+        const GATEWAY_UPGRADE_CTM: usize = 22;
+        const APPROVE_TOKEN_GATEWAY_UPDATE_DA_PAIR: usize = 23;
+        const GATEWAY_UPDATE_DA_PAIR: usize = 24;
+        const APPROVE_TOKEN_GATEWAY_SET_CTM_AH: usize = 25;
+        const SET_CTM_ASSET_HANDLER_ON_GW: usize = 26;
+        const APPROVE_TOKEN_GATEWAY_SET_VALIDATOR_TIMELOCK_POST_V29: usize = 27;
+        const SET_VALIDATOR_TIMELOCK_POST_V29_GW: usize = 28;
+        const APPROVE_SET_UPGRADE_DIAMOND_CUT_ON_GW: usize = 29;
+        const SET_UPGRADE_DIAMOND_CUT_ON_GW: usize = 30;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 2.
@@ -375,6 +383,7 @@ impl GovernanceStage1Calls {
                 result.report_error("Wrong new protocol version for stage1 call");
             }
             if data.oldProtocolVersion != get_expected_old_protocol_version().into() {
+                println!("Old protocol version : {:?}", data.oldProtocolVersion);
                 result.report_error("Wrong old protocol version for stage1 call");
             }
 
@@ -524,6 +533,60 @@ impl GovernanceStage1Calls {
             }
         }
 
+        // Verify set upgrade diamond cut on L1
+        {
+            let decoded = set_new_version_upgrade::setUpgradeDiamondCutCall::abi_decode(
+                &self.calls.elems[SET_UPGRADE_DIAMOND_CUT_ON_L1].data,
+                true,
+            )
+            .expect("Failed to decode set upgrade diamond cut on L1 call");
+            if decoded.protocolVersion != get_expected_v28_protocol_version().into() {
+                result.report_error("Wrong protocol version for stage1 call");
+            }
+
+            let diamond_cut = decoded.diamondCut;
+            if alloy::hex::encode(diamond_cut.abi_encode())
+                != l1_expected_chain_upgrade_diamond_cut[2..]
+            {
+                result.report_error(&format!(
+                    "Invalid chain upgrade diamond cut. Expected: {}\n Received: {}",
+                    l1_expected_chain_upgrade_diamond_cut,
+                    alloy::hex::encode(diamond_cut.abi_encode())
+                ));
+            }
+
+            // should match state_transiton.default_upgrade
+            result.expect_address(verifiers, &diamond_cut.initAddress, "default_upgrade");
+
+            // verity_facet_cuts(
+            //     &diamond_cut.facetCuts,
+            //     result,
+            //     l1_expected_upgrade_facets.clone(),
+            // )
+            // .await;
+
+            let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
+                &diamond_cut.initCalldata,
+                true,
+            )
+            .unwrap();
+
+            upgrade
+                ._proposedUpgrade
+                .verify(
+                    verifiers,
+                    result,
+                    deployed_addresses.l1_bytecodes_supplier_addr,
+                    l1_chain_id,
+                    owner_address,
+                    false,
+                    v29,
+                    validator_timelock,
+                )
+                .await
+                .context("proposed upgrade")?;
+        }
+
         // Verify Approve base token
         {
             let calldata = &self.calls.elems[APPROVE_TOKEN_GATEWAY_SET_CTM_AH].data;
@@ -535,7 +598,7 @@ impl GovernanceStage1Calls {
 
         // Verify set CTM asset handler on GW
         {
-            let expected_encoding: u8 = 2;
+            const EXPECTED_ENCODING: u8 = 2;
             let expected_asset_id = encode_asset_id(
                 U256::from(l1_chain_id),
                 verifiers.address_verifier.name_to_address["state_transition_manager"],
@@ -557,9 +620,9 @@ impl GovernanceStage1Calls {
                     "Failed to decode second bridge calldata for setting CTM asset handler on GW",
                 );
 
-            if encoding != expected_encoding {
+            if encoding != EXPECTED_ENCODING {
                 result.report_error("Wrong encoding for set AH counterpart");
-                println!("Got {:?} , expected {:?} ", encoding, expected_encoding);
+                println!("Got {:?} , expected {:?} ", encoding, EXPECTED_ENCODING);
             }
 
             if l2_data.chainAssetId != U256::from_be_bytes(expected_asset_id.0) {
@@ -607,6 +670,7 @@ impl GovernanceStage1Calls {
             }
 
             if l2_data.oldProtocolVersion != get_expected_old_protocol_version().into() {
+                println!("Old protocol version : {:?}", l2_data.oldProtocolVersion);
                 result.report_error("Wrong old protocol version for stage1 call");
             }
 
@@ -628,7 +692,12 @@ impl GovernanceStage1Calls {
                 ));
             }
 
-            verity_facet_cuts(&diamond_cut.facetCuts, result, gw_expected_upgrade_facets).await;
+            verity_facet_cuts(
+                &diamond_cut.facetCuts,
+                result,
+                gw_expected_upgrade_facets.clone(),
+            )
+            .await;
 
             let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
                 &diamond_cut.initCalldata,
@@ -789,6 +858,75 @@ impl GovernanceStage1Calls {
             }
         };
 
+        // Verify Approve base token
+        {
+            let calldata = &self.calls.elems[APPROVE_SET_UPGRADE_DIAMOND_CUT_ON_GW].data;
+            let data =
+                approveCall::abi_decode(&calldata, true).expect("Failed to decode approve call");
+
+            result.expect_address(verifiers, &data.spender, "l1_asset_router_proxy");
+        }
+
+        // Verify set upgrade diamond cut on GW
+        {
+            let calldata = &self.calls.elems[SET_UPGRADE_DIAMOND_CUT_ON_GW].data;
+            let data = requestL2TransactionDirectCall::abi_decode(&calldata, true)
+                .expect("Failed to decode set upgrade diamond cut on GW");
+
+            if data._request.chainId != U256::from(gateway_chain_id) {
+                result.report_error(
+                    "Wrong gateway chain id for stage1 set validator timelock post V29 GW",
+                );
+            }
+
+            let decoded = set_new_version_upgrade::setUpgradeDiamondCutCall::abi_decode(
+                &data._request.l2Calldata,
+                true,
+            )
+            .expect("Failed to decode setValidatorTimelockPostV29");
+
+            let diamond_cut = decoded.diamondCut;
+
+            result.expect_address(
+                verifiers,
+                &diamond_cut.initAddress,
+                "gateway_default_upgrade_addr",
+            );
+
+            if alloy::hex::encode(diamond_cut.abi_encode())
+                != gw_expected_chain_upgrade_diamond_cut[2..]
+            {
+                result.report_error(&format!(
+                    "Invalid gw chain upgrade diamond cut. Expected: {}\n Received: {}",
+                    gw_expected_chain_upgrade_diamond_cut,
+                    alloy::hex::encode(diamond_cut.abi_encode())
+                ));
+            }
+
+            verity_facet_cuts(&diamond_cut.facetCuts, result, gw_expected_upgrade_facets).await;
+
+            let upgrade = crate::elements::set_new_version_upgrade::upgradeCall::abi_decode(
+                &diamond_cut.initCalldata,
+                true,
+            )
+            .unwrap();
+
+            upgrade
+                ._proposedUpgrade
+                .verify(
+                    verifiers,
+                    result,
+                    deployed_addresses.l1_bytecodes_supplier_addr,
+                    l1_chain_id,
+                    owner_address,
+                    true,
+                    v29,
+                    validator_timelock_gateway,
+                )
+                .await
+                .context("proposed upgrade")?;
+        };
+
         Ok((
             l1_chain_creation_diamond_cut,
             l1_force_deployments,
@@ -820,22 +958,7 @@ fn encode_asset_id(
     chain_type_manager: Address,
     ctm_deployment_tracker: Address,
 ) -> FixedBytes<32> {
-    let mut encoded = Vec::with_capacity(96);
-
-    // 1. Encode chain_id (uint256)
-    encoded.extend_from_slice(&chain_id.to_be_bytes::<32>());
-
-    // 2. ctm_deployment_tracker as address (padded to 32 bytes)
-    let mut sender_padded = [0u8; 32];
-    sender_padded[12..].copy_from_slice(ctm_deployment_tracker.as_slice());
-    encoded.extend_from_slice(&sender_padded);
-
-    // 3. chain_type_manager as bytes32
-    let mut manager_padded = [0u8; 32];
-    manager_padded[12..].copy_from_slice(chain_type_manager.as_slice());
-    encoded.extend_from_slice(&manager_padded);
-
-    debug_assert_eq!(encoded.len(), 96);
+    let encoded = (chain_id, ctm_deployment_tracker, chain_type_manager).abi_encode();
 
     keccak256(encoded).into()
 }

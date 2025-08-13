@@ -14,7 +14,8 @@ const DEFAULT_CONTRACTS_COMMIT: &str = "65234ab0617c677d8a3d266af9e95506db351280
 const DEFAULT_ERA_COMMIT: &str = "7eb9140a9aef70264f22da033b6b886903293b9d";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.0";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.0";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.1";
+pub(crate) const V28_PROTOCOL_VERSION_STR: &str = "0.28.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
@@ -24,6 +25,10 @@ pub(crate) fn get_expected_new_protocol_version() -> ProtocolVersion {
 
 pub(crate) fn get_expected_old_protocol_version() -> ProtocolVersion {
     ProtocolVersion::from_str(EXPECTED_OLD_PROTOCOL_VERSION_STR).unwrap()
+}
+
+pub(crate) fn get_expected_v28_protocol_version() -> ProtocolVersion {
+    ProtocolVersion::from_str(V28_PROTOCOL_VERSION_STR).unwrap()
 }
 
 #[derive(Debug, Parser)]

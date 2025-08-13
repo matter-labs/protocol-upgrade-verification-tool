@@ -15,7 +15,7 @@ use alloy::{
     primitives::{Address, U256},
     providers::Provider,
     sol,
-    sol_types::{SolConstructor, SolValue},
+    sol_types::{SolCall, SolConstructor, SolValue},
 };
 use serde::Deserialize;
 
@@ -38,6 +38,8 @@ sol! {
         address public chainTypeManager;
         address public owner;
         uint32 public executionDelay;
+
+        function initialize(address _owner, uint32 _initialExecutionDelay) external;
     }
 
     #[sol(rpc)]
@@ -50,6 +52,8 @@ sol! {
             address _messageRoot
         );
         address public owner;
+
+        function initialize(address _owner) external;
     }
 
     #[sol(rpc)]
@@ -297,7 +301,7 @@ impl DeployedAddresses {
         );
         address_verifier.add_address(self.validator_timelock_addr, "validator_timelock");
         address_verifier.add_address(
-            self.validator_timelock_addr,
+            self.validator_timelock_implementation_addr,
             "validator_timelock_implementation_addr",
         );
 
@@ -409,10 +413,12 @@ impl DeployedAddresses {
         } else {
             0
         };
+        let validator_timelock_constructor_params =
+            ValidatorTimelock::constructorCall::new((bridgehub_info.bridgehub_addr,)).abi_encode();
         result.expect_create2_params(
             verifiers,
             &self.validator_timelock_implementation_addr,
-            ValidatorTimelock::constructorCall::new((bridgehub_info.bridgehub_addr,)).abi_encode(),
+            validator_timelock_constructor_params.clone(),
             "l1-contracts/ValidatorTimelock",
         );
 
@@ -438,6 +444,23 @@ impl DeployedAddresses {
             current_execution_delay
         );
 
+        let init_params = ValidatorTimelock::initializeCall {
+            _owner: config.owner_address,
+            _initialExecutionDelay: 0,
+        }
+        .abi_encode();
+
+        result
+            .expect_create2_params_proxy_with_bytecode(
+                verifiers,
+                validator_timelock.address(),
+                init_params,
+                config.transparent_proxy_admin,
+                validator_timelock_constructor_params,
+                "l1-contracts/ValidatorTimelock",
+            )
+            .await;
+
         Ok(())
     }
 
@@ -448,17 +471,18 @@ impl DeployedAddresses {
         result: &mut crate::verifiers::VerificationResult,
         bridgehub_info: &BridgehubInfo,
     ) -> Result<()> {
+        let chain_asset_handler_constructor_params = ChainAssetHandler::constructorCall::new((
+            U256::from(config.l1_chain_id),
+            config.owner_address,
+            bridgehub_info.bridgehub_addr,
+            bridgehub_info.l1_asset_router_proxy_addr,
+            config.deployed_addresses.bridgehub.message_root_proxy_addr,
+        ))
+        .abi_encode();
         result.expect_create2_params(
             verifiers,
             &self.bridgehub.chain_asset_handler_implementation_addr,
-            ChainAssetHandler::constructorCall::new((
-                U256::from(config.l1_chain_id),
-                config.owner_address,
-                bridgehub_info.bridgehub_addr,
-                bridgehub_info.l1_asset_router_proxy_addr,
-                config.deployed_addresses.bridgehub.message_root_proxy_addr,
-            ))
-            .abi_encode(),
+            chain_asset_handler_constructor_params.clone(),
             "l1-contracts/ChainAssetHandler",
         );
 
@@ -472,6 +496,22 @@ impl DeployedAddresses {
             config.owner_address,
             current_owner
         );
+
+        let init_params = ChainAssetHandler::initializeCall {
+            _owner: config.owner_address,
+        }
+        .abi_encode();
+
+        result
+            .expect_create2_params_proxy_with_bytecode(
+                verifiers,
+                chain_asset_handler.address(),
+                init_params,
+                config.transparent_proxy_admin,
+                chain_asset_handler_constructor_params,
+                "l1-contracts/ChainAssetHandler",
+            )
+            .await;
 
         Ok(())
     }

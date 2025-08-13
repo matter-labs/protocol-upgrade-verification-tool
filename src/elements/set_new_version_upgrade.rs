@@ -1,14 +1,17 @@
 use std::collections::HashSet;
 
 use alloy::{
-    hex::{self, FromHex},
-    primitives::{Address, Bytes, FixedBytes, U256},
+    hex,
+    primitives::{keccak256, Address, Bytes, FixedBytes, U256},
     sol,
-    sol_types::{SolCall, SolType},
+    sol_types::{SolCall, SolType, SolValue},
 };
 use anyhow::Context;
 
-use crate::get_expected_new_protocol_version;
+use crate::{
+    get_expected_new_protocol_version,
+    utils::{address_from_short_hex, apply_l2_to_l1_alias},
+};
 
 use super::{
     force_deployment::{
@@ -110,6 +113,19 @@ sol! {
     contract BytecodesSupplier {
         mapping(bytes32 bytecodeHash => uint256 blockNumber) public publishingBlock;
     }
+
+    struct AssetIdInput {
+        uint256 chainId;
+        address vaultAddr;
+        address tokenAddr;
+    }
+
+    struct V29UpgradeParams {
+        address[] oldValidatorTimelocks;
+        address newValidatorTimelock;
+    }
+
+    function setUpgradeDiamondCut(DiamondCutData diamondCut, uint256 protocolVersion);
 }
 
 impl upgradeCall {} // Placeholder implementation.
@@ -183,9 +199,7 @@ impl ProposedUpgrade {
             result.report_error("Invalid from");
         }
         if tx.to != U256::from(COMPLEX_UPGRADER_ADDRESS) {
-            // Check if we expect it
-            println!("To destination address: {}", tx.to);
-            result.report_error("Invalid to");
+            result.report_error(&format!("Invalid to: {:?}", tx.to));
         }
         if tx.gasLimit != U256::from(72_000_000) {
             result.report_error("Invalid gasLimit");
@@ -285,13 +299,10 @@ impl ProposedUpgrade {
         };
 
         let expected_deployments = expected_force_deployments();
-        let expected_governance = Address::from_hex("0xa019627524aed610192132a425d6b9c32a173900")
-            .expect("Invalid hex address of expected governance provided");
-        let expected_asset_id =
-            hex::decode("6337a96bd2cd359fa0bae3bbedfca736753213c95037ae158c5fa7c048ae2112")
-                .unwrap()
-                .try_into()
-                .unwrap();
+        let expected_governance = apply_l2_to_l1_alias(owner_address);
+        let eth_token_address = address_from_short_hex("1");
+        let expected_asset_id = encode_ntv_asset_id(l1_chain_id, eth_token_address);
+
         verify_force_deployments_and_upgrade(
             &complex_upgrade_call,
             upgrade_calldata,
@@ -414,34 +425,28 @@ impl ProposedUpgrade {
     }
 }
 
-/// Encodes the V29UpgradeParams struct for abi.encode(...)
 fn encode_post_upgrade_calldata(
     old_validator_timelocks: Vec<Address>,
     new_validator_timelock: Address,
 ) -> Bytes {
-    let mut encoded = Vec::new();
+    let params = V29UpgradeParams {
+        oldValidatorTimelocks: old_validator_timelocks,
+        newValidatorTimelock: new_validator_timelock,
+    };
 
-    // Top-level head: offset to the struct encoding (one head word) => 0x20
-    encoded.extend_from_slice(&U256::from(32).to_be_bytes::<32>());
+    Bytes::from(params.abi_encode())
+}
 
-    // --- struct encoding starts here (at offset 0x20) ---
-    // Struct head has 2 words:
-    // 1) offset to dynamic array (relative to start of *struct* encoding) => 0x40
-    // 2) newValidatorTimelock (padded)
-    encoded.extend_from_slice(&U256::from(64).to_be_bytes::<32>()); // 0x40
+fn encode_ntv_asset_id(chain_id: u64, token_address: Address) -> [u8; 32] {
+    // L2 address of NTV is fixed
+    let l2_native_token_vault_addr = address_from_short_hex("10004");
 
-    let mut padded_new = [0u8; 32];
-    padded_new[12..].copy_from_slice(new_validator_timelock.as_slice());
-    encoded.extend_from_slice(&padded_new);
-
-    // --- dynamic part for oldValidatorTimelocks (appended after the struct head) ---
-    encoded.extend_from_slice(&U256::from(old_validator_timelocks.len()).to_be_bytes::<32>());
-
-    for addr in old_validator_timelocks {
-        let mut padded = [0u8; 32];
-        padded[12..].copy_from_slice(addr.as_slice());
-        encoded.extend_from_slice(&padded);
+    let encoded = AssetIdInput {
+        chainId: U256::from(chain_id),
+        vaultAddr: l2_native_token_vault_addr,
+        tokenAddr: token_address,
     }
+    .abi_encode();
 
-    Bytes::from(encoded)
+    keccak256(encoded).into()
 }
