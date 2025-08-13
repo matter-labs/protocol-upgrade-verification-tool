@@ -1,23 +1,29 @@
 use std::collections::HashSet;
 
 use alloy::{
-    primitives::{Address, FixedBytes, U256},
+    hex,
+    primitives::{keccak256, Address, Bytes, FixedBytes, U256},
     sol,
-    sol_types::SolCall,
+    sol_types::{SolCall, SolType, SolValue},
 };
 use anyhow::Context;
 
-use crate::get_expected_new_protocol_version;
+use crate::{
+    get_expected_new_protocol_version,
+    utils::{address_from_short_hex, apply_l2_to_l1_alias},
+};
 
 use super::{
     force_deployment::{
-        expected_force_deployments, forceDeployOnAddressesCall, verify_force_deployments,
+        expected_force_deployments, forceDeployAndUpgradeCall,
+        verify_force_deployments_and_upgrade, IL2V29Upgrade,
     },
     protocol_version::ProtocolVersion,
+    V29,
 };
 
-const DEPLOYER_SYSTEM_CONTRACT: u32 = 0x8006;
 const FORCE_DEPLOYER_ADDRESS: u32 = 0x8007;
+const COMPLEX_UPGRADER_ADDRESS: u32 = 0x800F;
 
 sol! {
     #[derive(Debug)]
@@ -107,11 +113,24 @@ sol! {
     contract BytecodesSupplier {
         mapping(bytes32 bytecodeHash => uint256 blockNumber) public publishingBlock;
     }
+
+    struct AssetIdInput {
+        uint256 chainId;
+        address vaultAddr;
+        address tokenAddr;
+    }
+
+    struct V29UpgradeParams {
+        address[] oldValidatorTimelocks;
+        address newValidatorTimelock;
+    }
+
+    function setUpgradeDiamondCut(DiamondCutData diamondCut, uint256 protocolVersion);
 }
 
 impl upgradeCall {} // Placeholder implementation.
 
-const EXPECTED_BYTECODES: [&str; 44] = [
+const EXPECTED_BYTECODES: [&str; 47] = [
     "Bootloader",
     "CodeOracle",
     "EcAdd",
@@ -134,6 +153,8 @@ const EXPECTED_BYTECODES: [&str; 44] = [
     "l1-contracts/L2WrappedBaseToken",
     "l1-contracts/MessageRoot",
     "l1-contracts/DiamondProxy",
+    "l1-contracts/L2MessageVerification",
+    "l1-contracts/ChainAssetHandler",
     "l2-contracts/RollupL2DAValidator",
     "l2-contracts/ValidiumL2DAValidator",
     "system-contracts/AccountCodeStorage",
@@ -150,12 +171,13 @@ const EXPECTED_BYTECODES: [&str; 44] = [
     "system-contracts/KnownCodesStorage",
     "system-contracts/L1Messenger",
     "system-contracts/L2BaseToken",
-    "system-contracts/L2GenesisUpgrade",
+    "system-contracts/L2V29Upgrade",
     "system-contracts/MsgValueSimulator",
     "system-contracts/NonceHolder",
     "system-contracts/PubdataChunkPublisher",
     "system-contracts/SloadContract",
     "system-contracts/SystemContext",
+    "system-contracts/L2InteropRootStorage",
 ];
 
 impl ProposedUpgrade {
@@ -165,6 +187,8 @@ impl ProposedUpgrade {
         result: &mut crate::verifiers::VerificationResult,
         expected_version: ProtocolVersion,
         bytecodes_supplier_addr: Address,
+        l1_chain_id: u64,
+        owner_address: Address,
     ) -> anyhow::Result<()> {
         let tx = &self.l2ProtocolUpgradeTx;
 
@@ -174,8 +198,8 @@ impl ProposedUpgrade {
         if tx.from != U256::from(FORCE_DEPLOYER_ADDRESS) {
             result.report_error("Invalid from");
         }
-        if tx.to != U256::from(DEPLOYER_SYSTEM_CONTRACT) {
-            result.report_error("Invalid to");
+        if tx.to != U256::from(COMPLEX_UPGRADER_ADDRESS) {
+            result.report_error(&format!("Invalid to: {:?}", tx.to));
         }
         if tx.gasLimit != U256::from(72_000_000) {
             result.report_error("Invalid gasLimit");
@@ -263,14 +287,32 @@ impl ProposedUpgrade {
                 expected_bytecodes
             ));
         }
+
         // Check calldata.
-        let calldata = forceDeployOnAddressesCall::abi_decode(&tx.data, true).unwrap();
+        let complex_upgrade_call = forceDeployAndUpgradeCall::abi_decode(&tx.data, true).unwrap(); // TODO check if we need to verify complex upgrade?
+
+        let Ok(upgrade_calldata) =
+            IL2V29Upgrade::upgradeCall::abi_decode(complex_upgrade_call._calldata.as_ref(), true)
+        else {
+            result.report_error("Failed to decode delegate upgrade calldata");
+            return Ok(());
+        };
+
         let expected_deployments = expected_force_deployments();
-        verify_force_deployments(
-            &calldata._deployParams,
+        let expected_governance = apply_l2_to_l1_alias(owner_address);
+        let eth_token_address = address_from_short_hex("1");
+        let expected_asset_id = encode_ntv_asset_id(l1_chain_id, eth_token_address);
+
+        verify_force_deployments_and_upgrade(
+            &complex_upgrade_call,
+            upgrade_calldata,
             &expected_deployments,
             verifiers,
             result,
+            expected_governance,
+            expected_asset_id,
+            l1_chain_id,
+            owner_address,
         )?;
 
         Ok(())
@@ -281,16 +323,27 @@ impl ProposedUpgrade {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
         bytecodes_supplier_addr: Address,
+        l1_chain_id: u64,
+        owner_address: Address,
         is_gateway: bool,
+        v29: &V29,
+        validator_timelock: Address,
     ) -> anyhow::Result<()> {
         result.print_info("== checking chain upgrade init calldata ===");
 
         let expected_version = get_expected_new_protocol_version();
         let initial_error_count = result.errors;
 
-        self.verify_transaction(verifiers, result, expected_version, bytecodes_supplier_addr)
-            .await
-            .context("upgrade tx")?;
+        self.verify_transaction(
+            verifiers,
+            result,
+            expected_version,
+            bytecodes_supplier_addr,
+            l1_chain_id,
+            owner_address,
+        )
+        .await
+        .context("upgrade tx")?;
 
         result.expect_zk_bytecode(verifiers, &self.bootloaderHash, "Bootloader");
         result.expect_zk_bytecode(
@@ -329,8 +382,27 @@ impl ProposedUpgrade {
             result.report_error("l1ContractsUpgradeCalldata is not empty");
         }
 
-        if self.postUpgradeCalldata.len() != 0 {
-            result.report_error("Expected empty post upgrade calldata");
+        if self.postUpgradeCalldata.len() == 0 {
+            result.report_error("Expected post upgrade calldata");
+        } else {
+            let encoded_old_validator_timelocks = match is_gateway {
+                true => &v29.encoded_old_gateway_validator_timelocks,
+                false => &v29.encoded_old_validator_timelocks,
+            };
+            let old_validator_timelocks = <sol!(address[])>::abi_decode(
+                &hex::decode(encoded_old_validator_timelocks.trim_start_matches("0x")).unwrap(),
+                true,
+            )
+            .unwrap();
+
+            let encoded_post_upgrade_calldata =
+                encode_post_upgrade_calldata(old_validator_timelocks, validator_timelock);
+            if self.postUpgradeCalldata != encoded_post_upgrade_calldata {
+                result.report_error(&format!(
+                    "Got post upgrade calldata {}, expected {:?}.",
+                    self.postUpgradeCalldata, encoded_post_upgrade_calldata
+                ));
+            }
         }
 
         if self.upgradeTimestamp != U256::default() {
@@ -351,4 +423,30 @@ impl ProposedUpgrade {
 
         Ok(())
     }
+}
+
+fn encode_post_upgrade_calldata(
+    old_validator_timelocks: Vec<Address>,
+    new_validator_timelock: Address,
+) -> Bytes {
+    let params = V29UpgradeParams {
+        oldValidatorTimelocks: old_validator_timelocks,
+        newValidatorTimelock: new_validator_timelock,
+    };
+
+    Bytes::from(params.abi_encode())
+}
+
+fn encode_ntv_asset_id(chain_id: u64, token_address: Address) -> [u8; 32] {
+    // L2 address of NTV is fixed
+    let l2_native_token_vault_addr = address_from_short_hex("10004");
+
+    let encoded = AssetIdInput {
+        chainId: U256::from(chain_id),
+        vaultAddr: l2_native_token_vault_addr,
+        tokenAddr: token_address,
+    }
+    .abi_encode();
+
+    keccak256(encoded).into()
 }

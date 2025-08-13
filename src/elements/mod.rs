@@ -28,7 +28,6 @@ pub struct UpgradeOutput {
     pub(crate) chain_upgrade_diamond_cut: String,
     pub(crate) create2_factory_addr: Address,
     pub(crate) create2_factory_salt: FixedBytes<32>,
-    pub(crate) deployer_addr: Address,
     pub(crate) era_chain_id: u64,
 
     pub(crate) governance_calls: GovernanceCalls,
@@ -37,13 +36,17 @@ pub struct UpgradeOutput {
 
     pub(crate) gateway_chain_id: u64,
 
-    pub(crate) protocol_upgrade_handler_proxy_address: Address,
+    pub(crate) owner_address: Address,
 
-    #[serde(rename = "contracts_newConfig")]
+    pub(crate) transparent_proxy_admin: Address,
+
+    #[serde(rename = "contracts_config")]
     pub(crate) contracts_config: ContractsConfig,
     pub(crate) deployed_addresses: DeployedAddresses,
 
     pub(crate) transactions: Vec<String>,
+
+    pub(crate) v29: V29,
 
     pub(crate) gateway: Gateway,
 
@@ -54,9 +57,9 @@ pub struct UpgradeOutput {
 
 #[derive(Debug, Deserialize)]
 pub struct GovernanceCalls {
-    pub(crate) governance_stage0_calls: String,
-    pub(crate) governance_stage1_calls: String,
-    pub(crate) governance_stage2_calls: String,
+    pub(crate) stage0_calls: String,
+    pub(crate) stage1_calls: String,
+    pub(crate) stage2_calls: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -78,6 +81,12 @@ pub(crate) struct ContractsConfig {
     recursion_circuits_set_vks_hash: FixedBytes<32>,
     recursion_leaf_level_vk_hash: FixedBytes<32>,
     recursion_node_level_vk_hash: FixedBytes<32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct V29 {
+    pub encoded_old_validator_timelocks: String,
+    pub encoded_old_gateway_validator_timelocks: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -103,6 +112,7 @@ pub(crate) struct GatewayStateTransition {
     pub verifier_plonk_addr: Address,
     pub rollup_da_manager: Address,
     pub rollup_l2_da_validator: Address,
+    pub validator_timelock_addr: Address,
 }
 
 impl ContractsConfig {
@@ -250,7 +260,7 @@ impl UpgradeOutput {
             .await;
 
         let stage0 = GovernanceStage0Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage0_calls),
+            calls: CallList::parse(&self.governance_calls.stage0_calls),
         };
 
         stage0
@@ -264,7 +274,7 @@ impl UpgradeOutput {
             .context("stage0")?;
 
         let stage1 = GovernanceStage1Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage1_calls),
+            calls: CallList::parse(&self.governance_calls.stage1_calls),
         };
 
         let l1_expected_upgrade_facets =
@@ -282,6 +292,8 @@ impl UpgradeOutput {
             .verify(
                 verifiers,
                 result,
+                self.l1_chain_id,
+                self.owner_address,
                 self.gateway_chain_id,
                 self.priority_txs_l2_gas_limit,
                 l1_facets_to_add.clone(),
@@ -291,12 +303,18 @@ impl UpgradeOutput {
                 &self.chain_upgrade_diamond_cut,
                 gw_expected_upgrade_facets.clone(),
                 &self.gateway.upgrade_cut_data,
+                &self.gateway.gateway_state_transition,
+                &self.v29,
+                self.deployed_addresses.validator_timelock_addr,
+                self.gateway
+                    .gateway_state_transition
+                    .validator_timelock_addr,
             )
             .await
             .context("stage1")?;
 
         let stage2 = GovernanceStage2Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage2_calls),
+            calls: CallList::parse(&self.governance_calls.stage2_calls),
         };
 
         stage2

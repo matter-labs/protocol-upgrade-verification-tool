@@ -8,13 +8,14 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
-// Current top of release-v28 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "9fcd28238cf749462b22e513a9f545008637f301";
+// Current top of draft-v29 branch
+const DEFAULT_CONTRACTS_COMMIT: &str = "65234ab0617c677d8a3d266af9e95506db351280";
 // Current commit on top of main
-const DEFAULT_ERA_COMMIT: &str = "b7aeab64ce5c915233a773542ef64e79bf3893ee";
+const DEFAULT_ERA_COMMIT: &str = "7eb9140a9aef70264f22da033b6b886903293b9d";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.28.0";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.27.0";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.0";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.1";
+pub(crate) const V28_PROTOCOL_VERSION_STR: &str = "0.28.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
@@ -24,6 +25,10 @@ pub(crate) fn get_expected_new_protocol_version() -> ProtocolVersion {
 
 pub(crate) fn get_expected_old_protocol_version() -> ProtocolVersion {
     ProtocolVersion::from_str(EXPECTED_OLD_PROTOCOL_VERSION_STR).unwrap()
+}
+
+pub(crate) fn get_expected_v28_protocol_version() -> ProtocolVersion {
+    ProtocolVersion::from_str(V28_PROTOCOL_VERSION_STR).unwrap()
 }
 
 #[derive(Debug, Parser)]
@@ -99,16 +104,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.display_upgrade_data.unwrap_or_default() {
         println!(
             "Stage0 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+            encode_upgrade_data(&config.governance_calls.stage0_calls)
         );
 
         println!(
             "Stage1 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
+            encode_upgrade_data(&config.governance_calls.stage1_calls)
         );
         println!(
             "Stage2 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
+            encode_upgrade_data(&config.governance_calls.stage2_calls)
         );
     }
 

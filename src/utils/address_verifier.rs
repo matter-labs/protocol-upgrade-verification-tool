@@ -27,12 +27,9 @@ impl AddressVerifier {
         // Firstly, we initialize some constant addresses from the config.
 
         result.add_address(Address::ZERO, "zero");
+        result.add_address(config.owner_address, "owner");
         result.add_address(
-            config.protocol_upgrade_handler_proxy_address,
-            "protocol_upgrade_handler_proxy",
-        );
-        result.add_address(
-            apply_l2_to_l1_alias(config.protocol_upgrade_handler_proxy_address),
+            apply_l2_to_l1_alias(config.owner_address),
             "aliased_protocol_upgrade_handler_proxy",
         );
         result.add_address(
@@ -57,9 +54,7 @@ impl AddressVerifier {
 
         config.add_to_verifier(&mut result);
         result.add_address(
-            network_verifier
-                .get_proxy_admin(config.protocol_upgrade_handler_proxy_address)
-                .await,
+            network_verifier.get_proxy_admin(config.owner_address).await,
             "protocol_upgrade_handler_transparent_proxy_admin",
         );
 
@@ -78,6 +73,10 @@ impl AddressVerifier {
         result.add_address(info.l1_asset_router_proxy_addr, "l1_asset_router_proxy");
 
         result.add_address(info.gateway_base_token_addr, "gateway_base_token");
+        result.add_address(
+            info.chain_type_manager_deployment_tracker,
+            "chain_type_manager_deployment_tracker",
+        );
 
         result.add_address(address_from_short_hex("10002"), "l2_bridgehub");
 

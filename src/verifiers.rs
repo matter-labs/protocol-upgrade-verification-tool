@@ -108,6 +108,8 @@ impl Verifiers {
             .add_address(info.shared_bridge, "old_shared_bridge_proxy");
         self.address_verifier
             .add_address(info.legacy_bridge, "legacy_erc20_bridge_proxy");
+        self.address_verifier
+            .add_address(info.stm_address, "chain_type_manager_proxy");
         Ok(())
     }
 }
