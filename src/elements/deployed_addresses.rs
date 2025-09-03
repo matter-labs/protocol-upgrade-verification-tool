@@ -15,7 +15,7 @@ use alloy::{
     primitives::{Address, U256},
     providers::Provider,
     sol,
-    sol_types::{SolCall, SolConstructor, SolValue},
+    sol_types::{SolCall, SolConstructor},
 };
 use serde::Deserialize;
 
@@ -251,6 +251,7 @@ pub struct DeployedAddresses {
     pub(crate) bridgehub: Bridgehub,
     pub(crate) state_transition: StateTransition,
     pub(crate) upgrade_stage_validator: Address,
+    pub(crate) protocol_upgrade_handler_address_implementation: Address,
 }
 
 #[derive(Debug, Deserialize)]

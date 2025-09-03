@@ -146,6 +146,12 @@ impl AddressVerifier {
                 .rollup_l2_da_validator,
             "gateway_rollup_l2_da_validator",
         );
+        result.add_address(
+            config
+                .deployed_addresses
+                .protocol_upgrade_handler_address_implementation,
+            "protocol_upgrade_handler_address_implementation",
+        );
 
         result
     }

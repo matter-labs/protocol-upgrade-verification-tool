@@ -1237,12 +1237,30 @@ impl GovernanceStage2Calls {
             // Check that migrations are unpaused
             ("upgrade_stage_validator", "checkMigrationsUnpaused()"),
         ];
-        const APPROVE_BASE_TOKEN: usize = 2;
-        const GATEWAY_UNPAUSE_MIGRATION: usize = 3;
+        const UPGRADE_PUH_IMPLEMENTATION: usize = 2;
+        const APPROVE_BASE_TOKEN: usize = 3;
+        const GATEWAY_UNPAUSE_MIGRATION: usize = 4;
 
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 1.
         self.calls.verify(&list_of_calls, verifiers, result)?;
+
+        // Verify upgrade PUH implementation
+        {
+            let calldata = &self.calls.elems[UPGRADE_PUH_IMPLEMENTATION].data;
+            let data: upgradeAndCallCall = upgradeAndCallCall::abi_decode(&calldata, true)
+                .expect("Failed to decode approve call");
+
+            result.expect_address(verifiers, &data.proxy, "owner");
+            result.expect_address(
+                verifiers,
+                &data.implementation,
+                "protocol_upgrade_handler_address_implementation",
+            );
+            if !data.data.is_empty() {
+                result.report_error("Data for PUH upgrade call is not empty.");
+            }
+        }
 
         // Verify Approve base token
         {
