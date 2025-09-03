@@ -130,7 +130,7 @@ sol! {
 
 impl upgradeCall {} // Placeholder implementation.
 
-const EXPECTED_BYTECODES: [&str; 47] = [
+const EXPECTED_BYTECODES: [&str; 48] = [
     "Bootloader",
     "CodeOracle",
     "EcAdd",
@@ -155,6 +155,7 @@ const EXPECTED_BYTECODES: [&str; 47] = [
     "l1-contracts/DiamondProxy",
     "l1-contracts/L2MessageVerification",
     "l1-contracts/ChainAssetHandler",
+    "l1-contracts/ProxyAdmin",
     "l2-contracts/RollupL2DAValidator",
     "l2-contracts/ValidiumL2DAValidator",
     "system-contracts/AccountCodeStorage",

@@ -159,7 +159,7 @@ sol! {
     }
 
     contract MessageRoot {
-        constructor(address _bridgehub);
+        constructor(address _bridgehub, uint256 _l1ChainId);
         function initialize();
     }
 
@@ -976,7 +976,11 @@ impl DeployedAddresses {
         result.expect_create2_params(
             verifiers,
             &self.bridgehub.message_root_implementation_addr,
-            bridgehub_info.bridgehub_addr.abi_encode(),
+            MessageRoot::constructorCall::new((
+                bridgehub_info.bridgehub_addr,
+                U256::from(config.l1_chain_id),
+            ))
+            .abi_encode(),
             "l1-contracts/MessageRoot",
         );
 

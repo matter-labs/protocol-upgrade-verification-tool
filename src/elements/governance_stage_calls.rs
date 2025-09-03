@@ -1228,6 +1228,8 @@ impl GovernanceStage2Calls {
             ("upgrade_stage_validator", "checkProtocolUpgradePresence()"),
             // Unpause L1 migration
             ("bridgehub_proxy", "unpauseMigration()"),
+            // Upgrades the implementation of protocol upgrade handler
+            ("protocol_upgrade_handler_transparent_proxy_admin", "upgradeAndCall(address,address,bytes)"),
             // Approve base token
             ("gateway_base_token", "approve(address,uint256)"),
             // Unpause gateway
