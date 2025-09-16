@@ -18,7 +18,7 @@ jobs:
         
           # NOTE: This is the branch of era-contracts that we consider as our source of truth
           # This branch should be set to the development branch, eg: "draft-v29", or "draft-v30"
-          ERA_CONTRACTS_BRANCH="main"
+          ERA_CONTRACTS_BRANCH="draft-v29"
           ERA_CONTRACTS_REPO="matter-labs/era-contracts"
           ERA_CONTRACTS_DIR="era-contracts"
 
