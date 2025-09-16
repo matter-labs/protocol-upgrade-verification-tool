@@ -1,0 +1,69 @@
+name: Verify Ecosystem Upgrade Files
+
+on:
+  pull_request:
+    paths:
+      - 'data/**'
+
+jobs:
+  verify-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify ecosystem files against era-contracts
+        run: |
+          set -e
+        
+          # NOTE: This is the branch of era-contracts that we consider as our source of truth
+          # This branch should be set to the development branch, eg: "draft-v29", or "draft-v30"
+          ERA_CONTRACTS_BRANCH="main"
+          ERA_CONTRACTS_REPO="matter-labs/era-contracts"
+          ERA_CONTRACTS_DIR="era-contracts-repo"
+
+          echo "Checking out ${ERA_CONTRACTS_REPO} at branch ${ERA_CONTRACTS_BRANCH}"
+          git clone --depth 1 --branch "$ERA_CONTRACTS_BRANCH" "https://github.com/${ERA_CONTRACTS_REPO}.git" "$ERA_CONTRACTS_DIR"
+
+          # Find all ecosystem files in the data directory
+          FILES=$(find data -type f -name "*-ecosystem.yaml")
+
+          if [ -z "$FILES" ]; then
+              echo "No ecosystem files found to check in 'data/' directory. Skipping."
+              exit 0
+          fi
+
+          for local_file in $FILES; do
+              echo "---"
+              echo "Checking $local_file"
+
+              # Example: data/v0.28.0-precompiles/mainnet/v28-ecosystem.yaml
+              # $2: v0.28.0-precompiles
+              # $3: mainnet
+              upgrade_name=$(echo "$local_file" | cut -d'/' -f2)
+              environment=$(echo "$local_file" | cut -d'/' -f3)
+              filename=$(basename "$local_file")
+
+              remote_file_path="$ERA_CONTRACTS_DIR/l1-contracts/upgrade-envs/$upgrade_name/output/$environment/$filename"
+
+              echo "Expecting corresponding file at: $remote_file_path"
+
+              if [ ! -f "$remote_file_path" ]; then
+                  echo "::error file=$local_file::File not found in era-contracts repo: $remote_file_path"
+                  echo "::error file=$local_file::Make sure the naming convention is being followed and the file exists in the ${ERA_CONTRACTS_REPO} repository on the '${ERA_CONTRACTS_BRANCH}' branch."
+                  exit 1
+              fi
+
+              # Compare files
+              if ! diff -q "$local_file" "$remote_file_path"; then
+                  echo "::error file=$local_file::File content mismatch between $local_file and its counterpart in era-contracts."
+                  echo "Run the following command to see the diff:"
+                  echo "diff '$local_file' '$remote_file_path'"
+                  exit 1
+              else
+                  echo "✅ $local_file matches."
+              fi
+          done
+
+          echo "---"
+          echo "All ecosystem files are correct copies."
