@@ -9,6 +9,7 @@ Tool to analyze the zkSync upgrades.
 There will be a specific version of this tool, for each release.
 So make sure that you pick the correct branch, as new versions of the tool will NOT support verifying older releases.
 The name of the branch should be the full name of the upgrade, eg: `v0.28.0-precompiles` or `v0.29.1-interopA-ff`.
+In order for file consistency workflow to run successfully, you need to specify the era-contracts development branch [here](./.github/workflows/verify-ecosystem-files.yaml#L21)
 
 **For earlier version - please pick the proper github tag.**
 
