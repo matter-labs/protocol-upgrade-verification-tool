@@ -447,7 +447,7 @@ impl DeployedAddresses {
 
         let init_params = ValidatorTimelock::initializeCall {
             _owner: config.owner_address,
-            _initialExecutionDelay: 0,
+            _initialExecutionDelay: execution_delay,
         }
         .abi_encode();
 
