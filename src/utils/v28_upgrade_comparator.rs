@@ -158,16 +158,16 @@ fn validate_set_new_version_upgrade_call(
     let previous_params = setNewVersionUpgradeCall::abi_decode(&previous.data, true)?;
     let new_params = setNewVersionUpgradeCall::abi_decode(&new.data, true)?;
 
-    // Changing from the previous to the new version
+    // Changing from the previous to the new version +1 (due to 28.1 being the correct previous one)
     assert_eq!(
         new_params.oldProtocolVersion,
-        previous_params.newProtocolVersion
+        previous_params.newProtocolVersion + U256::from(1)
     );
-    // Patch upgrade, so should increment the protocol version by 1.
-    let correct_new_version = previous_params.newProtocolVersion + U256::from(1);
+    // Patch upgrade, so should increment the protocol version by 2 (28.2).
+    let correct_new_version = previous_params.newProtocolVersion + U256::from(2);
     assert_eq!(
         new_params.newProtocolVersion, correct_new_version,
-        "The protocol version should be incremented by 1 for patch upgrade."
+        "The protocol version should be incremented by 2 for patch upgrade."
     );
     assert_eq!(
         new_params.newProtocolVersion, expected_new_version,
