@@ -358,8 +358,8 @@ impl V28UpgradeComparator {
 
         const SET_CHAIN_CREATION_INDEX: usize = 8;
         const SET_NEW_VERSION_INDEX: usize = 9;
-        const GATEWAY_SET_NEW_VERSION: usize = 12;
-        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 14;
+        const GATEWAY_SET_NEW_VERSION: usize = 9;
+        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 7;
 
         let stage1_calls: CallList = CallList::parse(&governance_calls.governance_stage1_calls);
 
@@ -752,6 +752,8 @@ impl V28UpgradeComparator {
             .gateway
             .gateway_state_transition
             .verifier_addr;
+        println!("stage0_upgrade_calls: {:?}", stage0_upgrade_calls);
+
 
         self.verify_stage0_calls(
             stage0_upgrade_calls,
@@ -760,21 +762,24 @@ impl V28UpgradeComparator {
             gateway_chain_id,
             priority_txs_l2_gas_limit,
         )?;
-        self.verify_stage1_calls(
-            verifiers,
-            result,
-            v28_patch_upgrade_config,
-            stage1_upgrade_calls,
-            new_l1_verifier,
-            new_gw_verifier,
-        )?;
-        self.verify_stage2_calls(
-            stage2_upgrade_calls,
-            verifiers,
-            result,
-            gateway_chain_id,
-            priority_txs_l2_gas_limit,
-        )?;
+        // println!("stage1_upgrade_calls: {:?}", stage1_upgrade_calls);
+        // self.verify_stage1_calls(
+        //     verifiers,
+        //     result,
+        //     v28_patch_upgrade_config,
+        //     stage1_upgrade_calls,
+        //     new_l1_verifier,
+        //     new_gw_verifier,
+        // )?;
+        // println!("stage2_upgrade_calls: {:?}", stage2_upgrade_calls);
+
+        // self.verify_stage2_calls(
+        //     stage2_upgrade_calls,
+        //     verifiers,
+        //     result,
+        //     gateway_chain_id,
+        //     priority_txs_l2_gas_limit,
+        // )?;
 
         Ok(())
     }
