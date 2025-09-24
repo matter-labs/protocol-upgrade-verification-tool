@@ -13,7 +13,7 @@ const DEFAULT_CONTRACTS_COMMIT: &str = "550bdb4d27ea50fe3e00d84b1d4efc37810cb632
 // Current commit on top of main
 const DEFAULT_ERA_COMMIT: &str = "2fcd5a7475e449a0dca42d1a2d4bda325bf453cc";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.1";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.2";
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.1";
 pub(crate) const V28_PROTOCOL_VERSION_STR: &str = "0.28.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
