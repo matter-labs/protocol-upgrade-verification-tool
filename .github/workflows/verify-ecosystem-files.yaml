@@ -28,7 +28,7 @@ jobs:
           git clone --depth 1 --branch "$ERA_CONTRACTS_BRANCH" "https://github.com/${ERA_CONTRACTS_REPO}.git" "$ERA_CONTRACTS_DIR"
 
           # Find all ecosystem files in the data directory
-          FILES=$(find data -type f -name "*.yaml")
+          FILES=$(find data -type f \( -name "*.yaml" -o -name "*.yml" \))
 
           if [ -z "$FILES" ]; then
               echo "No ecosystem files found to check in 'data/' directory. Skipping."
