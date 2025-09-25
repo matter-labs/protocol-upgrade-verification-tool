@@ -135,7 +135,7 @@ sol! {
     }
 
     function facets() external view returns (Facet[] memory result);
-    
+
 }
 
 impl GovernanceStage1Calls {

@@ -911,12 +911,26 @@ impl DeployedAddresses {
         result: &mut crate::verifiers::VerificationResult,
         _bridgehub_info: &BridgehubInfo,
     ) -> Result<()> {
-        let current_puh = IProtocolUpgradeHandler::new(config.owner_address, verifiers.network_verifier.get_l1_provider());
-        let new_implementation = IProtocolUpgradeHandler::new(self.protocol_upgrade_handler_address_implementation, verifiers.network_verifier.get_l1_provider());
+        let current_puh = IProtocolUpgradeHandler::new(
+            config.owner_address,
+            verifiers.network_verifier.get_l1_provider(),
+        );
+        let new_implementation = IProtocolUpgradeHandler::new(
+            self.protocol_upgrade_handler_address_implementation,
+            verifiers.network_verifier.get_l1_provider(),
+        );
 
         // Compare that all the getters are the same
-        let l2_protocol_governor_current = current_puh.L2_PROTOCOL_GOVERNOR().call().await?.L2_PROTOCOL_GOVERNOR;
-        let l2_protocol_governor_new = new_implementation.L2_PROTOCOL_GOVERNOR().call().await?.L2_PROTOCOL_GOVERNOR;
+        let l2_protocol_governor_current = current_puh
+            .L2_PROTOCOL_GOVERNOR()
+            .call()
+            .await?
+            .L2_PROTOCOL_GOVERNOR;
+        let l2_protocol_governor_new = new_implementation
+            .L2_PROTOCOL_GOVERNOR()
+            .call()
+            .await?
+            .L2_PROTOCOL_GOVERNOR;
         if l2_protocol_governor_current != l2_protocol_governor_new {
             result.report_error("L2_PROTOCOL_GOVERNOR mismatch");
         } else {
@@ -931,8 +945,16 @@ impl DeployedAddresses {
             result.report_ok("ZKSYNC_ERA matches");
         }
 
-        let chain_type_manager_current = current_puh.CHAIN_TYPE_MANAGER().call().await?.CHAIN_TYPE_MANAGER;
-        let chain_type_manager_new = new_implementation.CHAIN_TYPE_MANAGER().call().await?.CHAIN_TYPE_MANAGER;
+        let chain_type_manager_current = current_puh
+            .CHAIN_TYPE_MANAGER()
+            .call()
+            .await?
+            .CHAIN_TYPE_MANAGER;
+        let chain_type_manager_new = new_implementation
+            .CHAIN_TYPE_MANAGER()
+            .call()
+            .await?
+            .CHAIN_TYPE_MANAGER;
         if chain_type_manager_current != chain_type_manager_new {
             result.report_error("CHAIN_TYPE_MANAGER mismatch");
         } else {
@@ -956,15 +978,27 @@ impl DeployedAddresses {
         }
 
         let l1_asset_router_current = current_puh.L1_ASSET_ROUTER().call().await?.L1_ASSET_ROUTER;
-        let l1_asset_router_new = new_implementation.L1_ASSET_ROUTER().call().await?.L1_ASSET_ROUTER;
+        let l1_asset_router_new = new_implementation
+            .L1_ASSET_ROUTER()
+            .call()
+            .await?
+            .L1_ASSET_ROUTER;
         if l1_asset_router_current != l1_asset_router_new {
             result.report_error("L1_ASSET_ROUTER mismatch");
         } else {
             result.report_ok("L1_ASSET_ROUTER matches");
         }
 
-        let l1_native_token_vault_current = current_puh.L1_NATIVE_TOKEN_VAULT().call().await?.L1_NATIVE_TOKEN_VAULT;
-        let l1_native_token_vault_new = new_implementation.L1_NATIVE_TOKEN_VAULT().call().await?.L1_NATIVE_TOKEN_VAULT;
+        let l1_native_token_vault_current = current_puh
+            .L1_NATIVE_TOKEN_VAULT()
+            .call()
+            .await?
+            .L1_NATIVE_TOKEN_VAULT;
+        let l1_native_token_vault_new = new_implementation
+            .L1_NATIVE_TOKEN_VAULT()
+            .call()
+            .await?
+            .L1_NATIVE_TOKEN_VAULT;
         if l1_native_token_vault_current != l1_native_token_vault_new {
             result.report_error("L1_NATIVE_TOKEN_VAULT mismatch");
         } else {
@@ -972,8 +1006,17 @@ impl DeployedAddresses {
         }
 
         // chain asset handler is a new field, so we should compare it to the deployed one:
-        let chain_asset_handler_new = new_implementation.CHAIN_ASSET_HANDLER().call().await?.CHAIN_ASSET_HANDLER;
-        if chain_asset_handler_new != config.deployed_addresses.bridgehub.chain_asset_handler_proxy_addr {
+        let chain_asset_handler_new = new_implementation
+            .CHAIN_ASSET_HANDLER()
+            .call()
+            .await?
+            .CHAIN_ASSET_HANDLER;
+        if chain_asset_handler_new
+            != config
+                .deployed_addresses
+                .bridgehub
+                .chain_asset_handler_proxy_addr
+        {
             result.report_error("CHAIN_ASSET_HANDLER mismatch with deployed value");
         } else {
             result.report_ok("CHAIN_ASSET_HANDLER matches deployed value");
@@ -1032,7 +1075,13 @@ impl DeployedAddresses {
             .await
             .context("per chain info")?;
 
-        self.verify_protocol_upgrade_handler_implementation(config, verifiers, result, &bridgehub_info).await?;
+        self.verify_protocol_upgrade_handler_implementation(
+            config,
+            verifiers,
+            result,
+            &bridgehub_info,
+        )
+        .await?;
 
         result.expect_create2_params(
             verifiers,
