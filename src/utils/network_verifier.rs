@@ -1,5 +1,5 @@
 use alloy::consensus::Transaction;
-use alloy::hex::FromHex;
+use alloy::hex::{self, FromHex};
 use alloy::primitives::{keccak256, Address, FixedBytes, TxHash, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::sol;
@@ -42,6 +42,8 @@ sol! {
         function requestL2TransactionDirect(
             L2TransactionRequestDirect calldata _request
         ) external payable returns (bytes32 canonicalTxHash);
+        function chainAssetHandler() external view returns (address);
+        function l1CtmDeployer() external view returns (address);
     }
 
     #[sol(rpc)]
@@ -86,6 +88,7 @@ pub struct BridgehubInfo {
     pub l1_nullifier: Address,
     pub l1_asset_router_proxy_addr: Address,
     pub gateway_base_token_addr: Address,
+    pub chain_type_manager_deployment_tracker: Address,
 }
 
 pub struct NetworkVerifier {
@@ -271,6 +274,8 @@ impl NetworkVerifier {
             .await
             .unwrap()
             ._0;
+        let chain_type_manager_deployment_tracker =
+            bridgehub.l1CtmDeployer().call().await.unwrap()._0;
         let chain_type_manager = ChainTypeManager::new(stm_address, l1_provider);
         let era_address = chain_type_manager
             .getHyperchain(U256::from(era_chain_id))
@@ -320,6 +325,7 @@ impl NetworkVerifier {
             l1_nullifier,
             l1_asset_router_proxy_addr,
             gateway_base_token_addr,
+            chain_type_manager_deployment_tracker,
         }
     }
 }
@@ -354,7 +360,12 @@ async fn check_create2_deploy(
 
     let salt = &tx.input()[0..32];
     if salt != expected_create2_salt.as_slice() {
-        println!("Salt mismatch: {:?} != {:?}", salt, expected_create2_salt);
+        println!(
+            "Salt mismatch in tx {}: {:?} != {:?}",
+            hex::encode(&tx_hash),
+            salt,
+            expected_create2_salt
+        );
         return None;
     }
 
@@ -376,7 +387,12 @@ async fn check_create2_deploy(
         let x = create2AndTransferParamsCall::abi_decode_raw(create2_and_transfer_input, false)
             .unwrap();
         if salt != x.salt.as_slice() {
-            println!("Salt mismatch: {:?} != {:?}", salt, x.salt);
+            println!(
+                "Salt mismatch in tx {}: {:?} != {:?}",
+                hex::encode(&tx_hash),
+                salt,
+                x.salt
+            );
             return None;
         }
         // We do not need to cross check `owner` here, it will be cross checked against whatever owner is currently set
@@ -427,7 +443,12 @@ async fn check_gw_create2_deploy(
 
         if let Ok(create2_call) = create2_data {
             if create2_call._salt != vec![0u8; 32].as_slice() {
-                println!("Salt mismatch: {:?} != {:?}", create2_call._salt, 0);
+                println!(
+                    "Salt mismatch in tx {}: {:?} != {:?}",
+                    hex::encode(&tx_hash),
+                    create2_call._salt,
+                    vec![0u8; 32]
+                );
                 return None;
             }
 
