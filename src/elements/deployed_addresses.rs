@@ -191,6 +191,35 @@ sol! {
         /// @dev Vault holding L1 native ETH and ERC20 tokens bridged into the ZK chains.
         address public immutable L1_NATIVE_TOKEN_VAULT;
     }
+
+    #[sol(rpc)]
+    interface IProtocolUpgradeHandler {
+        /// @dev Address of the L2 Protocol Governor contract.
+        /// This address is used to interface with governance actions initiated on Layer 2,
+        /// specifically for proposing and approving protocol upgrades.
+        address public immutable L2_PROTOCOL_GOVERNOR;
+
+        /// @dev ZKsync smart contract that used to operate with L2 via asynchronous L2 <-> L1 communication.
+        address public immutable ZKSYNC_ERA;
+
+        /// @dev ZKsync smart contract that is responsible for creating new ZK Chains and changing parameters in existent.
+        address public immutable CHAIN_TYPE_MANAGER;
+
+        /// @dev Bridgehub smart contract that is used to operate with L2 via asynchronous L2 <-> L1 communication.
+        address public immutable BRIDGE_HUB;
+
+        /// @dev The nullifier contract that is used for bridging.
+        address public immutable L1_NULLIFIER;
+
+        /// @dev The asset router contract that is used for bridging.
+        address public immutable L1_ASSET_ROUTER;
+
+        /// @dev Vault holding L1 native ETH and ERC20 tokens bridged into the ZK chains.
+        address public immutable L1_NATIVE_TOKEN_VAULT;
+
+        /// @dev Chain asset handler contract for migration pausing/unpausing.
+        address public immutable CHAIN_ASSET_HANDLER;
+    }
 }
 
 struct BasicFacetInfo {
@@ -557,7 +586,7 @@ impl DeployedAddresses {
     }
 
     fn expected_previous_protocol_version() -> U256 {
-        U256::from(27) * U256::from(2).pow(U256::from(32))
+        U256::from(28) * U256::from(2).pow(U256::from(32)) + U256::from(1)
     }
 
     async fn verify_l1_asset_router(
@@ -875,6 +904,84 @@ impl DeployedAddresses {
         Ok((facets_to_remove, facets_to_add))
     }
 
+    pub async fn verify_protocol_upgrade_handler_implementation(
+        &self,
+        config: &UpgradeOutput,
+        verifiers: &crate::verifiers::Verifiers,
+        result: &mut crate::verifiers::VerificationResult,
+        _bridgehub_info: &BridgehubInfo,
+    ) -> Result<()> {
+        let current_puh = IProtocolUpgradeHandler::new(config.owner_address, verifiers.network_verifier.get_l1_provider());
+        let new_implementation = IProtocolUpgradeHandler::new(self.protocol_upgrade_handler_address_implementation, verifiers.network_verifier.get_l1_provider());
+
+        // Compare that all the getters are the same
+        let l2_protocol_governor_current = current_puh.L2_PROTOCOL_GOVERNOR().call().await?.L2_PROTOCOL_GOVERNOR;
+        let l2_protocol_governor_new = new_implementation.L2_PROTOCOL_GOVERNOR().call().await?.L2_PROTOCOL_GOVERNOR;
+        if l2_protocol_governor_current != l2_protocol_governor_new {
+            result.report_error("L2_PROTOCOL_GOVERNOR mismatch");
+        } else {
+            result.report_ok("L2_PROTOCOL_GOVERNOR matches");
+        }
+
+        let zksync_era_current = current_puh.ZKSYNC_ERA().call().await?.ZKSYNC_ERA;
+        let zksync_era_new = new_implementation.ZKSYNC_ERA().call().await?.ZKSYNC_ERA;
+        if zksync_era_current != zksync_era_new {
+            result.report_error("ZKSYNC_ERA mismatch");
+        } else {
+            result.report_ok("ZKSYNC_ERA matches");
+        }
+
+        let chain_type_manager_current = current_puh.CHAIN_TYPE_MANAGER().call().await?.CHAIN_TYPE_MANAGER;
+        let chain_type_manager_new = new_implementation.CHAIN_TYPE_MANAGER().call().await?.CHAIN_TYPE_MANAGER;
+        if chain_type_manager_current != chain_type_manager_new {
+            result.report_error("CHAIN_TYPE_MANAGER mismatch");
+        } else {
+            result.report_ok("CHAIN_TYPE_MANAGER matches");
+        }
+
+        let bridge_hub_current = current_puh.BRIDGE_HUB().call().await?.BRIDGE_HUB;
+        let bridge_hub_new = new_implementation.BRIDGE_HUB().call().await?.BRIDGE_HUB;
+        if bridge_hub_current != bridge_hub_new {
+            result.report_error("BRIDGE_HUB mismatch");
+        } else {
+            result.report_ok("BRIDGE_HUB matches");
+        }
+
+        let l1_nullifier_current = current_puh.L1_NULLIFIER().call().await?.L1_NULLIFIER;
+        let l1_nullifier_new = new_implementation.L1_NULLIFIER().call().await?.L1_NULLIFIER;
+        if l1_nullifier_current != l1_nullifier_new {
+            result.report_error("L1_NULLIFIER mismatch");
+        } else {
+            result.report_ok("L1_NULLIFIER matches");
+        }
+
+        let l1_asset_router_current = current_puh.L1_ASSET_ROUTER().call().await?.L1_ASSET_ROUTER;
+        let l1_asset_router_new = new_implementation.L1_ASSET_ROUTER().call().await?.L1_ASSET_ROUTER;
+        if l1_asset_router_current != l1_asset_router_new {
+            result.report_error("L1_ASSET_ROUTER mismatch");
+        } else {
+            result.report_ok("L1_ASSET_ROUTER matches");
+        }
+
+        let l1_native_token_vault_current = current_puh.L1_NATIVE_TOKEN_VAULT().call().await?.L1_NATIVE_TOKEN_VAULT;
+        let l1_native_token_vault_new = new_implementation.L1_NATIVE_TOKEN_VAULT().call().await?.L1_NATIVE_TOKEN_VAULT;
+        if l1_native_token_vault_current != l1_native_token_vault_new {
+            result.report_error("L1_NATIVE_TOKEN_VAULT mismatch");
+        } else {
+            result.report_ok("L1_NATIVE_TOKEN_VAULT matches");
+        }
+
+        // chain asset handler is a new field, so we should compare it to the deployed one:
+        let chain_asset_handler_new = new_implementation.CHAIN_ASSET_HANDLER().call().await?.CHAIN_ASSET_HANDLER;
+        if chain_asset_handler_new != config.deployed_addresses.bridgehub.chain_asset_handler_proxy_addr {
+            result.report_error("CHAIN_ASSET_HANDLER mismatch with deployed value");
+        } else {
+            result.report_ok("CHAIN_ASSET_HANDLER matches deployed value");
+        }
+
+        Ok(())
+    }
+
     pub async fn verify(
         &self,
         config: &UpgradeOutput,
@@ -924,6 +1031,8 @@ impl DeployedAddresses {
         self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
             .await
             .context("per chain info")?;
+
+        self.verify_protocol_upgrade_handler_implementation(config, verifiers, result, &bridgehub_info).await?;
 
         result.expect_create2_params(
             verifiers,

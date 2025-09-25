@@ -1,5 +1,5 @@
 use alloy::consensus::Transaction;
-use alloy::hex::FromHex;
+use alloy::hex::{self, FromHex};
 use alloy::primitives::{keccak256, Address, FixedBytes, TxHash, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::sol;
@@ -360,7 +360,7 @@ async fn check_create2_deploy(
 
     let salt = &tx.input()[0..32];
     if salt != expected_create2_salt.as_slice() {
-        println!("Salt mismatch: {:?} != {:?}", salt, expected_create2_salt);
+        println!("Salt mismatch in tx {}: {:?} != {:?}", hex::encode(&tx_hash), salt, expected_create2_salt);
         return None;
     }
 
@@ -382,7 +382,7 @@ async fn check_create2_deploy(
         let x = create2AndTransferParamsCall::abi_decode_raw(create2_and_transfer_input, false)
             .unwrap();
         if salt != x.salt.as_slice() {
-            println!("Salt mismatch: {:?} != {:?}", salt, x.salt);
+        println!("Salt mismatch in tx {}: {:?} != {:?}", hex::encode(&tx_hash), salt, x.salt);
             return None;
         }
         // We do not need to cross check `owner` here, it will be cross checked against whatever owner is currently set
@@ -433,7 +433,7 @@ async fn check_gw_create2_deploy(
 
         if let Ok(create2_call) = create2_data {
             if create2_call._salt != vec![0u8; 32].as_slice() {
-                println!("Salt mismatch: {:?} != {:?}", create2_call._salt, 0);
+                println!("Salt mismatch in tx {}: {:?} != {:?}", hex::encode(&tx_hash), create2_call._salt, vec![0u8; 32]);
                 return None;
             }
 
