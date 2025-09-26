@@ -1,0 +1,17 @@
+[
+    {
+        "index": 0,
+        "network": "mainnet",
+        "description": "Call to BH to add ZK OS CTM",
+        "from": "0xE30Dca3047B37dc7d88849dE4A4Dc07937ad5Ab3",
+        "to": "0x303a465b659cbb0ab36ee643ea362c509eeb5213",
+        "functionName": "addChainTypeManager",
+        "functionSignature": "addChainTypeManager(address)",
+        "arguments": {
+            "_chainTypeManager": {
+                "type": "address",
+                "value": "0x1adF137F59949c9081157D5de1e002D1C992071F"
+            }
+        }
+    }
+]
