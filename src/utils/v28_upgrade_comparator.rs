@@ -248,6 +248,7 @@ fn validate_set_new_version_upgrade_call(
     Ok(())
 }
 
+#[allow(dead_code)]
 fn validate_set_upgrade_diamond_cut_call(
     previous_set_new_version_upgrade_call: &Call,
     new: &Call,
@@ -358,8 +359,8 @@ impl V28UpgradeComparator {
 
         const SET_CHAIN_CREATION_INDEX: usize = 8;
         const SET_NEW_VERSION_INDEX: usize = 9;
-        const GATEWAY_SET_NEW_VERSION: usize = 9;
-        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 7;
+        const GATEWAY_SET_NEW_VERSION: usize = 12;
+        const GATEWAY_NEW_CHAIN_CREATION_PARAMS: usize = 14;
 
         let stage1_calls: CallList = CallList::parse(&governance_calls.governance_stage1_calls);
 
@@ -496,10 +497,10 @@ impl V28UpgradeComparator {
             // Ensures that new chains will only use the new version.
             ("state_transition_manager",
             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
-            // Update the upgrade diamond cut for v27 in the L1 state transition manager (the content will be checked later in this function).
-            // Ensures that chains that currently have version v27 will be able to upgrade to v28.1 rightaway.
-            ("state_transition_manager",
-            "setUpgradeDiamondCut(((address,uint8,bool,bytes4[])[],address,bytes),uint256)"),
+            // // Update the upgrade diamond cut for v27 in the L1 state transition manager (the content will be checked later in this function).
+            // // Ensures that chains that currently have version v27 will be able to upgrade to v28.1 rightaway.
+            // ("state_transition_manager",
+            // "setUpgradeDiamondCut(((address,uint8,bool,bytes4[])[],address,bytes),uint256)"),
             // Approve base token
             ("gateway_base_token", "approve(address,uint256)"),
             // Set new version upgrade in the GW state transition manager (the content will be checked later in this function).
@@ -510,22 +511,22 @@ impl V28UpgradeComparator {
             // Set chain creation params in the GW state transition manager (the content will be checked later in this function).
             // Ensures that chains that connect to GW will only use the new version.
             ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
-            // Approve base token
-            ("gateway_base_token", "approve(address,uint256)"),
-            // Update the upgrade diamond cut for v27 in the GW state transition manager (the content will be checked later in this function).
-            // Ensures that chains that currently have version v27 will be able to upgrade to v28.1 rightaway.
-            ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
+            // // Approve base token
+            // ("gateway_base_token", "approve(address,uint256)"),
+            // // Update the upgrade diamond cut for v27 in the GW state transition manager (the content will be checked later in this function).
+            // // Ensures that chains that currently have version v27 will be able to upgrade to v28.1 rightaway.
+            // ("bridgehub_proxy", "requestL2TransactionDirect((uint256,uint256,address,uint256,bytes,uint256,uint256,bytes[],address))"),
         ];
 
         stage1_upgrade_calls.verify(&list_of_calls, verifiers, result)?;
 
         const SET_CHAIN_CREATION_PARAMS_L1_INDEX: usize = 1;
-        const SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 2;
-        const SET_NEW_VERSION_UPGRADE_INDEX: usize = 3;
+        const SET_NEW_VERSION_UPGRADE_INDEX: usize = 2;
+        // const SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 3;
 
-        const GW_SET_NEW_VERSION_UPGRADE_INDEX: usize = 5;
-        const GW_SET_CHAIN_CREATION_PARAMS_INDEX: usize = 7;
-        const GW_SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 9;
+        const GW_SET_NEW_VERSION_UPGRADE_INDEX: usize = 4;
+        const GW_SET_CHAIN_CREATION_PARAMS_INDEX: usize = 6;
+        // const GW_SET_UPGRADE_DIAMOND_CUT_INDEX: usize = 9;
 
         let v28_patch_upgrade_cut = v28_patch_upgrade_config.chain_upgrade_diamond_cut.clone();
         let v28_gw_path_upgrade_call = v28_patch_upgrade_config.gateway.upgrade_cut_data.clone();
@@ -548,7 +549,7 @@ impl V28UpgradeComparator {
 
         validate_set_new_version_upgrade_call(
             &self.v28_set_new_version_call,
-            &stage1_upgrade_calls.elems[SET_UPGRADE_DIAMOND_CUT_INDEX],
+            &stage1_upgrade_calls.elems[SET_NEW_VERSION_UPGRADE_INDEX],
             new_l1_verifier,
             U256::from(
                 v28_patch_upgrade_config
@@ -561,11 +562,11 @@ impl V28UpgradeComparator {
         )?;
         result.report_ok("Set new version upgrade (L1) call is valid");
 
-        validate_set_upgrade_diamond_cut_call(
-            &self.v28_set_new_version_call,
-            &stage1_upgrade_calls.elems[SET_NEW_VERSION_UPGRADE_INDEX],
-            new_l1_verifier,
-        )?;
+        // validate_set_upgrade_diamond_cut_call(
+        //     &self.v28_set_new_version_call,
+        //     &stage1_upgrade_calls.elems[SET_UPGRADE_DIAMOND_CUT_INDEX],
+        //     new_l1_verifier,
+        // )?;
         result.report_ok("Set upgrade diamond cut (L1) call is valid");
 
         let gw_new_set_new_version_call = check_and_parse_inner_call_from_gateway_transaction(
@@ -603,18 +604,18 @@ impl V28UpgradeComparator {
         )?;
         result.report_ok("Set chain new creation params (GW) call is valid");
 
-        let set_upgrade_diamond_cut_params_call =
-            check_and_parse_inner_call_from_gateway_transaction(
-                result,
-                &stage1_upgrade_calls.elems[GW_SET_UPGRADE_DIAMOND_CUT_INDEX].data,
-                v28_patch_upgrade_config.gateway_chain_id,
-                Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit),
-            );
-        validate_set_upgrade_diamond_cut_call(
-            &self.v28_gw_set_new_version_call,
-            &set_upgrade_diamond_cut_params_call,
-            new_gw_verifier,
-        )?;
+        // let set_upgrade_diamond_cut_params_call =
+        //     check_and_parse_inner_call_from_gateway_transaction(
+        //         result,
+        //         &stage1_upgrade_calls.elems[GW_SET_UPGRADE_DIAMOND_CUT_INDEX].data,
+        //         v28_patch_upgrade_config.gateway_chain_id,
+        //         Some(v28_patch_upgrade_config.priority_txs_l2_gas_limit),
+        //     );
+        // validate_set_upgrade_diamond_cut_call(
+        //     &self.v28_gw_set_new_version_call,
+        //     &set_upgrade_diamond_cut_params_call,
+        //     new_gw_verifier,
+        // )?;
         result.report_ok("Set upgrade diamond cut (GW) call is valid");
 
         return Ok(());
@@ -752,8 +753,6 @@ impl V28UpgradeComparator {
             .gateway
             .gateway_state_transition
             .verifier_addr;
-        println!("stage0_upgrade_calls: {:?}", stage0_upgrade_calls);
-
 
         self.verify_stage0_calls(
             stage0_upgrade_calls,
@@ -762,24 +761,21 @@ impl V28UpgradeComparator {
             gateway_chain_id,
             priority_txs_l2_gas_limit,
         )?;
-        // println!("stage1_upgrade_calls: {:?}", stage1_upgrade_calls);
-        // self.verify_stage1_calls(
-        //     verifiers,
-        //     result,
-        //     v28_patch_upgrade_config,
-        //     stage1_upgrade_calls,
-        //     new_l1_verifier,
-        //     new_gw_verifier,
-        // )?;
-        // println!("stage2_upgrade_calls: {:?}", stage2_upgrade_calls);
-
-        // self.verify_stage2_calls(
-        //     stage2_upgrade_calls,
-        //     verifiers,
-        //     result,
-        //     gateway_chain_id,
-        //     priority_txs_l2_gas_limit,
-        // )?;
+        self.verify_stage1_calls(
+            verifiers,
+            result,
+            v28_patch_upgrade_config,
+            stage1_upgrade_calls,
+            new_l1_verifier,
+            new_gw_verifier,
+        )?;
+        self.verify_stage2_calls(
+            stage2_upgrade_calls,
+            verifiers,
+            result,
+            gateway_chain_id,
+            priority_txs_l2_gas_limit,
+        )?;
 
         Ok(())
     }

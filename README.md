@@ -70,6 +70,14 @@ cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output_mainnet.yaml
 
 These encoded `UpgradeData` structs should be the content that is sent to L1.
 
+### V28.2 patch verification
+
+The commands below allow to check the upgrades' content and ensure that the diff from the previous upgrade's data is minimal. To also display the upgrade calldata, add `--display-upgrade-data true` to the command below.
+
+#### Mainnet 
+
+cargo run -- --ecosystem-yaml data/v28-2-ecosystem-mainnet.yaml --v28-ecosystem-yaml data/v28-ecosystem-mainnet.yaml --l1-rpc $ALCHEMY_MAINNET  --contracts-commit ea032313f49a01f2ceb7f55e4eae127391167ebd --era-commit  67a9b82125e3e3742b9a1096fa0c2493279d2251  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --gw-rpc https://rpc.era-gateway-mainnet.zksync.dev
+
 ## Abilities and limitations of the tool
 
 This tool will check that:
