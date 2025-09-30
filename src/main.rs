@@ -10,13 +10,13 @@ use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 use crate::utils::v28_upgrade_comparator::V28UpgradeComparator;
 
-// Current top of release-v28 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "6754d814334d885574d0a2238449ec64a5ec6100";
+// Current top of release-v29 branch
+const DEFAULT_CONTRACTS_COMMIT: &str = "ea032313f49a01f2ceb7f55e4eae127391167ebd";
 // Current commit on top of main
-const DEFAULT_ERA_COMMIT: &str = "b7aeab64ce5c915233a773542ef64e79bf3893ee";
+const DEFAULT_ERA_COMMIT: &str = "67a9b82125e3e3742b9a1096fa0c2493279d2251";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.28.1";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.0";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.28.2";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.1";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
