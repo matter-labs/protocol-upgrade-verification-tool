@@ -1,8 +1,5 @@
 use alloy::{
-    hex::{self, FromHex},
-    primitives::{Address, Bytes, FixedBytes},
-    sol,
-    sol_types::SolCall,
+    dyn_abi::SolType, hex::{self, FromHex}, primitives::{Address, Bytes, FixedBytes}, sol, sol_types::{SolCall, SolValue}
 };
 use colored::Colorize;
 use serde::Deserialize;
@@ -10,13 +7,20 @@ use std::fmt::{self, Display};
 use std::panic::Location;
 
 use crate::{
-    utils::{
+    UpgradeOutput, utils::{
         address_from_short_hex, address_verifier::AddressVerifier,
-        bytecode_verifier::BytecodeVerifier, fee_param_verifier::FeeParamVerifier,
+        bytecode_verifier::{BytecodeVerifier, ZKSyncOSSystemProxyUpgradeBytecodeInfo, ZKsyncOSBytecodeInfo}, fee_param_verifier::FeeParamVerifier,
         get_contents_from_github, network_verifier::NetworkVerifier,
-    },
-    UpgradeOutput,
+    }
 };
+
+fn bytes32_one() -> FixedBytes<32> {
+    FixedBytes::from_hex(
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+    )
+    .expect("Invalid bytes32 one hex literal")
+} 
+
 
 sol! {
     function transparentProxyConstructor(address impl, address initialAdmin, bytes memory initCalldata);
@@ -229,13 +233,13 @@ impl VerificationResult {
         }
     }
 
-    pub fn expected_zero_zk_bytecode(
+    pub fn expected_zk_bytecode_one(
         &mut self,
         bytecode_hash: &FixedBytes<32>,
     ) {
-        if bytecode_hash != &FixedBytes::ZERO {
+        if bytecode_hash != &bytes32_one() {
             self.report_error(&format!(
-                "Expected zero zk bytecode hash, got {} at {}",
+                "Expected zk bytecode hash equal to bytes32(1), got {} at {}",
                 bytecode_hash,
                 Location::caller()
             ));
@@ -273,6 +277,57 @@ impl VerificationResult {
                 ));
             }
         }
+    }
+
+    pub fn expect_zksync_os_bytecode_info(
+        &mut self,
+        verifiers: &Verifiers,
+        bytecode_info: &[u8],
+        expected: &str,
+    ) {
+        match verifiers
+            .bytecode_verifier
+            .zksync_os_bytecode_info_to_file(&ZKsyncOSBytecodeInfo::from_bytes(bytecode_info).expect("Failed to decode bytecode info"))
+        {
+            Some(file_name) if file_name == expected => {
+                // All good.
+            }
+            Some(file_name) => {
+                self.report_error(&format!(
+                    "Expected bytecode {}, got {} at {}",
+                    expected,
+                    file_name,
+                    Location::caller()
+                ));
+            }
+            None => {
+                self.report_warn(&format!(
+                    "Cannot verify bytecode info: {:x?} - expected {} at {}",
+                    hex::encode(bytecode_info),
+                    expected,
+                    Location::caller()
+                ));
+            }
+        }
+    }
+
+    pub fn expect_zksync_os_system_proxy_upgrade_bytecode_info(
+        &mut self,
+        verifiers: &Verifiers,
+        bytecode_info: &[u8],
+        expected: &str,
+    ) {
+        let info = ZKSyncOSSystemProxyUpgradeBytecodeInfo::from_encoded_tuple(bytecode_info).expect("Failed to decode system proxy upgrade bytecode info");
+        self.expect_zksync_os_bytecode_info(
+            verifiers, 
+            &info.implementationBytecodeInfo, 
+            expected
+        );
+        self.expect_zksync_os_bytecode_info(
+            verifiers, 
+            &info.systemProxyBytecodeInfo, 
+            "l1-contracts/SystemContractProxy"
+        );
     }
 
     /// Verifies the deployed bytecode of a contract.

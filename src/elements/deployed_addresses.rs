@@ -627,7 +627,7 @@ impl DeployedAddresses {
     }
 
     fn expected_previous_protocol_version() -> U256 {
-        U256::from(28) * U256::from(2).pow(U256::from(32)) + U256::from(1)
+        U256::from(29) * U256::from(2).pow(U256::from(32)) + U256::from(1)
     }
 
     async fn verify_l1_asset_router(

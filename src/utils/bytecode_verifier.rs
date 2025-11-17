@@ -11,10 +11,38 @@ use super::{
 };
 
 sol! {
+    #[derive(Debug, PartialEq, Eq, Hash)]
     struct ZKsyncOSBytecodeInfo {
         bytes32 evmDeployedBytecodeBlakeHash;
         uint256 zkSyncOSBytecodeLength;
         bytes32 evmDeployedBytecodeHash;
+    }
+
+    struct ZKSyncOSSystemProxyUpgradeBytecodeInfo {
+        bytes implementationBytecodeInfo;
+        bytes systemProxyBytecodeInfo;
+    }
+}
+
+impl ZKsyncOSBytecodeInfo {
+    pub fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        let decoded: ZKsyncOSBytecodeInfo = <ZKsyncOSBytecodeInfo as SolValue>::abi_decode(bytes, true)?;
+        Ok(decoded)
+    }
+}
+
+impl ZKSyncOSSystemProxyUpgradeBytecodeInfo {
+    pub fn from_encoded_tuple(bytes: &[u8]) -> anyhow::Result<Self> {
+        let mut offset = [0u8; 32];
+        offset[31] = 0x20; // offset to the data starts at byte 32 
+
+        let mut new_encoded = vec![];
+        new_encoded.extend_from_slice(&offset); // offset
+        new_encoded.extend_from_slice(bytes);
+
+        // When encoding a struct (unlike a tuple), Solidity prepends 32 bytes indicating the offset to the data.
+        let decoded: ZKSyncOSSystemProxyUpgradeBytecodeInfo = <ZKSyncOSSystemProxyUpgradeBytecodeInfo as SolValue>::abi_decode(&new_encoded, true)?;
+        Ok(decoded)
     }
 }
 
@@ -28,7 +56,10 @@ pub struct BytecodeVerifier {
     /// Maps a contract’s file name to its zk bytecode hash.
     bytecode_file_to_zkhash: HashMap<String, FixedBytes<32>>,
     /// Maps a contract’s file name to its zksync os bytecode info
-    bytecode_file_to_zksync_os_info: HashMap<String, Vec<u8>>,
+    bytecode_file_to_zksync_os_info: HashMap<String, ZKsyncOSBytecodeInfo>,
+    /// Maps a contract’s file name to its zksync os bytecode info
+    deployed_bytecode_file_by_zksync_os_info: HashMap<ZKsyncOSBytecodeInfo, String>,
+
 }
 
 impl BytecodeVerifier {
@@ -123,6 +154,17 @@ impl BytecodeVerifier {
         self.bytecode_file_to_zkhash.get(file)
     }
 
+    /// Returns the file name corresponding to the given zk bytecode hash.
+    pub fn zksync_os_bytecode_info_to_file(&self, bytecode_info: &ZKsyncOSBytecodeInfo) -> Option<&String> {
+        self.deployed_bytecode_file_by_zksync_os_info.get(bytecode_info)
+    }
+
+    /// Returns the zk bytecode hash that corresponds to the file
+    pub fn file_to_zksync_os_bytecode_info(&self, file: &str) -> Option<&ZKsyncOSBytecodeInfo> {
+        self.bytecode_file_to_zksync_os_info.get(file)
+    }
+
+
     /// Inserts an entry for the given deployed bytecode hash and file name.
     pub fn insert_evm_deployed_bytecode_hash(
         &mut self,
@@ -153,6 +195,7 @@ impl BytecodeVerifier {
         let mut bytecode_file_to_zkhash = HashMap::new();
         let mut zk_bytecode_file_by_hash = HashMap::new();
         let mut bytecode_file_to_zksync_os_info = HashMap::new();
+        let mut deployed_bytecode_file_by_zksync_os_info = HashMap::new();
 
         let contract_hashes = ContractHashes::init_from_github(commit).await;
         for contract in contract_hashes.hashes {
@@ -171,7 +214,8 @@ impl BytecodeVerifier {
                     evmDeployedBytecodeHash: evm_info.deployed_bytecode_hash,
                 };
 
-                bytecode_file_to_zksync_os_info.insert(contract.contract_name.clone(), info.abi_encode());
+                bytecode_file_to_zksync_os_info.insert(contract.contract_name.clone(), info.clone());
+                deployed_bytecode_file_by_zksync_os_info.insert(info.clone(), contract.contract_name.clone());
             }
 
             if let Some(ref zk_info) = contract.zk_bytecode_info {
@@ -216,6 +260,7 @@ impl BytecodeVerifier {
             zk_bytecode_file_by_hash,
             bytecode_file_to_zkhash,
             bytecode_file_to_zksync_os_info,
+            deployed_bytecode_file_by_zksync_os_info,
         }
     }
 }

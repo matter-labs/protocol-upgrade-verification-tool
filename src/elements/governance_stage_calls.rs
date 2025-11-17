@@ -310,10 +310,9 @@ impl GovernanceStage1Calls {
             }
 
             // should match state_transiton.default_upgrade
-            // FIXME: is default upgrade correct here?
             result.expect_address(verifiers, &diamond_cut.initAddress, "default_upgrade");
 
-            verity_facet_cuts(
+            verify_facet_cuts(
                 &diamond_cut.facetCuts,
                 result,
                 l1_expected_upgrade_facets.clone(),
@@ -535,7 +534,7 @@ pub async fn verify_chain_creation_diamond_cut(
     Ok(())
 }
 
-pub async fn verity_facet_cuts(
+pub async fn verify_facet_cuts(
     facet_cuts: &[set_new_version_upgrade::FacetCut],
     result: &mut crate::verifiers::VerificationResult,
     expected_upgrade_facets: FacetCutSet,

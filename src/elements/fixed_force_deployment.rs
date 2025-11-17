@@ -52,6 +52,7 @@ impl FixedForceDeploymentsData {
         }
 
         result.expect_address(verifiers, &self.l1AssetRouter, "l1_asset_router_proxy");
+        // Even though this is a ZK bytecode, we just dont use it in zksync os.
         result.expect_zk_bytecode(
             verifiers,
             &self.l2TokenProxyBytecodeHash,
@@ -60,41 +61,46 @@ impl FixedForceDeploymentsData {
         result.expect_address(
             verifiers,
             &self.aliasedL1Governance,
-            "aliased_protocol_upgrade_handler_proxy",
+            "aliased_owner",
         );
 
         if self.maxNumberOfZKChains != U256::from(MAX_NUMBER_OF_ZK_CHAINS) {
             result.report_error("maxNumberOfZKChains must be 100");
         }
 
-        // FIXME: 
-        // result.expect_zk_bytecode(
-        //     verifiers,
-        //     &self.bridgehubBytecodeHash,
-        //     "l1-contracts/Bridgehub",
-        // );
-        // result.expect_zk_bytecode(
-        //     verifiers,
-        //     &self.l2AssetRouterBytecodeHash,
-        //     "l1-contracts/L2AssetRouter",
-        // );
-        // result.expect_zk_bytecode(
-        //     verifiers,
-        //     &self.l2NtvBytecodeHash,
-        //     "l1-contracts/L2NativeTokenVault",
-        // );
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
+            verifiers,
+            &self.bridgehubBytecodeInfo,
+            "l1-contracts/L2Bridgehub",
+        );
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
+            verifiers,
+            &self.l2AssetRouterBytecodeInfo,
+            "l1-contracts/L2AssetRouter",
+        );
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
+            verifiers,
+            &self.l2NtvBytecodeInfo,
+            "l1-contracts/L2NativeTokenVaultZKOS",
+        );
 
-        // result.expect_zk_bytecode(
-        //     verifiers,
-        //     &self.messageRootBytecodeHash,
-        //     "l1-contracts/MessageRoot",
-        // );
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
+            verifiers,
+            &self.messageRootBytecodeInfo,
+            "l1-contracts/L2MessageRoot",
+        );
 
-        // result.expect_zk_bytecode(
-        //     verifiers,
-        //     &self.chainAssetHandlerBytecodeHash,
-        //     "l1-contracts/ChainAssetHandler",
-        // );
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
+            verifiers,
+            &self.chainAssetHandlerBytecodeInfo,
+            "l1-contracts/L2ChainAssetHandler",
+        );
+
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
+            verifiers,
+            &self.beaconDeployerInfo,
+            "l1-contracts/UpgradeableBeaconDeployer",
+        );
 
         result.expect_address(verifiers, &self.l2SharedBridgeLegacyImpl, "zero");
 

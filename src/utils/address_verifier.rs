@@ -30,7 +30,7 @@ impl AddressVerifier {
         result.add_address(config.owner_address, "owner");
         result.add_address(
             apply_l2_to_l1_alias(config.owner_address),
-            "aliased_protocol_upgrade_handler_proxy",
+            "aliased_owner",
         );
         result.add_address(
             bytecode_verifier
