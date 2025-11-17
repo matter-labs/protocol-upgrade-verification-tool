@@ -311,7 +311,7 @@ impl UpgradeOutput {
                 //     .validator_timelock_addr,
             )
             .await
-            .context("stage1")?;
+            .map_err(|e| anyhow::anyhow!("stage1: {:#?}", e))?;  
 
         let stage2 = GovernanceStage2Calls {
             calls: CallList::parse(&self.governance_calls.stage2_calls),

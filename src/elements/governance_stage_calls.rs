@@ -243,13 +243,12 @@ impl GovernanceStage1Calls {
             ("state_transition_manager",
             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
             ("rollup_da_manager", "acceptOwnership()"),
+            ("verifier", "acceptOwnership()"),
         ];
         const UPGRADE_CTM: usize = 0;
         const UPGRADE_VALIDATOR_TIMELOCK: usize = 1;
         const SET_CHAIN_CREATION_INDEX: usize = 2;
         const SET_NEW_VERSION_INDEX: usize = 3;
-        const UPDATE_ROLLUP_DA_PAIR_CALLDATA: usize = 4;
-        const UPDATE_ROLLUP_DA_PAIR_BLOBS: usize = 5;
         // For calls without any params, we don't have to check
         // anything else. This is true for stage 0 and stage 2.
 
