@@ -31,6 +31,7 @@ pub struct UpgradeOutput {
     pub(crate) era_chain_id: u64,
 
     pub(crate) governance_calls: GovernanceCalls,
+    pub(crate) deployer_addr: Address,
 
     pub(crate) l1_chain_id: u64,
 
@@ -218,13 +219,13 @@ impl UpgradeOutput {
     ) -> anyhow::Result<()> {
         result.print_info("== Config verification ==");
 
-        let provider_chain_id = verifiers.network_verifier.get_era_chain_id();
-        if provider_chain_id == self.era_chain_id {
+        let provider_era_chain_id = verifiers.network_verifier.get_era_chain_id();
+        if provider_era_chain_id == self.era_chain_id {
             result.report_ok("Chain id");
         } else {
             result.report_error(&format!(
                 "chain id mismatch: {} vs {} ",
-                self.era_chain_id, provider_chain_id
+                self.era_chain_id, provider_era_chain_id
             ));
         }
 
@@ -249,11 +250,12 @@ impl UpgradeOutput {
             .await
             .context("checking facets")?;
 
-        let (gw_facets_to_remove, gw_facets_to_add) = self
-            .deployed_addresses
-            .get_expected_facet_cuts(verifiers, result, true)
-            .await
-            .context("checking gw facets")?;
+        // no gw in zksync os upgrade
+        // let (gw_facets_to_remove, gw_facets_to_add) = self
+        //     .deployed_addresses
+        //     .get_expected_facet_cuts(verifiers, result, true)
+        //     .await
+        //     .context("checking gw facets")?;
 
         result
             .expect_deployed_bytecode(verifiers, &self.create2_factory_addr, "Create2Factory")
@@ -280,14 +282,14 @@ impl UpgradeOutput {
         let l1_expected_upgrade_facets =
             l1_facets_to_remove.merge(l1_facets_to_add.clone()).clone();
 
-        let gw_expected_upgrade_facets =
-            gw_facets_to_remove.merge(gw_facets_to_add.clone()).clone();
+        // let gw_expected_upgrade_facets =
+        //     gw_facets_to_remove.merge(gw_facets_to_add.clone()).clone();
 
         let (
             l1_expected_chain_creation_data,
             l1_expected_force_deployments,
-            gw_expected_chain_creation_data,
-            gw_expected_force_deployments,
+            // gw_expected_chain_creation_data,
+            // gw_expected_force_deployments,
         ) = stage1
             .verify(
                 verifiers,
@@ -297,18 +299,18 @@ impl UpgradeOutput {
                 self.gateway_chain_id,
                 self.priority_txs_l2_gas_limit,
                 l1_facets_to_add.clone(),
-                gw_facets_to_add.clone(),
+                // gw_facets_to_add.clone(),
                 &self.deployed_addresses,
                 l1_expected_upgrade_facets.clone(),
                 &self.chain_upgrade_diamond_cut,
-                gw_expected_upgrade_facets.clone(),
-                &self.gateway.upgrade_cut_data,
-                &self.gateway.gateway_state_transition,
-                &self.v29,
+                // gw_expected_upgrade_facets.clone(),
+                // &self.gateway.upgrade_cut_data,
+                // &self.gateway.gateway_state_transition,
+                // &self.v29,
                 self.deployed_addresses.validator_timelock_addr,
-                self.gateway
-                    .gateway_state_transition
-                    .validator_timelock_addr,
+                // self.gateway
+                //     .gateway_state_transition
+                //     .validator_timelock_addr,
             )
             .await
             .context("stage1")?;
@@ -336,17 +338,17 @@ impl UpgradeOutput {
             )
             .await;
 
-        let mut config = self.contracts_config.clone();
-        config.diamond_cut_data = self.gateway.diamond_cut_data.clone();
+        // let mut config = self.contracts_config.clone();
+        // config.diamond_cut_data = self.gateway.diamond_cut_data.clone();
 
-        config
-            .verify(
-                verifiers,
-                result,
-                gw_expected_chain_creation_data,
-                gw_expected_force_deployments,
-            )
-            .await;
+        // config
+        //     .verify(
+        //         verifiers,
+        //         result,
+        //         gw_expected_chain_creation_data,
+        //         gw_expected_force_deployments,
+        //     )
+        //     .await;
 
         Ok(())
     }

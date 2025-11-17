@@ -44,6 +44,7 @@ impl Verifiers {
         l1_rpc: String,
         gw_rpc: String,
         era_chain_id: u64,
+        sample_chain_id: Option<u64>,
         gateway_chain_id: u64,
         config: &UpgradeOutput,
     ) -> Self {
@@ -54,6 +55,7 @@ impl Verifiers {
         let network_verifier = NetworkVerifier::new(
             l1_rpc,
             era_chain_id,
+            sample_chain_id,
             gateway_chain_id,
             gw_rpc,
             &bytecode_verifier,
@@ -193,6 +195,19 @@ impl VerificationResult {
                 ));
                 false
             }
+        }
+    }
+
+    pub fn expected_zero_zk_bytecode(
+        &mut self,
+        bytecode_hash: &FixedBytes<32>,
+    ) {
+        if bytecode_hash != &FixedBytes::ZERO {
+            self.report_error(&format!(
+                "Expected zero zk bytecode hash, got {} at {}",
+                bytecode_hash,
+                Location::caller()
+            ));
         }
     }
 

@@ -1,12 +1,22 @@
 use alloy::hex::{self, FromHex};
-use alloy::primitives::{keccak256, Address, Bytes, FixedBytes};
+use alloy::primitives::{Address, Bytes, FixedBytes, U256, keccak256};
+use alloy::sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use alloy::sol;
 
 use super::{
     address_from_short_hex, compute_create2_address_zk, compute_hash_with_arguments,
     get_contents_from_github,
 };
+
+sol! {
+    struct ZKsyncOSBytecodeInfo {
+        bytes32 evmDeployedBytecodeBlakeHash;
+        uint256 zkSyncOSBytecodeLength;
+        bytes32 evmDeployedBytecodeHash;
+    }
+}
 
 pub struct BytecodeVerifier {
     /// Maps init bytecode hash to the corresponding file name.
@@ -17,6 +27,8 @@ pub struct BytecodeVerifier {
     zk_bytecode_file_by_hash: HashMap<FixedBytes<32>, String>,
     /// Maps a contract’s file name to its zk bytecode hash.
     bytecode_file_to_zkhash: HashMap<String, FixedBytes<32>>,
+    /// Maps a contract’s file name to its zksync os bytecode info
+    bytecode_file_to_zksync_os_info: HashMap<String, Vec<u8>>,
 }
 
 impl BytecodeVerifier {
@@ -140,45 +152,35 @@ impl BytecodeVerifier {
         let mut deployed_bytecode_file_by_hash = HashMap::new();
         let mut bytecode_file_to_zkhash = HashMap::new();
         let mut zk_bytecode_file_by_hash = HashMap::new();
+        let mut bytecode_file_to_zksync_os_info = HashMap::new();
 
         let contract_hashes = ContractHashes::init_from_github(commit).await;
         for contract in contract_hashes.hashes {
-            if let Some(ref hash) = contract.evm_bytecode_hash {
-                let decoded = hex::decode(hash).unwrap_or_else(|_| {
-                    panic!(
-                        "Invalid hex in evm_bytecode_hash for {}",
-                        contract.contract_name
-                    )
-                });
-                let bytecode_hash = FixedBytes::try_from(decoded.as_slice())
-                    .expect("Invalid length for FixedBytes (evm_bytecode_hash)");
-                init_bytecode_file_by_hash.insert(bytecode_hash, contract.contract_name.clone());
-            }
 
-            if let Some(ref hash) = contract.evm_deployed_bytecode_hash {
-                let decoded = hex::decode(hash).unwrap_or_else(|_| {
-                    panic!(
-                        "Invalid hex in evm_deployed_bytecode_hash for {}",
-                        contract.contract_name
-                    )
-                });
-                let bytecode_hash = FixedBytes::try_from(decoded.as_slice())
-                    .expect("Invalid length for FixedBytes (evm_deployed_bytecode_hash)");
+            if let Some(ref evm_info) = contract.evm_bytecode_info {
+                init_bytecode_file_by_hash
+                    .insert(evm_info.bytecode_hash, contract.contract_name.clone());
+
                 deployed_bytecode_file_by_hash
-                    .insert(bytecode_hash, contract.contract_name.clone());
+                    .insert(evm_info.deployed_bytecode_hash, contract.contract_name.clone());
+
+                
+                let info = ZKsyncOSBytecodeInfo {
+                    evmDeployedBytecodeBlakeHash: evm_info.deployed_blake_hash,
+                    zkSyncOSBytecodeLength: U256::from(evm_info.deployed_length),
+                    evmDeployedBytecodeHash: evm_info.deployed_bytecode_hash,
+                };
+
+                bytecode_file_to_zksync_os_info.insert(contract.contract_name.clone(), info.abi_encode());
             }
 
-            if let Some(ref hash) = contract.zk_bytecode_hash {
-                let decoded = hex::decode(hash).unwrap_or_else(|_| {
-                    panic!(
-                        "Invalid hex in zk_bytecode_hash for {}",
-                        contract.contract_name
-                    )
-                });
-                let bytecode_hash = FixedBytes::try_from(decoded.as_slice())
-                    .expect("Invalid length for FixedBytes (zk_bytecode_hash)");
-                bytecode_file_to_zkhash.insert(contract.contract_name.clone(), bytecode_hash);
-                zk_bytecode_file_by_hash.insert(bytecode_hash, contract.contract_name);
+            if let Some(ref zk_info) = contract.zk_bytecode_info {
+                bytecode_file_to_zkhash.insert(
+                    contract.contract_name.clone(),
+                    zk_info.zk_bytecode_hash,
+                );
+                zk_bytecode_file_by_hash
+                    .insert(zk_info.zk_bytecode_hash, contract.contract_name.clone());
             }
         }
 
@@ -213,12 +215,13 @@ impl BytecodeVerifier {
             deployed_bytecode_file_by_hash,
             zk_bytecode_file_by_hash,
             bytecode_file_to_zkhash,
+            bytecode_file_to_zksync_os_info,
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContractHash {
+pub struct ContractHashRaw {
     #[serde(rename = "contractName")]
     pub contract_name: String,
     #[serde(rename = "evmBytecodeHash")]
@@ -227,6 +230,75 @@ pub struct ContractHash {
     pub evm_deployed_bytecode_hash: Option<String>,
     #[serde(rename = "zkBytecodeHash")]
     pub zk_bytecode_hash: Option<String>,
+    #[serde(rename = "evmDeployedBytecodeBlakeHash")]
+    pub evm_deployed_bytecode_blake_hash: Option<String>,
+    #[serde(rename = "evmDeployedBytecodeLength")]
+    pub evm_deployed_bytecode_length: Option<u64>,
+}
+
+#[derive(Debug)]
+pub struct EvmBytecodeInfo {
+    pub bytecode_hash: FixedBytes<32>,
+    pub deployed_bytecode_hash: FixedBytes<32>,
+    pub deployed_blake_hash: FixedBytes<32>,
+    pub deployed_length: u64,
+}
+
+#[derive(Debug)]
+pub struct ZKBytecodeInfo {
+    pub zk_bytecode_hash: FixedBytes<32>,
+}
+
+#[derive(Debug)]
+pub struct ContractHash {
+    pub contract_name: String,
+    pub evm_bytecode_info: Option<EvmBytecodeInfo>,
+    pub zk_bytecode_info: Option<ZKBytecodeInfo>,
+}
+
+impl From<ContractHashRaw> for ContractHash {
+    fn from(raw: ContractHashRaw) -> Self {
+        let evm_bytecode_info = if let (Some(evm_hash), Some(deployed_hash), Some(blake_hash), Some(length)) = (
+            raw.evm_bytecode_hash,
+            raw.evm_deployed_bytecode_hash,
+            raw.evm_deployed_bytecode_blake_hash,
+            raw.evm_deployed_bytecode_length,
+        ) {
+            let decoded_evm_hash = hex::decode(evm_hash).expect("Invalid hex in evm_bytecode_hash");
+            let decoded_deployed_hash =
+                hex::decode(deployed_hash).expect("Invalid hex in evm_deployed_bytecode_hash");
+            let decoded_blake_hash =
+                hex::decode(blake_hash).expect("Invalid hex in evm_deployed_bytecode_blake_hash");
+
+            Some(EvmBytecodeInfo {
+                bytecode_hash: FixedBytes::try_from(decoded_evm_hash.as_slice())
+                    .expect("Invalid length for FixedBytes (evm_bytecode_hash)"),
+                deployed_bytecode_hash: FixedBytes::try_from(decoded_deployed_hash.as_slice())
+                    .expect("Invalid length for FixedBytes (evm_deployed_bytecode_hash)"),
+                deployed_blake_hash: FixedBytes::try_from(decoded_blake_hash.as_slice())
+                    .expect("Invalid length for FixedBytes (evm_deployed_bytecode_blake_hash)"),
+                deployed_length: length,
+            })
+        } else {
+            None
+        };
+
+        let zk_bytecode_info = if let Some(zk_hash) = raw.zk_bytecode_hash {
+            let decoded = hex::decode(zk_hash).expect("Invalid hex in zk_bytecode_hash");
+            Some(ZKBytecodeInfo {
+                zk_bytecode_hash: FixedBytes::try_from(decoded.as_slice())
+                    .expect("Invalid length for FixedBytes (zk_bytecode_hash)"),
+            })
+        } else {
+            None
+        };
+
+        Self {
+            contract_name: raw.contract_name,
+            evm_bytecode_info,
+            zk_bytecode_info,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -238,9 +310,12 @@ impl ContractHashes {
     /// Initializes the contract hashes by fetching and parsing the JSON from GitHub.
     pub async fn init_from_github(commit: &str) -> Self {
         let contents = Self::get_contents(commit).await;
+
+        let raw_hashes: Vec<ContractHashRaw> =
+            serde_json::from_str(&contents).expect("Failed to parse AllContractsHashes.json from GitHub");
+
         Self {
-            hashes: serde_json::from_str(&contents)
-                .expect("Failed to parse AllContractsHashes.json from GitHub"),
+                    hashes: raw_hashes.into_iter().map(ContractHash::from).collect(),
         }
     }
 

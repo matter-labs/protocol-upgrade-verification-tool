@@ -13,8 +13,8 @@ const DEFAULT_CONTRACTS_COMMIT: &str = "37b2351dfa20fc1b1c6c7dfca559ac27ec82f017
 // Current commit on top of main
 const DEFAULT_ERA_COMMIT: &str = "fe0a73730853b291c3c1dd514a42a45625704b7b";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.2";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.1";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.30.0";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.29.1";
 pub(crate) const V28_PROTOCOL_VERSION_STR: &str = "0.28.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
@@ -60,6 +60,11 @@ struct Args {
     #[clap(long)]
     era_chain_id: u64,
 
+    // Optional sample chain id. This is used to obtain the address of the ChainTypeManager, etc. 
+    // Typically used for zksync-os-specific upgrades.
+    #[clap(long)]
+    sample_chain_id: Option<u64>,
+
     // If set - then will expect testnet contracts to be deployed (like TestnetVerifier).
     #[clap(long)]
     testnet_contracts: bool,
@@ -89,6 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.l1_rpc,
         args.gw_rpc,
         args.era_chain_id,
+        args.sample_chain_id,
         config.gateway_chain_id,
         &config,
     )

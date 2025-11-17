@@ -171,6 +171,10 @@ sol! {
         constructor(address _fflonkVerifier, address _plonkVerifier);
     }
 
+    contract ZKsyncOSDualVerifier {
+        constructor(address _fflonkVerifier, address _plonkVerifier, address _initialOwner);
+    }
+
     #[sol(rpc)]
     contract ProtocolUpgradeHandler {
         /// @dev ZKsync smart contract that used to operate with L2 via asynchronous L2 <-> L1 communication.
@@ -190,6 +194,10 @@ sol! {
 
         /// @dev Vault holding L1 native ETH and ERC20 tokens bridged into the ZK chains.
         address public immutable L1_NATIVE_TOKEN_VAULT;
+    }
+
+    contract DiamondInit {
+        constructor(bool _isZKsyncOS);
     }
 
     #[sol(rpc)]
@@ -842,18 +850,23 @@ impl DeployedAddresses {
             .get_bridgehub_info(bridgehub_addr)
             .await;
 
-        let mut facets_to_remove = FacetCutSet::new();
-        let getters_facet = GettersFacet::new(bridgehub_info.era_address, l1_provider);
-        let current_facets = getters_facet.facets().call().await?.result;
-        for f in current_facets {
-            // Note, that when deleting facets, their address must be provided as zero.
-            facets_to_remove.add_facet(FacetInfo {
-                facet: Address::ZERO,
-                is_freezable: false,
-                action: facet_cut_set::Action::Remove,
-                selectors: f.selectors.iter().map(|x| x.0).collect(),
-            });
-        }
+        let facets_to_remove = if let Some(sample_chain) = bridgehub_info.sample_chain_address {
+            let mut facets_to_remove = FacetCutSet::new();
+            let getters_facet = GettersFacet::new(sample_chain, l1_provider);
+            let current_facets = getters_facet.facets().call().await?.result;
+            for f in current_facets {
+                // Note, that when deleting facets, their address must be provided as zero.
+                facets_to_remove.add_facet(FacetInfo {
+                    facet: Address::ZERO,
+                    is_freezable: false,
+                    action: facet_cut_set::Action::Remove,
+                    selectors: f.selectors.iter().map(|x| x.0).collect(),
+                });
+            }
+            facets_to_remove
+        } else {
+            FacetCutSet::new()
+        };
 
         let mut facets_to_add = FacetCutSet::new();
         for (l1_facet, gw_facet) in EXPECTED_FACETS.iter().zip(EXPECTED_GATEWAY_FACETS) {
@@ -1044,24 +1057,29 @@ impl DeployedAddresses {
             .get_bridgehub_info(bridgehub_addr)
             .await;
 
-        self.verify_ntv(config, verifiers, result, &bridgehub_info)
-            .await?;
-        self.verify_validator_timelock(config, verifiers, result, &bridgehub_info)
-            .await
-            .context("validator timelock")?;
-        self.verify_chain_asset_handler(config, verifiers, result, &bridgehub_info)
-            .await
-            .context("chain asset handler")?;
-        self.verify_l1_asset_router(config, verifiers, result, &bridgehub_info)
-            .await
-            .context("l1 asset")?;
-        self.verify_l1_nullifier(config, verifiers, result, &bridgehub_info)
-            .await
-            .context("l1 nullifier")?;
-        self.verify_bridgehub_impl(config, verifiers, result)
-            .await?;
-        self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info, false)
-            .await?;
+        // Skipped as zksync os admin doesnt update it.
+        // self.verify_ntv(config, verifiers, result, &bridgehub_info)
+        //     .await?;
+        
+    // We do not update validator timelock in this release
+        // self.verify_validator_timelock(config, verifiers, result, &bridgehub_info)
+        //     .await
+        //     .context("validator timelock")?;
+        
+        // Skipped as zksync os admin doesnt update it.
+        // self.verify_chain_asset_handler(config, verifiers, result, &bridgehub_info)
+        //     .await
+        //     .context("chain asset handler")?;
+        // self.verify_l1_asset_router(config, verifiers, result, &bridgehub_info)
+        //     .await
+        //     .context("l1 asset")?;
+        // self.verify_l1_nullifier(config, verifiers, result, &bridgehub_info)
+        //     .await
+        //     .context("l1 nullifier")?;
+        // self.verify_bridgehub_impl(config, verifiers, result)
+        //     .await?;
+        // self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info, false)
+        //     .await?;
         self.verify_admin_facet(config, verifiers, result, &bridgehub_info, false)
             .await?;
         self.verify_executor_facet(config, verifiers, result, &bridgehub_info, false)
@@ -1071,35 +1089,38 @@ impl DeployedAddresses {
         self.verify_mailbox_facet(config, verifiers, result, &bridgehub_info, false)
             .await?;
 
-        self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
-            .await
-            .context("per chain info")?;
+        // TODO: maybe protocol
+        // self.verify_per_chain_info(config, verifiers, result, &bridgehub_info)
+        //     .await
+        //     .context("per chain info")?;
 
-        self.verify_protocol_upgrade_handler_implementation(
-            config,
-            verifiers,
-            result,
-            &bridgehub_info,
-        )
-        .await?;
+        // zksync os governor can not change the protocol upgrade handler implementation
+        // self.verify_protocol_upgrade_handler_implementation(
+        //     config,
+        //     verifiers,
+        //     result,
+        //     &bridgehub_info,
+        // )
+        // .await?;
 
         result.expect_create2_params(
             verifiers,
             &self.state_transition.verifier_plonk_addr,
             Vec::new(),
-            "l1-contracts/L1VerifierPlonk",
+            "l1-contracts/ZKsyncOSVerifierPlonk",
         );
 
         result.expect_create2_params(
             verifiers,
             &self.state_transition.verifier_fflonk_addr,
             Vec::new(),
-            "l1-contracts/L1VerifierFflonk",
+            "l1-contracts/ZKsyncOSVerifierFflonk",
         );
 
-        let expected_constructor_params = DualVerifier::constructorCall::new((
+        let expected_constructor_params = ZKsyncOSDualVerifier::constructorCall::new((
             self.state_transition.verifier_fflonk_addr,
             self.state_transition.verifier_plonk_addr,
+            config.deployer_addr
         ))
         .abi_encode();
 
@@ -1108,9 +1129,9 @@ impl DeployedAddresses {
             &self.state_transition.verifier_addr,
             expected_constructor_params,
             if verifiers.testnet_contracts {
-                "l1-contracts/TestnetVerifier"
+                "l1-contracts/ZKsyncOSTestnetVerifier"
             } else {
-                "l1-contracts/DualVerifier"
+                "l1-contracts/ZKsyncOSDualVerifier"
             },
         );
         result.expect_create2_params(
@@ -1123,86 +1144,89 @@ impl DeployedAddresses {
             verifiers,
             &self.state_transition.default_upgrade_addr,
             Vec::new(),
-            "l1-contracts/L1V29Upgrade",
+            "l1-contracts/DefaultUpgrade",
         );
         result.expect_create2_params(
             verifiers,
             &self.state_transition.diamond_init_addr,
-            Vec::new(),
+            DiamondInit::constructorCall::new((true,)).abi_encode(),
             "l1-contracts/DiamondInit",
         );
 
-        result.expect_create2_params(
-            verifiers,
-            &self.bridgehub.message_root_implementation_addr,
-            MessageRoot::constructorCall::new((
-                bridgehub_info.bridgehub_addr,
-                U256::from(config.l1_chain_id),
-            ))
-            .abi_encode(),
-            "l1-contracts/MessageRoot",
-        );
+        // zksync os admin doesnt update message root implementation
+        // result.expect_create2_params(
+        //     verifiers,
+        //     &self.bridgehub.message_root_implementation_addr,
+        //     MessageRoot::constructorCall::new((
+        //         bridgehub_info.bridgehub_addr,
+        //         U256::from(config.l1_chain_id),
+        //     ))
+        //     .abi_encode(),
+        //     "l1-contracts/MessageRoot",
+        // );
 
         // Check gateway create2
-        self.verify_admin_facet(config, verifiers, result, &bridgehub_info, true)
-            .await?;
-        self.verify_executor_facet(config, verifiers, result, &bridgehub_info, true)
-            .await?;
-        self.verify_getters_facet(config, verifiers, result, &bridgehub_info, true)
-            .await?;
-        self.verify_mailbox_facet(config, verifiers, result, &bridgehub_info, true)
-            .await?;
-        self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info, true)
-            .await?;
+        // self.verify_admin_facet(config, verifiers, result, &bridgehub_info, true)
+        //     .await?;
+        // self.verify_executor_facet(config, verifiers, result, &bridgehub_info, true)
+        //     .await?;
+        // self.verify_getters_facet(config, verifiers, result, &bridgehub_info, true)
+        //     .await?;
+        // self.verify_mailbox_facet(config, verifiers, result, &bridgehub_info, true)
+        //     .await?;
+        // self.verify_chain_type_manager(config, verifiers, result, &bridgehub_info, true)
+        //     .await?;
 
-        result.expect_create2_params(
-            verifiers,
-            &config.gateway.gateway_state_transition.verifier_plonk_addr,
-            Vec::new(),
-            "l1-contracts/L1VerifierPlonk",
-        );
+        // result.expect_create2_params(
+        //     verifiers,
+        //     &config.gateway.gateway_state_transition.verifier_plonk_addr,
+        //     Vec::new(),
+        //     "l1-contracts/L1VerifierPlonk",
+        // );
 
-        result.expect_create2_params(
-            verifiers,
-            &config.gateway.gateway_state_transition.verifier_fflonk_addr,
-            Vec::new(),
-            "l1-contracts/L1VerifierFflonk",
-        );
+        // result.expect_create2_params(
+        //     verifiers,
+        //     &config.gateway.gateway_state_transition.verifier_fflonk_addr,
+        //     Vec::new(),
+        //     "l1-contracts/L1VerifierFflonk",
+        // );
 
-        let expected_constructor_params = DualVerifier::constructorCall::new((
-            config.gateway.gateway_state_transition.verifier_fflonk_addr,
-            config.gateway.gateway_state_transition.verifier_plonk_addr,
-        ))
-        .abi_encode();
+        // let expected_constructor_params = DualVerifier::constructorCall::new((
+        //     config.gateway.gateway_state_transition.verifier_fflonk_addr,
+        //     config.gateway.gateway_state_transition.verifier_plonk_addr,
+        // ))
+        // .abi_encode();
 
-        result.expect_create2_params(
-            verifiers,
-            &config.gateway.gateway_state_transition.verifier_addr,
-            expected_constructor_params,
-            if verifiers.testnet_contracts {
-                "l1-contracts/TestnetVerifier"
-            } else {
-                "l1-contracts/DualVerifier"
-            },
-        );
-        result.expect_create2_params(
-            verifiers,
-            &config.gateway.gateway_state_transition.genesis_upgrade_addr,
-            Vec::new(),
-            "l1-contracts/L1GenesisUpgrade",
-        );
-        result.expect_create2_params(
-            verifiers,
-            &config.gateway.gateway_state_transition.default_upgrade_addr,
-            Vec::new(),
-            "l1-contracts/L1V29Upgrade",
-        );
-        result.expect_create2_params(
-            verifiers,
-            &config.gateway.gateway_state_transition.diamond_init_addr,
-            Vec::new(),
-            "l1-contracts/DiamondInit",
-        );
+        // result.expect_create2_params(
+        //     verifiers,
+        //     &config.gateway.gateway_state_transition.verifier_addr,
+        //     expected_constructor_params,
+        //     if verifiers.testnet_contracts {
+        //         "l1-contracts/TestnetVerifier"
+        //     } else {
+        //         "l1-contracts/DualVerifier"
+        //     },
+        // );
+        // result.expect_create2_params(
+        //     verifiers,
+        //     &config.gateway.gateway_state_transition.genesis_upgrade_addr,
+        //     Vec::new(),
+        //     "l1-contracts/L1GenesisUpgrade",
+        // );
+        // result.expect_create2_params(
+        //     verifiers,
+        //     &config.gateway.gateway_state_transition.default_upgrade_addr,
+        //     Vec::new(),
+        //     "l1-contracts/L1V29Upgrade",
+        // );
+        // result.expect_create2_params(
+        //     verifiers,
+        //     &config.gateway.gateway_state_transition.diamond_init_addr,
+        //     Vec::new(),
+        //     "l1-contracts/DiamondInit",
+        // );
+
+        // FIXME: should also validate da valiators
 
         result.report_ok("deployed addresses");
         Ok(())

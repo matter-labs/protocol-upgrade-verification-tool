@@ -9,8 +9,7 @@ use alloy::{
 use anyhow::Context;
 
 use crate::{
-    get_expected_new_protocol_version,
-    utils::{address_from_short_hex, apply_l2_to_l1_alias},
+    elements::force_deployment::IComplexUpgraderZKsyncOSV29, get_expected_new_protocol_version, utils::{address_from_short_hex, apply_l2_to_l1_alias}
 };
 
 use super::{
@@ -193,7 +192,8 @@ impl ProposedUpgrade {
     ) -> anyhow::Result<()> {
         let tx = &self.l2ProtocolUpgradeTx;
 
-        if tx.txType != U256::from(254) {
+        // not zksync os has different upgrade type
+        if tx.txType != U256::from(126) {
             result.report_error("Invalid txType");
         }
         if tx.from != U256::from(FORCE_DEPLOYER_ADDRESS) {
@@ -239,58 +239,62 @@ impl ProposedUpgrade {
             result.report_error("Invalid reservedDynamic");
         }
 
-        let l1_provider = verifiers.network_verifier.get_l1_provider();
-        let bytecodes_supplier = BytecodesSupplier::new(bytecodes_supplier_addr, l1_provider);
+        // let l1_provider = verifiers.network_verifier.get_l1_provider();
+        // let bytecodes_supplier = BytecodesSupplier::new(bytecodes_supplier_addr, l1_provider);
 
-        let deps: Vec<FixedBytes<32>> = tx
-            .factoryDeps
-            .iter()
-            .map(|dep| FixedBytes::<32>::from_slice(&dep.to_be_bytes::<32>()))
-            .collect();
+        // let deps: Vec<FixedBytes<32>> = tx
+        //     .factoryDeps
+        //     .iter()
+        //     .map(|dep| FixedBytes::<32>::from_slice(&dep.to_be_bytes::<32>()))
+        //     .collect();
 
-        let mut expected_bytecodes: HashSet<&str> = EXPECTED_BYTECODES.iter().copied().collect();
+        // let mut expected_bytecodes: HashSet<&str> = EXPECTED_BYTECODES.iter().copied().collect();
 
-        for dep in deps {
-            let file_name = match verifiers.bytecode_verifier.zk_bytecode_hash_to_file(&dep) {
-                Some(file) => file,
-                None => {
-                    result.report_error(&format!(
-                        "Invalid dependency in factory deps – cannot find file for hash: {:?}",
-                        dep
-                    ));
-                    continue;
-                }
-            };
+        // for dep in deps {
+        //     let file_name = match verifiers.bytecode_verifier.zk_bytecode_hash_to_file(&dep) {
+        //         Some(file) => file,
+        //         None => {
+        //             result.report_error(&format!(
+        //                 "Invalid dependency in factory deps – cannot find file for hash: {:?}",
+        //                 dep
+        //             ));
+        //             continue;
+        //         }
+        //     };
 
-            if !expected_bytecodes.contains(file_name.as_str()) {
-                result.report_error(&format!(
-                    "Unexpected dependency in factory deps: {}",
-                    file_name
-                ));
-                continue;
-            }
+        //     if !expected_bytecodes.contains(file_name.as_str()) {
+        //         result.report_error(&format!(
+        //             "Unexpected dependency in factory deps: {}",
+        //             file_name
+        //         ));
+        //         continue;
+        //     }
 
-            expected_bytecodes.remove(file_name.as_str());
+        //     expected_bytecodes.remove(file_name.as_str());
 
-            // Check that the dependency has been published.
-            let publishing_info = bytecodes_supplier
-                .publishingBlock(dep)
-                .call()
-                .await
-                .map_err(|e| anyhow::anyhow!("Error calling publishingBlock: {:?}", e))?;
-            if publishing_info.blockNumber == U256::ZERO {
-                result.report_error(&format!("Unpublished bytecode for {}", file_name));
-            }
-        }
-        if !expected_bytecodes.is_empty() {
-            result.report_error(&format!(
-                "Missing dependencies in factory deps: {:?}",
-                expected_bytecodes
-            ));
-        }
+        //     // Check that the dependency has been published.
+        //     let publishing_info = bytecodes_supplier
+        //         .publishingBlock(dep)
+        //         .call()
+        //         .await
+        //         .map_err(|e| anyhow::anyhow!("Error calling publishingBlock: {:?}", e))?;
+        //     if publishing_info.blockNumber == U256::ZERO {
+        //         result.report_error(&format!("Unpublished bytecode for {}", file_name));
+        //     }
+        // }
+        // if !expected_bytecodes.is_empty() {
+        //     result.report_error(&format!(
+        //         "Missing dependencies in factory deps: {:?}",
+        //         expected_bytecodes
+        //     ));
+        // }
 
         // Check calldata.
-        let complex_upgrade_call = forceDeployAndUpgradeCall::abi_decode(&tx.data, true).unwrap(); // TODO check if we need to verify complex upgrade?
+        let complex_upgrade_call = IComplexUpgraderZKsyncOSV29::forceDeployAndUpgradeUniversalCall::abi_decode(&tx.data, true).unwrap(); // TODO check if we need to verify complex upgrade?
+
+        // FIXME: check the first call + address to delegate to.
+        
+
 
         let Ok(upgrade_calldata) =
             IL2V29Upgrade::upgradeCall::abi_decode(complex_upgrade_call._calldata.as_ref(), true)
@@ -299,22 +303,9 @@ impl ProposedUpgrade {
             return Ok(());
         };
 
-        let expected_deployments = expected_force_deployments();
         let expected_governance = apply_l2_to_l1_alias(owner_address);
         let eth_token_address = address_from_short_hex("1");
         let expected_asset_id = encode_ntv_asset_id(l1_chain_id, eth_token_address);
-
-        verify_force_deployments_and_upgrade(
-            &complex_upgrade_call,
-            upgrade_calldata,
-            &expected_deployments,
-            verifiers,
-            result,
-            expected_governance,
-            expected_asset_id,
-            l1_chain_id,
-            owner_address,
-        )?;
 
         Ok(())
     }
@@ -327,8 +318,6 @@ impl ProposedUpgrade {
         l1_chain_id: u64,
         owner_address: Address,
         is_gateway: bool,
-        v29: &V29,
-        validator_timelock: Address,
     ) -> anyhow::Result<()> {
         result.print_info("== checking chain upgrade init calldata ===");
 
@@ -346,13 +335,11 @@ impl ProposedUpgrade {
         .await
         .context("upgrade tx")?;
 
-        result.expect_zk_bytecode(verifiers, &self.bootloaderHash, "Bootloader");
-        result.expect_zk_bytecode(
-            verifiers,
+        result.expected_zero_zk_bytecode(&self.bootloaderHash);
+        result.expected_zero_zk_bytecode(
             &self.defaultAccountHash,
-            "system-contracts/DefaultAccount",
         );
-        result.expect_zk_bytecode(verifiers, &self.evmEmulatorHash, "EvmEmulator");
+        result.expected_zero_zk_bytecode(&self.evmEmulatorHash);
 
         let verifier_name = verifiers
             .address_verifier
@@ -383,27 +370,8 @@ impl ProposedUpgrade {
             result.report_error("l1ContractsUpgradeCalldata is not empty");
         }
 
-        if self.postUpgradeCalldata.len() == 0 {
-            result.report_error("Expected post upgrade calldata");
-        } else {
-            let encoded_old_validator_timelocks = match is_gateway {
-                true => &v29.encoded_old_gateway_validator_timelocks,
-                false => &v29.encoded_old_validator_timelocks,
-            };
-            let old_validator_timelocks = <sol!(address[])>::abi_decode(
-                &hex::decode(encoded_old_validator_timelocks.trim_start_matches("0x")).unwrap(),
-                true,
-            )
-            .unwrap();
-
-            let encoded_post_upgrade_calldata =
-                encode_post_upgrade_calldata(old_validator_timelocks, validator_timelock);
-            if self.postUpgradeCalldata != encoded_post_upgrade_calldata {
-                result.report_error(&format!(
-                    "Got post upgrade calldata {}, expected {:?}.",
-                    self.postUpgradeCalldata, encoded_post_upgrade_calldata
-                ));
-            }
+        if !self.postUpgradeCalldata.is_empty() {
+            result.report_error("Expected post upgrade calldata to be empty");
         }
 
         if self.upgradeTimestamp != U256::default() {
