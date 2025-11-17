@@ -42,15 +42,6 @@ impl AddressVerifier {
                 .compute_expected_address_for_file("l1-contracts/BridgedStandardERC20"),
             "erc20_bridged_standard",
         );
-        result.add_address(
-            bytecode_verifier.compute_expected_address_for_file("l2-contracts/RollupL2DAValidator"),
-            "rollup_l2_da_validator",
-        );
-        result.add_address(
-            bytecode_verifier
-                .compute_expected_address_for_file("l2-contracts/ValidiumL2DAValidator"),
-            "validium_l2_da_validator",
-        );
 
         config.add_to_verifier(&mut result);
         result.add_address(
@@ -146,12 +137,12 @@ impl AddressVerifier {
                 .rollup_l2_da_validator,
             "gateway_rollup_l2_da_validator",
         );
-        result.add_address(
-            config
-                .deployed_addresses
-                .protocol_upgrade_handler_address_implementation,
-            "protocol_upgrade_handler_address_implementation",
-        );
+        // result.add_address(
+        //     config
+        //         .deployed_addresses
+        //         .protocol_upgrade_handler_address_implementation,
+        //     "protocol_upgrade_handler_address_implementation",
+        // );
 
         result
     }

@@ -125,6 +125,18 @@ sol! {
     }
 
     function setUpgradeDiamondCut(DiamondCutData diamondCut, uint256 protocolVersion);
+
+    contract L1ZKsyncOSV30Upgrade {
+        function upgrade(ProposedUpgrade calldata _proposedUpgrade) external; 
+    }
+
+    contract L2V30TestnetSystemProxiesUpgrade {
+        function upgrade(
+            bytes calldata _fixedForceDeploymentsData,
+            bytes calldata _systemContractProxyAdminBytecodeInfo,
+            bytes calldata _complexUpgraderProxyBytecodeInfo
+        ) external;
+    }
 }
 
 impl upgradeCall {} // Placeholder implementation.
@@ -297,7 +309,7 @@ impl ProposedUpgrade {
 
 
         let Ok(upgrade_calldata) =
-            IL2V29Upgrade::upgradeCall::abi_decode(complex_upgrade_call._calldata.as_ref(), true)
+            L2V30TestnetSystemProxiesUpgrade::upgradeCall::abi_decode(complex_upgrade_call._calldata.as_ref(), true)
         else {
             result.report_error("Failed to decode delegate upgrade calldata");
             return Ok(());

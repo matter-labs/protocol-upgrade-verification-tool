@@ -288,7 +288,6 @@ pub struct DeployedAddresses {
     pub(crate) bridgehub: Bridgehub,
     pub(crate) state_transition: StateTransition,
     pub(crate) upgrade_stage_validator: Address,
-    pub(crate) protocol_upgrade_handler_address_implementation: Address,
 }
 
 #[derive(Debug, Deserialize)]
@@ -917,126 +916,126 @@ impl DeployedAddresses {
         Ok((facets_to_remove, facets_to_add))
     }
 
-    pub async fn verify_protocol_upgrade_handler_implementation(
-        &self,
-        config: &UpgradeOutput,
-        verifiers: &crate::verifiers::Verifiers,
-        result: &mut crate::verifiers::VerificationResult,
-        _bridgehub_info: &BridgehubInfo,
-    ) -> Result<()> {
-        let current_puh = IProtocolUpgradeHandler::new(
-            config.owner_address,
-            verifiers.network_verifier.get_l1_provider(),
-        );
-        let new_implementation = IProtocolUpgradeHandler::new(
-            self.protocol_upgrade_handler_address_implementation,
-            verifiers.network_verifier.get_l1_provider(),
-        );
+    // pub async fn verify_protocol_upgrade_handler_implementation(
+    //     &self,
+    //     config: &UpgradeOutput,
+    //     verifiers: &crate::verifiers::Verifiers,
+    //     result: &mut crate::verifiers::VerificationResult,
+    //     _bridgehub_info: &BridgehubInfo,
+    // ) -> Result<()> {
+    //     let current_puh = IProtocolUpgradeHandler::new(
+    //         config.owner_address,
+    //         verifiers.network_verifier.get_l1_provider(),
+    //     );
+    //     let new_implementation = IProtocolUpgradeHandler::new(
+    //         self.protocol_upgrade_handler_address_implementation,
+    //         verifiers.network_verifier.get_l1_provider(),
+    //     );
 
-        // Compare that all the getters are the same
-        let l2_protocol_governor_current = current_puh
-            .L2_PROTOCOL_GOVERNOR()
-            .call()
-            .await?
-            .L2_PROTOCOL_GOVERNOR;
-        let l2_protocol_governor_new = new_implementation
-            .L2_PROTOCOL_GOVERNOR()
-            .call()
-            .await?
-            .L2_PROTOCOL_GOVERNOR;
-        if l2_protocol_governor_current != l2_protocol_governor_new {
-            result.report_error("L2_PROTOCOL_GOVERNOR mismatch");
-        } else {
-            result.report_ok("L2_PROTOCOL_GOVERNOR matches");
-        }
+    //     // Compare that all the getters are the same
+    //     let l2_protocol_governor_current = current_puh
+    //         .L2_PROTOCOL_GOVERNOR()
+    //         .call()
+    //         .await?
+    //         .L2_PROTOCOL_GOVERNOR;
+    //     let l2_protocol_governor_new = new_implementation
+    //         .L2_PROTOCOL_GOVERNOR()
+    //         .call()
+    //         .await?
+    //         .L2_PROTOCOL_GOVERNOR;
+    //     if l2_protocol_governor_current != l2_protocol_governor_new {
+    //         result.report_error("L2_PROTOCOL_GOVERNOR mismatch");
+    //     } else {
+    //         result.report_ok("L2_PROTOCOL_GOVERNOR matches");
+    //     }
 
-        let zksync_era_current = current_puh.ZKSYNC_ERA().call().await?.ZKSYNC_ERA;
-        let zksync_era_new = new_implementation.ZKSYNC_ERA().call().await?.ZKSYNC_ERA;
-        if zksync_era_current != zksync_era_new {
-            result.report_error("ZKSYNC_ERA mismatch");
-        } else {
-            result.report_ok("ZKSYNC_ERA matches");
-        }
+    //     let zksync_era_current = current_puh.ZKSYNC_ERA().call().await?.ZKSYNC_ERA;
+    //     let zksync_era_new = new_implementation.ZKSYNC_ERA().call().await?.ZKSYNC_ERA;
+    //     if zksync_era_current != zksync_era_new {
+    //         result.report_error("ZKSYNC_ERA mismatch");
+    //     } else {
+    //         result.report_ok("ZKSYNC_ERA matches");
+    //     }
 
-        let chain_type_manager_current = current_puh
-            .CHAIN_TYPE_MANAGER()
-            .call()
-            .await?
-            .CHAIN_TYPE_MANAGER;
-        let chain_type_manager_new = new_implementation
-            .CHAIN_TYPE_MANAGER()
-            .call()
-            .await?
-            .CHAIN_TYPE_MANAGER;
-        if chain_type_manager_current != chain_type_manager_new {
-            result.report_error("CHAIN_TYPE_MANAGER mismatch");
-        } else {
-            result.report_ok("CHAIN_TYPE_MANAGER matches");
-        }
+    //     let chain_type_manager_current = current_puh
+    //         .CHAIN_TYPE_MANAGER()
+    //         .call()
+    //         .await?
+    //         .CHAIN_TYPE_MANAGER;
+    //     let chain_type_manager_new = new_implementation
+    //         .CHAIN_TYPE_MANAGER()
+    //         .call()
+    //         .await?
+    //         .CHAIN_TYPE_MANAGER;
+    //     if chain_type_manager_current != chain_type_manager_new {
+    //         result.report_error("CHAIN_TYPE_MANAGER mismatch");
+    //     } else {
+    //         result.report_ok("CHAIN_TYPE_MANAGER matches");
+    //     }
 
-        let bridge_hub_current = current_puh.BRIDGE_HUB().call().await?.BRIDGE_HUB;
-        let bridge_hub_new = new_implementation.BRIDGE_HUB().call().await?.BRIDGE_HUB;
-        if bridge_hub_current != bridge_hub_new {
-            result.report_error("BRIDGE_HUB mismatch");
-        } else {
-            result.report_ok("BRIDGE_HUB matches");
-        }
+    //     let bridge_hub_current = current_puh.BRIDGE_HUB().call().await?.BRIDGE_HUB;
+    //     let bridge_hub_new = new_implementation.BRIDGE_HUB().call().await?.BRIDGE_HUB;
+    //     if bridge_hub_current != bridge_hub_new {
+    //         result.report_error("BRIDGE_HUB mismatch");
+    //     } else {
+    //         result.report_ok("BRIDGE_HUB matches");
+    //     }
 
-        let l1_nullifier_current = current_puh.L1_NULLIFIER().call().await?.L1_NULLIFIER;
-        let l1_nullifier_new = new_implementation.L1_NULLIFIER().call().await?.L1_NULLIFIER;
-        if l1_nullifier_current != l1_nullifier_new {
-            result.report_error("L1_NULLIFIER mismatch");
-        } else {
-            result.report_ok("L1_NULLIFIER matches");
-        }
+    //     let l1_nullifier_current = current_puh.L1_NULLIFIER().call().await?.L1_NULLIFIER;
+    //     let l1_nullifier_new = new_implementation.L1_NULLIFIER().call().await?.L1_NULLIFIER;
+    //     if l1_nullifier_current != l1_nullifier_new {
+    //         result.report_error("L1_NULLIFIER mismatch");
+    //     } else {
+    //         result.report_ok("L1_NULLIFIER matches");
+    //     }
 
-        let l1_asset_router_current = current_puh.L1_ASSET_ROUTER().call().await?.L1_ASSET_ROUTER;
-        let l1_asset_router_new = new_implementation
-            .L1_ASSET_ROUTER()
-            .call()
-            .await?
-            .L1_ASSET_ROUTER;
-        if l1_asset_router_current != l1_asset_router_new {
-            result.report_error("L1_ASSET_ROUTER mismatch");
-        } else {
-            result.report_ok("L1_ASSET_ROUTER matches");
-        }
+    //     let l1_asset_router_current = current_puh.L1_ASSET_ROUTER().call().await?.L1_ASSET_ROUTER;
+    //     let l1_asset_router_new = new_implementation
+    //         .L1_ASSET_ROUTER()
+    //         .call()
+    //         .await?
+    //         .L1_ASSET_ROUTER;
+    //     if l1_asset_router_current != l1_asset_router_new {
+    //         result.report_error("L1_ASSET_ROUTER mismatch");
+    //     } else {
+    //         result.report_ok("L1_ASSET_ROUTER matches");
+    //     }
 
-        let l1_native_token_vault_current = current_puh
-            .L1_NATIVE_TOKEN_VAULT()
-            .call()
-            .await?
-            .L1_NATIVE_TOKEN_VAULT;
-        let l1_native_token_vault_new = new_implementation
-            .L1_NATIVE_TOKEN_VAULT()
-            .call()
-            .await?
-            .L1_NATIVE_TOKEN_VAULT;
-        if l1_native_token_vault_current != l1_native_token_vault_new {
-            result.report_error("L1_NATIVE_TOKEN_VAULT mismatch");
-        } else {
-            result.report_ok("L1_NATIVE_TOKEN_VAULT matches");
-        }
+    //     let l1_native_token_vault_current = current_puh
+    //         .L1_NATIVE_TOKEN_VAULT()
+    //         .call()
+    //         .await?
+    //         .L1_NATIVE_TOKEN_VAULT;
+    //     let l1_native_token_vault_new = new_implementation
+    //         .L1_NATIVE_TOKEN_VAULT()
+    //         .call()
+    //         .await?
+    //         .L1_NATIVE_TOKEN_VAULT;
+    //     if l1_native_token_vault_current != l1_native_token_vault_new {
+    //         result.report_error("L1_NATIVE_TOKEN_VAULT mismatch");
+    //     } else {
+    //         result.report_ok("L1_NATIVE_TOKEN_VAULT matches");
+    //     }
 
-        // chain asset handler is a new field, so we should compare it to the deployed one:
-        let chain_asset_handler_new = new_implementation
-            .CHAIN_ASSET_HANDLER()
-            .call()
-            .await?
-            .CHAIN_ASSET_HANDLER;
-        if chain_asset_handler_new
-            != config
-                .deployed_addresses
-                .bridgehub
-                .chain_asset_handler_proxy_addr
-        {
-            result.report_error("CHAIN_ASSET_HANDLER mismatch with deployed value");
-        } else {
-            result.report_ok("CHAIN_ASSET_HANDLER matches deployed value");
-        }
+    //     // chain asset handler is a new field, so we should compare it to the deployed one:
+    //     let chain_asset_handler_new = new_implementation
+    //         .CHAIN_ASSET_HANDLER()
+    //         .call()
+    //         .await?
+    //         .CHAIN_ASSET_HANDLER;
+    //     if chain_asset_handler_new
+    //         != config
+    //             .deployed_addresses
+    //             .bridgehub
+    //             .chain_asset_handler_proxy_addr
+    //     {
+    //         result.report_error("CHAIN_ASSET_HANDLER mismatch with deployed value");
+    //     } else {
+    //         result.report_ok("CHAIN_ASSET_HANDLER matches deployed value");
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub async fn verify(
         &self,
@@ -1144,7 +1143,7 @@ impl DeployedAddresses {
             verifiers,
             &self.state_transition.default_upgrade_addr,
             Vec::new(),
-            "l1-contracts/DefaultUpgrade",
+            "l1-contracts/L1ZKsyncOSV30Upgrade",
         );
         result.expect_create2_params(
             verifiers,

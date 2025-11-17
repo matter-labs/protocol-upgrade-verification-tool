@@ -9,13 +9,14 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of draft-v29 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "37b2351dfa20fc1b1c6c7dfca559ac27ec82f017";
+const DEFAULT_CONTRACTS_COMMIT: &str = "564eeab7953ab8649042e88aa23bf89026817376";
 // Current commit on top of main
-const DEFAULT_ERA_COMMIT: &str = "fe0a73730853b291c3c1dd514a42a45625704b7b";
+const DEFAULT_SERVER_COMMIT: &str = "4e09e7b87eacb26172d33e2dd840f1bde935c87d";
+
+const IS_ZKSYNC_OS: bool = true;
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.30.0";
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.29.1";
-pub(crate) const V28_PROTOCOL_VERSION_STR: &str = "0.28.0";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
@@ -27,10 +28,6 @@ pub(crate) fn get_expected_old_protocol_version() -> ProtocolVersion {
     ProtocolVersion::from_str(EXPECTED_OLD_PROTOCOL_VERSION_STR).unwrap()
 }
 
-pub(crate) fn get_expected_v28_protocol_version() -> ProtocolVersion {
-    ProtocolVersion::from_str(V28_PROTOCOL_VERSION_STR).unwrap()
-}
-
 #[derive(Debug, Parser)]
 struct Args {
     // ecosystem_yaml file (gateway_ecosystem_upgrade_output.yaml - from zksync_era/configs)
@@ -38,7 +35,7 @@ struct Args {
     ecosystem_yaml: String,
 
     // Commit from zksync-era repository (used for genesis verification)
-    #[clap(long, default_value = DEFAULT_ERA_COMMIT)]
+    #[clap(long, default_value = DEFAULT_SERVER_COMMIT)]
     era_commit: String,
 
     // Commit from era-contracts - used for bytecode verification
@@ -97,6 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.sample_chain_id,
         config.gateway_chain_id,
         &config,
+        IS_ZKSYNC_OS
     )
     .await;
 

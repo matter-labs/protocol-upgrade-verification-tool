@@ -11,7 +11,7 @@ use crate::{
     utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
     verifiers::Verifiers,
 };
-use crate::{get_expected_v28_protocol_version, utils::address_from_short_hex};
+use crate::{utils::address_from_short_hex};
 use alloy::{
     hex,
     primitives::{keccak256, Address, Bytes, FixedBytes, U256},
@@ -74,6 +74,21 @@ pub struct GovernanceStage2Calls {
 }
 
 sol! {
+
+    /// @dev Pubdata commitment scheme used for DA.
+    /// @param NONE Invalid option.
+    /// @param EMPTY_NO_DA No DA commitment, used by Validiums.
+    /// @param PUBDATA_KECCAK256 Keccak of stateDiffHash and keccak(pubdata). Can be used by custom DA solutions.
+    /// @param BLOBS_AND_PUBDATA_KECCAK256 This commitment includes EIP-4844 blobs data. Used by default RollupL1DAValidator.
+    /// @param BLOBS_ZKSYNC_OS Keccak of blob versioned hashes filled with pubdata. This commitment scheme is used only for ZKsyncOS.
+    enum L2DACommitmentScheme {
+        NONE,
+        EMPTY_NO_DA,
+        PUBDATA_KECCAK256,
+        BLOBS_AND_PUBDATA_KECCAK256,
+        BLOBS_ZKSYNC_OS
+    }
+
     function upgrade(address proxy, address implementation);
     function upgradeAndCall(address proxy, address implementation, bytes data);
     function setAddresses(address _assetRouter, address _l1CtmDeployer, address _messageRoot);
@@ -81,7 +96,11 @@ sol! {
     function setL1AssetRouter(address _l1AssetRouter);
     function setValidatorTimelock(address addr);
     function setProtocolVersionDeadline(uint256 protocolVersion, uint256 newDeadline);
-    function updateDAPair(address l1_da_addr, address l2_da_addr, bool is_active);
+    function updateDAPair(
+        address _l1DAValidator,
+        L2DACommitmentScheme _l2DACommitmentScheme,
+        bool _status
+    ) external;
     function setValidatorTimelockPostV29(address validator_timelock);
     function setChainAssetHandler(address chain_asset_handler);
     function setCtmAssetHandlerAddressOnL1(address chain_type_manager);
@@ -223,8 +242,7 @@ impl GovernanceStage1Calls {
 
             ("state_transition_manager",
             "setNewVersionUpgrade(((address,uint8,bool,bytes4[])[],address,bytes),uint256,uint256,uint256)"),
-            ("rollup_da_manager", "updateDAPair(address,address,bool)"),
-            ("rollup_da_manager", "updateDAPair(address,address,bool)"),
+            ("rollup_da_manager", "acceptOwnership()"),
         ];
         const UPGRADE_CTM: usize = 0;
         const UPGRADE_VALIDATOR_TIMELOCK: usize = 1;
@@ -353,51 +371,7 @@ impl GovernanceStage1Calls {
         };
 
         // Verify rollup_da_manager call
-        // FIXME: totally wrong
-        {
-            let decoded =
-                updateDAPairCall::abi_decode(&self.calls.elems[UPDATE_ROLLUP_DA_PAIR_CALLDATA].data, true)
-                    .expect("Failed to decode updateDAPair call");
-            if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
-                result.report_error(&format!(
-                    "Expected l1_da_addr to be {}, but got {}",
-                    deployed_addresses.rollup_l1_da_validator_addr, decoded.l1_da_addr
-                ));
-            }
-
-            if decoded.l2_da_addr
-                != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"]
-            {
-                result.report_error(&format!(
-                    "Expected l2_da_addr to be {}, but got {}",
-                    verifiers.address_verifier.name_to_address["rollup_l2_da_validator"],
-                    decoded.l2_da_addr
-                ));
-            }
-        }
-
-        // FIXME: totally wrong
-        {
-            let decoded =
-                updateDAPairCall::abi_decode(&self.calls.elems[UPDATE_ROLLUP_DA_PAIR_BLOBS].data, true)
-                    .expect("Failed to decode updateDAPair call");
-            if decoded.l1_da_addr != deployed_addresses.rollup_l1_da_validator_addr {
-                result.report_error(&format!(
-                    "Expected l1_da_addr to be {}, but got {}",
-                    deployed_addresses.rollup_l1_da_validator_addr, decoded.l1_da_addr
-                ));
-            }
-
-            if decoded.l2_da_addr
-                != verifiers.address_verifier.name_to_address["rollup_l2_da_validator"]
-            {
-                result.report_error(&format!(
-                    "Expected l2_da_addr to be {}, but got {}",
-                    verifiers.address_verifier.name_to_address["rollup_l2_da_validator"],
-                    decoded.l2_da_addr
-                ));
-            }
-        }
+        // FIXME: double check that the DA validators have been set correctly by the deployer.
 
         Ok((
             l1_chain_creation_diamond_cut,

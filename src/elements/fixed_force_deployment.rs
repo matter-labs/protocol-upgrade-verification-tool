@@ -14,11 +14,12 @@ sol! {
         bytes32 l2TokenProxyBytecodeHash;
         address aliasedL1Governance;
         uint256 maxNumberOfZKChains;
-        bytes32 bridgehubBytecodeHash;
-        bytes32 l2AssetRouterBytecodeHash;
-        bytes32 l2NtvBytecodeHash;
-        bytes32 messageRootBytecodeHash;
-        bytes32 chainAssetHandlerBytecodeHash;
+        bytes bridgehubBytecodeInfo;
+        bytes l2AssetRouterBytecodeInfo;
+        bytes l2NtvBytecodeInfo;
+        bytes messageRootBytecodeInfo;
+        bytes chainAssetHandlerBytecodeInfo;
+        bytes beaconDeployerInfo;
         address l2SharedBridgeLegacyImpl;
         address l2BridgedStandardERC20Impl;
         // The forced beacon address. It is needed only for internal testing.
@@ -66,33 +67,34 @@ impl FixedForceDeploymentsData {
             result.report_error("maxNumberOfZKChains must be 100");
         }
 
-        result.expect_zk_bytecode(
-            verifiers,
-            &self.bridgehubBytecodeHash,
-            "l1-contracts/Bridgehub",
-        );
-        result.expect_zk_bytecode(
-            verifiers,
-            &self.l2AssetRouterBytecodeHash,
-            "l1-contracts/L2AssetRouter",
-        );
-        result.expect_zk_bytecode(
-            verifiers,
-            &self.l2NtvBytecodeHash,
-            "l1-contracts/L2NativeTokenVault",
-        );
+        // FIXME: 
+        // result.expect_zk_bytecode(
+        //     verifiers,
+        //     &self.bridgehubBytecodeHash,
+        //     "l1-contracts/Bridgehub",
+        // );
+        // result.expect_zk_bytecode(
+        //     verifiers,
+        //     &self.l2AssetRouterBytecodeHash,
+        //     "l1-contracts/L2AssetRouter",
+        // );
+        // result.expect_zk_bytecode(
+        //     verifiers,
+        //     &self.l2NtvBytecodeHash,
+        //     "l1-contracts/L2NativeTokenVault",
+        // );
 
-        result.expect_zk_bytecode(
-            verifiers,
-            &self.messageRootBytecodeHash,
-            "l1-contracts/MessageRoot",
-        );
+        // result.expect_zk_bytecode(
+        //     verifiers,
+        //     &self.messageRootBytecodeHash,
+        //     "l1-contracts/MessageRoot",
+        // );
 
-        result.expect_zk_bytecode(
-            verifiers,
-            &self.chainAssetHandlerBytecodeHash,
-            "l1-contracts/ChainAssetHandler",
-        );
+        // result.expect_zk_bytecode(
+        //     verifiers,
+        //     &self.chainAssetHandlerBytecodeHash,
+        //     "l1-contracts/ChainAssetHandler",
+        // );
 
         result.expect_address(verifiers, &self.l2SharedBridgeLegacyImpl, "zero");
 

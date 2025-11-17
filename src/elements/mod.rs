@@ -47,8 +47,6 @@ pub struct UpgradeOutput {
 
     pub(crate) transactions: Vec<String>,
 
-    pub(crate) v29: V29,
-
     pub(crate) gateway: Gateway,
 
     #[allow(dead_code)]

@@ -39,7 +39,7 @@ impl Verifiers {
     pub async fn new(
         testnet_contracts: bool,
         bridgehub_address: impl AsRef<str>,
-        era_commit: &str,
+        server_commit: &str,
         contracts_commit: &str,
         l1_rpc: String,
         gw_rpc: String,
@@ -47,6 +47,7 @@ impl Verifiers {
         sample_chain_id: Option<u64>,
         gateway_chain_id: u64,
         config: &UpgradeOutput,
+        is_zksync_os: bool,
     ) -> Self {
         let bridgehub_address =
             Address::from_hex(bridgehub_address.as_ref()).expect("Bridgehub address");
@@ -85,9 +86,15 @@ impl Verifiers {
             address_verifier,
             bytecode_verifier,
             network_verifier,
-            genesis_config: GenesisConfig::init_from_github(era_commit)
-                .await
-                .expect("Failed to init"),
+            genesis_config: if is_zksync_os {
+                GenesisConfig::init_from_github_zksync_os(server_commit)
+                    .await
+                    .expect("Failed to init")
+            } else {
+                GenesisConfig::init_from_github_era(server_commit)
+                    .await
+                    .expect("Failed to init")
+            },
             fee_param_verifier,
             gateway_bridgehub_address: address_from_short_hex("10002"),
         }
@@ -123,10 +130,16 @@ pub struct GenesisConfig {
     pub genesis_batch_commitment: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GenesisConfigZKsyncOS {
+    // It only contains a single non-zero field
+    pub genesis_root: String
+}
+
 impl GenesisConfig {
     /// Initializes the genesis configuration from a file on GitHub.
-    pub async fn init_from_github(commit: &str) -> anyhow::Result<Self> {
-        println!("init from github {}", commit);
+    pub async fn init_from_github_era(commit: &str) -> anyhow::Result<Self> {
+        println!("init from github (zksync-era) {}", commit);
         let data = get_contents_from_github(
             commit,
             "matter-labs/zksync-era",
@@ -135,6 +148,24 @@ impl GenesisConfig {
         .await;
         serde_yaml::from_str(&data)
             .map_err(|e| anyhow::anyhow!("Failed to parse genesis.yaml: {}", e))
+    }
+
+    /// Initializes the genesis configuration from a file on GitHub.
+    pub async fn init_from_github_zksync_os(commit: &str) -> anyhow::Result<Self> {
+        println!("init from github (zksync-os-server) {}", commit);
+        let data = get_contents_from_github(
+            commit,
+            "matter-labs/zksync-os-server",
+            "genesis/genesis.json",
+        )
+        .await;
+        let config: GenesisConfigZKsyncOS = serde_json::from_str(&data)?;
+
+        Ok(GenesisConfig {
+            genesis_root: config.genesis_root,
+            genesis_rollup_leaf_index: 0,
+            genesis_batch_commitment: "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+        })
     }
 }
 
