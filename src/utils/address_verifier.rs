@@ -70,6 +70,11 @@ impl AddressVerifier {
         );
 
         result.add_address(address_from_short_hex("10002"), "l2_bridgehub");
+        result.add_address(address_from_short_hex("800f"), "l2_complex_upgrader");
+        result.add_address(address_from_short_hex("10001"), "l2_genesis_upgrade");
+        result.add_address(address_from_short_hex("10007"), "l2_weth_implementation");
+        result.add_address(address_from_short_hex("1000c"), "l2_system_contract_proxy_admin");
+        result.add_address("d704e29df32c189b8613f79fcc043b2dc01d5f53".parse().unwrap(), "initial_complex_upgrader_impl");
 
         // Add gateway addresses
         result.add_address(

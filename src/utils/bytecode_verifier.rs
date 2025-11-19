@@ -1,9 +1,13 @@
 use alloy::hex::{self, FromHex};
 use alloy::primitives::{Address, Bytes, FixedBytes, U256, keccak256};
 use alloy::sol_types::SolValue;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de};
 use std::collections::HashMap;
 use alloy::sol;
+
+use std::str::FromStr;
+use crate::{DEFAULT_SERVER_COMMIT, verifiers};
+use crate::verifiers::{GenesisConfigZKsyncOS, VerificationResult, get_zksync_os_factory_deps_from_github};
 
 use super::{
     address_from_short_hex, compute_create2_address_zk, compute_hash_with_arguments,
@@ -262,6 +266,119 @@ impl BytecodeVerifier {
             bytecode_file_to_zksync_os_info,
             deployed_bytecode_file_by_zksync_os_info,
         }
+    }
+
+    async fn ensure_aligned_deployed_bytecode(
+        &self,
+        verifiers: &verifiers::Verifiers,
+        result: &mut VerificationResult,
+        initial_bytecode: &(String, String),
+        expected_address: &str,
+        expected_deployed_bytecode: &str,
+    ) -> anyhow::Result<()> {
+        result.print_info("Ensuring alignment of initial bytecode...");
+
+
+        result.expect_address(
+            verifiers, 
+            &Address::from_str(&initial_bytecode.0).unwrap(), 
+            expected_address
+        );
+
+        let deployed_bytecode_bytes = hex::decode(&initial_bytecode.1[2..])
+            .map_err(|e| anyhow::anyhow!("Failed to decode deployed bytecode hex: {}", e))?;
+
+        let hash = keccak256(&deployed_bytecode_bytes);
+
+        result.expect_deployed_bytecode_hash(
+            verifiers, 
+            hash, 
+            expected_deployed_bytecode
+        );
+
+        Ok(())
+    }
+
+    pub async fn ensure_zksync_os_genesis_server_alignment(
+        &self,
+        verifiers: &verifiers::Verifiers,
+        result: &mut VerificationResult
+    ) -> anyhow::Result<()> {
+        result.print_info("Ensuring alignment with genesis for zksync-os server...");
+        
+        let zksync_os_genesis_config = GenesisConfigZKsyncOS::init_from_github(DEFAULT_SERVER_COMMIT).await?;
+        self.ensure_aligned_deployed_bytecode(
+            verifiers, 
+            result, 
+            &zksync_os_genesis_config.initial_contracts[0], 
+            "l2_complex_upgrader", 
+            "l1-contracts/SystemContractProxy"
+        ).await?;
+
+        self.ensure_aligned_deployed_bytecode(
+            verifiers,
+            result,
+            &zksync_os_genesis_config.initial_contracts[1],
+            "l2_genesis_upgrade",
+            "l1-contracts/L2GenesisUpgrade"
+        ).await?;
+        
+        self.ensure_aligned_deployed_bytecode(
+            verifiers, 
+            result,
+            &zksync_os_genesis_config.initial_contracts[2], 
+            "l2_weth_implementation", 
+            "l1-contracts/L2WrappedBaseToken"
+        ).await?;
+
+        self.ensure_aligned_deployed_bytecode(
+            verifiers, 
+            result, 
+            &zksync_os_genesis_config.initial_contracts[3], 
+            "l2_system_contract_proxy_admin", 
+            "l1-contracts/SystemContractProxyAdmin"
+        ).await?;
+
+        self.ensure_aligned_deployed_bytecode(
+            verifiers, 
+            result, 
+            &zksync_os_genesis_config.initial_contracts[4], 
+            "initial_complex_upgrader_impl", 
+            "l1-contracts/L2ComplexUpgrader"
+        ).await?;
+        
+        Ok(())
+    }
+
+    pub async fn ensure_zksync_os_factory_deps_alignment(
+        &self,
+        result: &mut VerificationResult
+    ) -> anyhow::Result<()> {
+        result.print_info("Ensuring alignment of factory deps with zksync-os server...");
+        let factory_deps_from_github = get_zksync_os_factory_deps_from_github(DEFAULT_SERVER_COMMIT).await?;
+
+
+        for (file, dep) in factory_deps_from_github.iter() {
+            let full_file_name = format!("l1-contracts/{}", file);
+            let expected_hash = self.file_to_zksync_os_bytecode_info(&full_file_name)
+                .ok_or_else(|| anyhow::anyhow!("Missing zksync os bytecode info for file: {}", file))?
+                .evmDeployedBytecodeBlakeHash;
+
+            let dep_bytecode_hash = FixedBytes::<32>::from_hex(&dep.bytecode_hash)
+                .map_err(|e| anyhow::anyhow!("Invalid hex in bytecode hash for file {}: {}", file, e))?;
+
+            if dep_bytecode_hash != expected_hash {
+                result.report_error(&format!(
+                    "Mismatch in zksync os bytecode info for file {}: expected {:?}, got {:?}",
+                    file,
+                    expected_hash,
+                    dep_bytecode_hash
+                ));
+            }
+
+            result.report_ok(&format!("Factory dep alignment for file {}", file));
+        }
+        Ok(())
     }
 }
 

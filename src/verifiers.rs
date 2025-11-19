@@ -1,9 +1,9 @@
 use alloy::{
-    dyn_abi::SolType, hex::{self, FromHex}, primitives::{Address, Bytes, FixedBytes}, sol, sol_types::{SolCall, SolValue}
+    dyn_abi::SolType, hex::{self, FromHex}, primitives::{Address, B256, Bytes, FixedBytes}, sol, sol_types::{SolCall, SolValue}
 };
 use colored::Colorize;
 use serde::Deserialize;
-use std::fmt::{self, Display};
+use std::{collections::HashMap, fmt::{self, Display}};
 use std::panic::Location;
 
 use crate::{
@@ -137,7 +137,22 @@ pub struct GenesisConfig {
 #[derive(Debug, Deserialize)]
 pub struct GenesisConfigZKsyncOS {
     // It only contains a single non-zero field
-    pub genesis_root: String
+    pub genesis_root: String,
+    pub execution_version: u32,
+    pub initial_contracts: Vec<(String, String)>,
+}
+
+impl GenesisConfigZKsyncOS {
+    pub async fn init_from_github(commit: &str) -> anyhow::Result<Self> {
+        let data = get_contents_from_github(
+            commit,
+            "matter-labs/zksync-os-server",
+            "genesis/genesis.json",
+        )
+        .await;
+        let config: GenesisConfigZKsyncOS = serde_json::from_str(&data)?;
+        Ok(config)
+    }
 }
 
 impl GenesisConfig {
@@ -157,13 +172,7 @@ impl GenesisConfig {
     /// Initializes the genesis configuration from a file on GitHub.
     pub async fn init_from_github_zksync_os(commit: &str) -> anyhow::Result<Self> {
         println!("init from github (zksync-os-server) {}", commit);
-        let data = get_contents_from_github(
-            commit,
-            "matter-labs/zksync-os-server",
-            "genesis/genesis.json",
-        )
-        .await;
-        let config: GenesisConfigZKsyncOS = serde_json::from_str(&data)?;
+        let config = GenesisConfigZKsyncOS::init_from_github(commit).await?;
 
         Ok(GenesisConfig {
             genesis_root: config.genesis_root,
@@ -171,6 +180,23 @@ impl GenesisConfig {
             genesis_batch_commitment: "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
         })
     }
+}
+
+
+#[derive(Default, Deserialize)]
+pub struct ZKSyncOSFactoryDep {
+    pub bytecode_hash: String,
+}
+
+pub async fn get_zksync_os_factory_deps_from_github(commit: &str) -> anyhow::Result<HashMap<String, ZKSyncOSFactoryDep>> {
+    let data = get_contents_from_github(
+        commit,
+        "matter-labs/zksync-os-server",
+        "lib/l1_watcher/src/factory_deps/contracts.json",
+    )
+    .await;
+    let config: HashMap<String, ZKSyncOSFactoryDep> = serde_json::from_str(&data)?;
+    Ok(config)
 }
 
 #[derive(Default)]
@@ -344,6 +370,37 @@ impl VerificationResult {
         );
     }
 
+    pub fn expect_deployed_bytecode_hash(
+        &mut self,
+        verifiers: &Verifiers,
+        bytecode_hash: FixedBytes<32>,
+        expected: &str
+    ) {
+        let deployed_file = verifiers
+            .bytecode_verifier
+            .evm_deployed_bytecode_hash_to_file(&bytecode_hash);
+
+        if let Some(deployed_file) = deployed_file {
+            if deployed_file != expected {
+                self.report_error(&format!(
+                    "Bytecode from wrong file: Expected {} got {} at {}",
+                    expected,
+                    deployed_file,
+                    Location::caller()
+                ));
+                return;
+            }
+            self.report_ok(&format!("Bytecode hash for {} at {}", expected, Location::caller()));
+        } else {
+            self.report_error(&format!(
+                "No bytecode preimage found for hash {}. Expected {} as {}",
+                bytecode_hash,
+                expected,
+                Location::caller()
+            ));
+        }
+    }
+
     /// Verifies the deployed bytecode of a contract.
     pub async fn expect_deployed_bytecode(
         &mut self,
@@ -355,29 +412,12 @@ impl VerificationResult {
             .network_verifier
             .get_bytecode_hash_at(address)
             .await;
-        let deployed_file = verifiers
-            .bytecode_verifier
-            .evm_deployed_bytecode_hash_to_file(&deployed_bytecode);
 
-        if let Some(deployed_file) = deployed_file {
-            if deployed_file != expected_file {
-                self.report_error(&format!(
-                    "Bytecode from wrong file: Expected {} got {} at {}",
-                    expected_file,
-                    deployed_file,
-                    Location::caller()
-                ));
-                return;
-            }
-            self.report_ok(&format!("{} at {}", expected_file, address));
-        } else {
-            self.report_error(&format!(
-                "Bytecode at address {} empty: Expected {} at {}",
-                address,
-                expected_file,
-                Location::caller()
-            ));
-        }
+        self.expect_deployed_bytecode_hash(
+            verifiers,
+            deployed_bytecode,
+            expected_file,
+        );
     }
 
     pub fn expect_create2_params(
