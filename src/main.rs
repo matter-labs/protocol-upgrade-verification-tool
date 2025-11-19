@@ -9,9 +9,9 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of draft-v29 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "744a497665266a7abfb1629cd5662548f474ba96";
+const DEFAULT_CONTRACTS_COMMIT: &str = "a233f74066aed7a9f750fd4ed1efd67b5f5fe9a3";
 // Current commit on top of main
-const DEFAULT_SERVER_COMMIT: &str = "529415c3ddf974d44136a29e0c2ab2579bd98d33";
+const DEFAULT_SERVER_COMMIT: &str = "c8698a683546e29a6e9e2fc58cac4371bbb4c80c";
 
 const IS_ZKSYNC_OS: bool = true;
 
