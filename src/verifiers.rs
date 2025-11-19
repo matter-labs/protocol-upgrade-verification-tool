@@ -246,6 +246,20 @@ impl VerificationResult {
         }
     }
 
+    pub fn expected_zk_bytecode_zero(
+        &mut self,
+        bytecode_hash: &FixedBytes<32>,
+    ) {
+        if bytecode_hash != &FixedBytes::<32>::ZERO {
+            self.report_error(&format!(
+                "Expected zk bytecode hash equal to bytes32(1), got {} at {}",
+                bytecode_hash,
+                Location::caller()
+            ));
+        }
+    }
+
+
     #[track_caller]
     pub fn expect_zk_bytecode(
         &mut self,

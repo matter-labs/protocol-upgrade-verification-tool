@@ -9,7 +9,7 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of draft-v29 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "6fe3eae4915f129025af0ead708b3b8fef7e9143";
+const DEFAULT_CONTRACTS_COMMIT: &str = "744a497665266a7abfb1629cd5662548f474ba96";
 // Current commit on top of main
 const DEFAULT_SERVER_COMMIT: &str = "4e09e7b87eacb26172d33e2dd840f1bde935c87d";
 

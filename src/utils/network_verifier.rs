@@ -320,7 +320,7 @@ impl NetworkVerifier {
 
         let ecosystem_admin = bridgehub.admin().call().await.unwrap().admin;
 
-        let transparent_proxy_admin = self.get_proxy_admin(bridgehub_addr).await;
+        let transparent_proxy_admin = self.get_proxy_admin(stm_address).await;
 
         let legacy_bridge = shared_bridge.legacyBridge().call().await.unwrap()._0;
 

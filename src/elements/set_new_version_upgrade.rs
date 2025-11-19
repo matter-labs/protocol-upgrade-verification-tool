@@ -390,9 +390,9 @@ impl ProposedUpgrade {
         .await
         .context("upgrade tx")?;
 
-        result.expected_zk_bytecode_one(&self.bootloaderHash);
-        result.expected_zk_bytecode_one(&self.defaultAccountHash);
-        result.expected_zk_bytecode_one(&self.evmEmulatorHash);
+        result.expected_zk_bytecode_zero(&self.bootloaderHash);
+        result.expected_zk_bytecode_zero(&self.defaultAccountHash);
+        result.expected_zk_bytecode_zero(&self.evmEmulatorHash);
 
         let verifier_name = verifiers
             .address_verifier

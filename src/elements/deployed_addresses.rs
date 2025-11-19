@@ -21,7 +21,7 @@ use serde::Deserialize;
 
 const MAINNET_CHAIN_ID: u64 = 1;
 
-const DEFAULT_ZKSYNC_OS_EXECUTION_VERSION: u32 = 3;
+const DEFAULT_ZKSYNC_OS_EXECUTION_VERSION: u32 = 5;
 
 sol! {
     /// @dev Pubdata commitment scheme used for DA.
