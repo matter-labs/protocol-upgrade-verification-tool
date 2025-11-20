@@ -1,26 +1,36 @@
 use alloy::{
-    dyn_abi::SolType, hex::{self, FromHex}, primitives::{Address, B256, Bytes, FixedBytes}, sol, sol_types::{SolCall, SolValue}
+    dyn_abi::SolType,
+    hex::{self, FromHex},
+    primitives::{Address, Bytes, FixedBytes, B256},
+    sol,
+    sol_types::{SolCall, SolValue},
 };
 use colored::Colorize;
 use serde::Deserialize;
-use std::{collections::HashMap, fmt::{self, Display}};
 use std::panic::Location;
+use std::{
+    collections::HashMap,
+    fmt::{self, Display},
+};
 
 use crate::{
-    UpgradeOutput, utils::{
-        address_from_short_hex, address_verifier::AddressVerifier,
-        bytecode_verifier::{BytecodeVerifier, ZKSyncOSSystemProxyUpgradeBytecodeInfo, ZKsyncOSBytecodeInfo}, fee_param_verifier::FeeParamVerifier,
-        get_contents_from_github, network_verifier::NetworkVerifier,
-    }
+    utils::{
+        address_from_short_hex,
+        address_verifier::AddressVerifier,
+        bytecode_verifier::{
+            BytecodeVerifier, ZKSyncOSSystemProxyUpgradeBytecodeInfo, ZKsyncOSBytecodeInfo,
+        },
+        fee_param_verifier::FeeParamVerifier,
+        get_contents_from_github,
+        network_verifier::NetworkVerifier,
+    },
+    UpgradeOutput,
 };
 
 fn bytes32_one() -> FixedBytes<32> {
-    FixedBytes::from_hex(
-        "0x0000000000000000000000000000000000000000000000000000000000000001",
-    )
-    .expect("Invalid bytes32 one hex literal")
-} 
-
+    FixedBytes::from_hex("0x0000000000000000000000000000000000000000000000000000000000000001")
+        .expect("Invalid bytes32 one hex literal")
+}
 
 sol! {
     function transparentProxyConstructor(address impl, address initialAdmin, bytes memory initCalldata);
@@ -177,18 +187,20 @@ impl GenesisConfig {
         Ok(GenesisConfig {
             genesis_root: config.genesis_root,
             genesis_rollup_leaf_index: 0,
-            genesis_batch_commitment: "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+            genesis_batch_commitment:
+                "0x0000000000000000000000000000000000000000000000000000000000000001".to_string(),
         })
     }
 }
-
 
 #[derive(Default, Deserialize)]
 pub struct ZKSyncOSFactoryDep {
     pub bytecode_hash: String,
 }
 
-pub async fn get_zksync_os_factory_deps_from_github(commit: &str) -> anyhow::Result<HashMap<String, ZKSyncOSFactoryDep>> {
+pub async fn get_zksync_os_factory_deps_from_github(
+    commit: &str,
+) -> anyhow::Result<HashMap<String, ZKSyncOSFactoryDep>> {
     let data = get_contents_from_github(
         commit,
         "matter-labs/zksync-os-server",
@@ -259,10 +271,7 @@ impl VerificationResult {
         }
     }
 
-    pub fn expected_zk_bytecode_one(
-        &mut self,
-        bytecode_hash: &FixedBytes<32>,
-    ) {
+    pub fn expected_zk_bytecode_one(&mut self, bytecode_hash: &FixedBytes<32>) {
         if bytecode_hash != &bytes32_one() {
             self.report_error(&format!(
                 "Expected zk bytecode hash equal to bytes32(1), got {} at {}",
@@ -272,10 +281,7 @@ impl VerificationResult {
         }
     }
 
-    pub fn expected_zk_bytecode_zero(
-        &mut self,
-        bytecode_hash: &FixedBytes<32>,
-    ) {
+    pub fn expected_zk_bytecode_zero(&mut self, bytecode_hash: &FixedBytes<32>) {
         if bytecode_hash != &FixedBytes::<32>::ZERO {
             self.report_error(&format!(
                 "Expected zk bytecode hash equal to bytes32(1), got {} at {}",
@@ -284,7 +290,6 @@ impl VerificationResult {
             ));
         }
     }
-
 
     #[track_caller]
     pub fn expect_zk_bytecode(
@@ -325,10 +330,10 @@ impl VerificationResult {
         bytecode_info: &[u8],
         expected: &str,
     ) {
-        match verifiers
-            .bytecode_verifier
-            .zksync_os_bytecode_info_to_file(&ZKsyncOSBytecodeInfo::from_bytes(bytecode_info).expect("Failed to decode bytecode info"))
-        {
+        match verifiers.bytecode_verifier.zksync_os_bytecode_info_to_file(
+            &ZKsyncOSBytecodeInfo::from_bytes(bytecode_info)
+                .expect("Failed to decode bytecode info"),
+        ) {
             Some(file_name) if file_name == expected => {
                 // All good.
             }
@@ -357,16 +362,13 @@ impl VerificationResult {
         bytecode_info: &[u8],
         expected: &str,
     ) {
-        let info = ZKSyncOSSystemProxyUpgradeBytecodeInfo::from_encoded_tuple(bytecode_info).expect("Failed to decode system proxy upgrade bytecode info");
+        let info = ZKSyncOSSystemProxyUpgradeBytecodeInfo::from_encoded_tuple(bytecode_info)
+            .expect("Failed to decode system proxy upgrade bytecode info");
+        self.expect_zksync_os_bytecode_info(verifiers, &info.implementationBytecodeInfo, expected);
         self.expect_zksync_os_bytecode_info(
-            verifiers, 
-            &info.implementationBytecodeInfo, 
-            expected
-        );
-        self.expect_zksync_os_bytecode_info(
-            verifiers, 
-            &info.systemProxyBytecodeInfo, 
-            "l1-contracts/SystemContractProxy"
+            verifiers,
+            &info.systemProxyBytecodeInfo,
+            "l1-contracts/SystemContractProxy",
         );
     }
 
@@ -374,7 +376,7 @@ impl VerificationResult {
         &mut self,
         verifiers: &Verifiers,
         bytecode_hash: FixedBytes<32>,
-        expected: &str
+        expected: &str,
     ) {
         let deployed_file = verifiers
             .bytecode_verifier
@@ -390,7 +392,11 @@ impl VerificationResult {
                 ));
                 return;
             }
-            self.report_ok(&format!("Bytecode hash for {} at {}", expected, Location::caller()));
+            self.report_ok(&format!(
+                "Bytecode hash for {} at {}",
+                expected,
+                Location::caller()
+            ));
         } else {
             self.report_error(&format!(
                 "No bytecode preimage found for hash {}. Expected {} as {}",
@@ -413,11 +419,7 @@ impl VerificationResult {
             .get_bytecode_hash_at(address)
             .await;
 
-        self.expect_deployed_bytecode_hash(
-            verifiers,
-            deployed_bytecode,
-            expected_file,
-        );
+        self.expect_deployed_bytecode_hash(verifiers, deployed_bytecode, expected_file);
     }
 
     pub fn expect_create2_params(

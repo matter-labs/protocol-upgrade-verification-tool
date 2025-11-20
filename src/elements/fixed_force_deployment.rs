@@ -58,11 +58,7 @@ impl FixedForceDeploymentsData {
             &self.l2TokenProxyBytecodeHash,
             "l1-contracts/BeaconProxy",
         );
-        result.expect_address(
-            verifiers,
-            &self.aliasedL1Governance,
-            "aliased_owner",
-        );
+        result.expect_address(verifiers, &self.aliasedL1Governance, "aliased_owner");
 
         if self.maxNumberOfZKChains != U256::from(MAX_NUMBER_OF_ZK_CHAINS) {
             result.report_error("maxNumberOfZKChains must be 100");

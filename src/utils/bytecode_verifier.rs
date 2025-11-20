@@ -1,13 +1,15 @@
 use alloy::hex::{self, FromHex};
-use alloy::primitives::{Address, Bytes, FixedBytes, U256, keccak256};
-use alloy::sol_types::SolValue;
-use serde::{Deserialize, Serialize, de};
-use std::collections::HashMap;
+use alloy::primitives::{keccak256, Address, Bytes, FixedBytes, U256};
 use alloy::sol;
+use alloy::sol_types::SolValue;
+use serde::{de, Deserialize, Serialize};
+use std::collections::HashMap;
 
+use crate::verifiers::{
+    get_zksync_os_factory_deps_from_github, GenesisConfigZKsyncOS, VerificationResult,
+};
+use crate::{verifiers, DEFAULT_SERVER_COMMIT};
 use std::str::FromStr;
-use crate::{DEFAULT_SERVER_COMMIT, verifiers};
-use crate::verifiers::{GenesisConfigZKsyncOS, VerificationResult, get_zksync_os_factory_deps_from_github};
 
 use super::{
     address_from_short_hex, compute_create2_address_zk, compute_hash_with_arguments,
@@ -30,7 +32,8 @@ sol! {
 
 impl ZKsyncOSBytecodeInfo {
     pub fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
-        let decoded: ZKsyncOSBytecodeInfo = <ZKsyncOSBytecodeInfo as SolValue>::abi_decode(bytes, true)?;
+        let decoded: ZKsyncOSBytecodeInfo =
+            <ZKsyncOSBytecodeInfo as SolValue>::abi_decode(bytes, true)?;
         Ok(decoded)
     }
 }
@@ -38,14 +41,15 @@ impl ZKsyncOSBytecodeInfo {
 impl ZKSyncOSSystemProxyUpgradeBytecodeInfo {
     pub fn from_encoded_tuple(bytes: &[u8]) -> anyhow::Result<Self> {
         let mut offset = [0u8; 32];
-        offset[31] = 0x20; // offset to the data starts at byte 32 
+        offset[31] = 0x20; // offset to the data starts at byte 32
 
         let mut new_encoded = vec![];
         new_encoded.extend_from_slice(&offset); // offset
         new_encoded.extend_from_slice(bytes);
 
         // When encoding a struct (unlike a tuple), Solidity prepends 32 bytes indicating the offset to the data.
-        let decoded: ZKSyncOSSystemProxyUpgradeBytecodeInfo = <ZKSyncOSSystemProxyUpgradeBytecodeInfo as SolValue>::abi_decode(&new_encoded, true)?;
+        let decoded: ZKSyncOSSystemProxyUpgradeBytecodeInfo =
+            <ZKSyncOSSystemProxyUpgradeBytecodeInfo as SolValue>::abi_decode(&new_encoded, true)?;
         Ok(decoded)
     }
 }
@@ -63,7 +67,6 @@ pub struct BytecodeVerifier {
     bytecode_file_to_zksync_os_info: HashMap<String, ZKsyncOSBytecodeInfo>,
     /// Maps a contract’s file name to its zksync os bytecode info
     deployed_bytecode_file_by_zksync_os_info: HashMap<ZKsyncOSBytecodeInfo, String>,
-
 }
 
 impl BytecodeVerifier {
@@ -159,15 +162,18 @@ impl BytecodeVerifier {
     }
 
     /// Returns the file name corresponding to the given zk bytecode hash.
-    pub fn zksync_os_bytecode_info_to_file(&self, bytecode_info: &ZKsyncOSBytecodeInfo) -> Option<&String> {
-        self.deployed_bytecode_file_by_zksync_os_info.get(bytecode_info)
+    pub fn zksync_os_bytecode_info_to_file(
+        &self,
+        bytecode_info: &ZKsyncOSBytecodeInfo,
+    ) -> Option<&String> {
+        self.deployed_bytecode_file_by_zksync_os_info
+            .get(bytecode_info)
     }
 
     /// Returns the zk bytecode hash that corresponds to the file
     pub fn file_to_zksync_os_bytecode_info(&self, file: &str) -> Option<&ZKsyncOSBytecodeInfo> {
         self.bytecode_file_to_zksync_os_info.get(file)
     }
-
 
     /// Inserts an entry for the given deployed bytecode hash and file name.
     pub fn insert_evm_deployed_bytecode_hash(
@@ -203,30 +209,30 @@ impl BytecodeVerifier {
 
         let contract_hashes = ContractHashes::init_from_github(commit).await;
         for contract in contract_hashes.hashes {
-
             if let Some(ref evm_info) = contract.evm_bytecode_info {
                 init_bytecode_file_by_hash
                     .insert(evm_info.bytecode_hash, contract.contract_name.clone());
 
-                deployed_bytecode_file_by_hash
-                    .insert(evm_info.deployed_bytecode_hash, contract.contract_name.clone());
+                deployed_bytecode_file_by_hash.insert(
+                    evm_info.deployed_bytecode_hash,
+                    contract.contract_name.clone(),
+                );
 
-                
                 let info = ZKsyncOSBytecodeInfo {
                     evmDeployedBytecodeBlakeHash: evm_info.deployed_blake_hash,
                     zkSyncOSBytecodeLength: U256::from(evm_info.deployed_length),
                     evmDeployedBytecodeHash: evm_info.deployed_bytecode_hash,
                 };
 
-                bytecode_file_to_zksync_os_info.insert(contract.contract_name.clone(), info.clone());
-                deployed_bytecode_file_by_zksync_os_info.insert(info.clone(), contract.contract_name.clone());
+                bytecode_file_to_zksync_os_info
+                    .insert(contract.contract_name.clone(), info.clone());
+                deployed_bytecode_file_by_zksync_os_info
+                    .insert(info.clone(), contract.contract_name.clone());
             }
 
             if let Some(ref zk_info) = contract.zk_bytecode_info {
-                bytecode_file_to_zkhash.insert(
-                    contract.contract_name.clone(),
-                    zk_info.zk_bytecode_hash,
-                );
+                bytecode_file_to_zkhash
+                    .insert(contract.contract_name.clone(), zk_info.zk_bytecode_hash);
                 zk_bytecode_file_by_hash
                     .insert(zk_info.zk_bytecode_hash, contract.contract_name.clone());
             }
@@ -278,11 +284,10 @@ impl BytecodeVerifier {
     ) -> anyhow::Result<()> {
         result.print_info("Ensuring alignment of initial bytecode...");
 
-
         result.expect_address(
-            verifiers, 
-            &Address::from_str(&initial_bytecode.0).unwrap(), 
-            expected_address
+            verifiers,
+            &Address::from_str(&initial_bytecode.0).unwrap(),
+            expected_address,
         );
 
         let deployed_bytecode_bytes = hex::decode(&initial_bytecode.1[2..])
@@ -290,11 +295,7 @@ impl BytecodeVerifier {
 
         let hash = keccak256(&deployed_bytecode_bytes);
 
-        result.expect_deployed_bytecode_hash(
-            verifiers, 
-            hash, 
-            expected_deployed_bytecode
-        );
+        result.expect_deployed_bytecode_hash(verifiers, hash, expected_deployed_bytecode);
 
         Ok(())
     }
@@ -302,77 +303,86 @@ impl BytecodeVerifier {
     pub async fn ensure_zksync_os_genesis_server_alignment(
         &self,
         verifiers: &verifiers::Verifiers,
-        result: &mut VerificationResult
+        result: &mut VerificationResult,
     ) -> anyhow::Result<()> {
         result.print_info("Ensuring alignment with genesis for zksync-os server...");
-        
-        let zksync_os_genesis_config = GenesisConfigZKsyncOS::init_from_github(DEFAULT_SERVER_COMMIT).await?;
+
+        let zksync_os_genesis_config =
+            GenesisConfigZKsyncOS::init_from_github(DEFAULT_SERVER_COMMIT).await?;
         self.ensure_aligned_deployed_bytecode(
-            verifiers, 
-            result, 
-            &zksync_os_genesis_config.initial_contracts[0], 
-            "l2_complex_upgrader", 
-            "l1-contracts/SystemContractProxy"
-        ).await?;
+            verifiers,
+            result,
+            &zksync_os_genesis_config.initial_contracts[0],
+            "l2_complex_upgrader",
+            "l1-contracts/SystemContractProxy",
+        )
+        .await?;
 
         self.ensure_aligned_deployed_bytecode(
             verifiers,
             result,
             &zksync_os_genesis_config.initial_contracts[1],
             "l2_genesis_upgrade",
-            "l1-contracts/L2GenesisUpgrade"
-        ).await?;
-        
+            "l1-contracts/L2GenesisUpgrade",
+        )
+        .await?;
+
         self.ensure_aligned_deployed_bytecode(
-            verifiers, 
+            verifiers,
             result,
-            &zksync_os_genesis_config.initial_contracts[2], 
-            "l2_weth_implementation", 
-            "l1-contracts/L2WrappedBaseToken"
-        ).await?;
+            &zksync_os_genesis_config.initial_contracts[2],
+            "l2_weth_implementation",
+            "l1-contracts/L2WrappedBaseToken",
+        )
+        .await?;
 
         self.ensure_aligned_deployed_bytecode(
-            verifiers, 
-            result, 
-            &zksync_os_genesis_config.initial_contracts[3], 
-            "l2_system_contract_proxy_admin", 
-            "l1-contracts/SystemContractProxyAdmin"
-        ).await?;
+            verifiers,
+            result,
+            &zksync_os_genesis_config.initial_contracts[3],
+            "l2_system_contract_proxy_admin",
+            "l1-contracts/SystemContractProxyAdmin",
+        )
+        .await?;
 
         self.ensure_aligned_deployed_bytecode(
-            verifiers, 
-            result, 
-            &zksync_os_genesis_config.initial_contracts[4], 
-            "initial_complex_upgrader_impl", 
-            "l1-contracts/L2ComplexUpgrader"
-        ).await?;
-        
+            verifiers,
+            result,
+            &zksync_os_genesis_config.initial_contracts[4],
+            "initial_complex_upgrader_impl",
+            "l1-contracts/L2ComplexUpgrader",
+        )
+        .await?;
+
         Ok(())
     }
 
     pub async fn ensure_zksync_os_factory_deps_alignment(
         &self,
-        result: &mut VerificationResult
+        result: &mut VerificationResult,
     ) -> anyhow::Result<()> {
         result.print_info("Ensuring alignment of factory deps with zksync-os server...");
-        let factory_deps_from_github = get_zksync_os_factory_deps_from_github(DEFAULT_SERVER_COMMIT).await?;
-
+        let factory_deps_from_github =
+            get_zksync_os_factory_deps_from_github(DEFAULT_SERVER_COMMIT).await?;
 
         for (file, dep) in factory_deps_from_github.iter() {
             let full_file_name = format!("l1-contracts/{}", file);
-            let expected_hash = self.file_to_zksync_os_bytecode_info(&full_file_name)
-                .ok_or_else(|| anyhow::anyhow!("Missing zksync os bytecode info for file: {}", file))?
+            let expected_hash = self
+                .file_to_zksync_os_bytecode_info(&full_file_name)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Missing zksync os bytecode info for file: {}", file)
+                })?
                 .evmDeployedBytecodeBlakeHash;
 
-            let dep_bytecode_hash = FixedBytes::<32>::from_hex(&dep.bytecode_hash)
-                .map_err(|e| anyhow::anyhow!("Invalid hex in bytecode hash for file {}: {}", file, e))?;
+            let dep_bytecode_hash =
+                FixedBytes::<32>::from_hex(&dep.bytecode_hash).map_err(|e| {
+                    anyhow::anyhow!("Invalid hex in bytecode hash for file {}: {}", file, e)
+                })?;
 
             if dep_bytecode_hash != expected_hash {
                 result.report_error(&format!(
                     "Mismatch in zksync os bytecode info for file {}: expected {:?}, got {:?}",
-                    file,
-                    expected_hash,
-                    dep_bytecode_hash
+                    file, expected_hash, dep_bytecode_hash
                 ));
             }
 
@@ -420,30 +430,32 @@ pub struct ContractHash {
 
 impl From<ContractHashRaw> for ContractHash {
     fn from(raw: ContractHashRaw) -> Self {
-        let evm_bytecode_info = if let (Some(evm_hash), Some(deployed_hash), Some(blake_hash), Some(length)) = (
-            raw.evm_bytecode_hash,
-            raw.evm_deployed_bytecode_hash,
-            raw.evm_deployed_bytecode_blake_hash,
-            raw.evm_deployed_bytecode_length,
-        ) {
-            let decoded_evm_hash = hex::decode(evm_hash).expect("Invalid hex in evm_bytecode_hash");
-            let decoded_deployed_hash =
-                hex::decode(deployed_hash).expect("Invalid hex in evm_deployed_bytecode_hash");
-            let decoded_blake_hash =
-                hex::decode(blake_hash).expect("Invalid hex in evm_deployed_bytecode_blake_hash");
+        let evm_bytecode_info =
+            if let (Some(evm_hash), Some(deployed_hash), Some(blake_hash), Some(length)) = (
+                raw.evm_bytecode_hash,
+                raw.evm_deployed_bytecode_hash,
+                raw.evm_deployed_bytecode_blake_hash,
+                raw.evm_deployed_bytecode_length,
+            ) {
+                let decoded_evm_hash =
+                    hex::decode(evm_hash).expect("Invalid hex in evm_bytecode_hash");
+                let decoded_deployed_hash =
+                    hex::decode(deployed_hash).expect("Invalid hex in evm_deployed_bytecode_hash");
+                let decoded_blake_hash = hex::decode(blake_hash)
+                    .expect("Invalid hex in evm_deployed_bytecode_blake_hash");
 
-            Some(EvmBytecodeInfo {
-                bytecode_hash: FixedBytes::try_from(decoded_evm_hash.as_slice())
-                    .expect("Invalid length for FixedBytes (evm_bytecode_hash)"),
-                deployed_bytecode_hash: FixedBytes::try_from(decoded_deployed_hash.as_slice())
-                    .expect("Invalid length for FixedBytes (evm_deployed_bytecode_hash)"),
-                deployed_blake_hash: FixedBytes::try_from(decoded_blake_hash.as_slice())
-                    .expect("Invalid length for FixedBytes (evm_deployed_bytecode_blake_hash)"),
-                deployed_length: length,
-            })
-        } else {
-            None
-        };
+                Some(EvmBytecodeInfo {
+                    bytecode_hash: FixedBytes::try_from(decoded_evm_hash.as_slice())
+                        .expect("Invalid length for FixedBytes (evm_bytecode_hash)"),
+                    deployed_bytecode_hash: FixedBytes::try_from(decoded_deployed_hash.as_slice())
+                        .expect("Invalid length for FixedBytes (evm_deployed_bytecode_hash)"),
+                    deployed_blake_hash: FixedBytes::try_from(decoded_blake_hash.as_slice())
+                        .expect("Invalid length for FixedBytes (evm_deployed_bytecode_blake_hash)"),
+                    deployed_length: length,
+                })
+            } else {
+                None
+            };
 
         let zk_bytecode_info = if let Some(zk_hash) = raw.zk_bytecode_hash {
             let decoded = hex::decode(zk_hash).expect("Invalid hex in zk_bytecode_hash");
@@ -473,11 +485,11 @@ impl ContractHashes {
     pub async fn init_from_github(commit: &str) -> Self {
         let contents = Self::get_contents(commit).await;
 
-        let raw_hashes: Vec<ContractHashRaw> =
-            serde_json::from_str(&contents).expect("Failed to parse AllContractsHashes.json from GitHub");
+        let raw_hashes: Vec<ContractHashRaw> = serde_json::from_str(&contents)
+            .expect("Failed to parse AllContractsHashes.json from GitHub");
 
         Self {
-                    hashes: raw_hashes.into_iter().map(ContractHash::from).collect(),
+            hashes: raw_hashes.into_iter().map(ContractHash::from).collect(),
         }
     }
 

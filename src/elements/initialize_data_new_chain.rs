@@ -63,9 +63,7 @@ impl InitializeDataNewChain {
         }
 
         result.expected_zk_bytecode_one(&self.l2BootloaderBytecodeHash);
-        result.expected_zk_bytecode_one(
-            &self.l2DefaultAccountBytecodeHash,
-        );
+        result.expected_zk_bytecode_one(&self.l2DefaultAccountBytecodeHash);
         result.expected_zk_bytecode_one(&self.l2EvmEmulatorBytecodeHash);
 
         if self.priorityTxMaxGasLimit != U256::from(MAX_PRIORITY_TX_GAS_LIMIT) {

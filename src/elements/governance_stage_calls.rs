@@ -5,13 +5,13 @@ use super::{
     set_new_version_upgrade::{self, setNewVersionUpgradeCall},
     V29,
 };
+use crate::utils::address_from_short_hex;
 use crate::{
     elements::{initialize_data_new_chain::InitializeDataNewChain, GatewayStateTransition},
     get_expected_new_protocol_version, get_expected_old_protocol_version,
     utils::facet_cut_set::{self, FacetCutSet, FacetInfo},
     verifiers::Verifiers,
 };
-use crate::{utils::address_from_short_hex};
 use alloy::{
     hex,
     primitives::{keccak256, Address, Bytes, FixedBytes, U256},
@@ -371,10 +371,7 @@ impl GovernanceStage1Calls {
         // Verify rollup_da_manager call
         // FIXME: double check that the DA validators have been set correctly by the deployer.
 
-        Ok((
-            l1_chain_creation_diamond_cut,
-            l1_force_deployments,
-        ))
+        Ok((l1_chain_creation_diamond_cut, l1_force_deployments))
     }
 }
 

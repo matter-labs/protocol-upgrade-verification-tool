@@ -9,7 +9,16 @@ use alloy::{
 use anyhow::Context;
 
 use crate::{
-    elements::{fixed_force_deployment::FixedForceDeploymentsData, force_deployment::{self, IComplexUpgraderZKsyncOSV29}}, get_expected_new_protocol_version, utils::{address_from_short_hex, apply_l2_to_l1_alias, generate_zksync_os_proxy_upgrade_bytecode_info, generate_zksync_os_random_force_deploy_address}
+    elements::{
+        fixed_force_deployment::FixedForceDeploymentsData,
+        force_deployment::{self, IComplexUpgraderZKsyncOSV29},
+    },
+    get_expected_new_protocol_version,
+    utils::{
+        address_from_short_hex, apply_l2_to_l1_alias,
+        generate_zksync_os_proxy_upgrade_bytecode_info,
+        generate_zksync_os_random_force_deploy_address,
+    },
 };
 
 use super::{
@@ -127,7 +136,7 @@ sol! {
     function setUpgradeDiamondCut(DiamondCutData diamondCut, uint256 protocolVersion);
 
     contract L1ZKsyncOSV30Upgrade {
-        function upgrade(ProposedUpgrade calldata _proposedUpgrade) external; 
+        function upgrade(ProposedUpgrade calldata _proposedUpgrade) external;
     }
 
     contract L2V30TestnetSystemProxiesUpgrade {
@@ -306,12 +315,19 @@ impl ProposedUpgrade {
         // }
 
         // Check calldata.
-        let complex_upgrade_call = IComplexUpgraderZKsyncOSV29::forceDeployAndUpgradeUniversalCall::abi_decode(&tx.data, true).unwrap(); // TODO check if we need to verify complex upgrade?
+        let complex_upgrade_call =
+            IComplexUpgraderZKsyncOSV29::forceDeployAndUpgradeUniversalCall::abi_decode(
+                &tx.data, true,
+            )
+            .unwrap(); // TODO check if we need to verify complex upgrade?
 
         // Firslty, we verify the delegatecall target
-        let upgrade_impl_bytecode_info = verifiers.bytecode_verifier.file_to_zksync_os_bytecode_info("l1-contracts/L2V30TestnetSystemProxiesUpgrade").unwrap();
+        let upgrade_impl_bytecode_info = verifiers
+            .bytecode_verifier
+            .file_to_zksync_os_bytecode_info("l1-contracts/L2V30TestnetSystemProxiesUpgrade")
+            .unwrap();
         let expected_delegate_to_address = generate_zksync_os_random_force_deploy_address(
-            upgrade_impl_bytecode_info.abi_encode().as_ref()
+            upgrade_impl_bytecode_info.abi_encode().as_ref(),
         );
         if complex_upgrade_call._delegateTo != expected_delegate_to_address {
             result.report_error(&format!(
@@ -329,38 +345,69 @@ impl ProposedUpgrade {
                 result.report_error("Expected isZKsyncOS to be true");
             }
             if force_deployment.newAddress != expected_delegate_to_address {
-                result.report_error(&format!("Invalid force deployed address, expected {:#?}, received {:#?}", expected_delegate_to_address, force_deployment.newAddress));
+                result.report_error(&format!(
+                    "Invalid force deployed address, expected {:#?}, received {:#?}",
+                    expected_delegate_to_address, force_deployment.newAddress
+                ));
             }
             if force_deployment.deployedBytecodeInfo.0 != upgrade_impl_bytecode_info.abi_encode() {
                 result.report_error("Invalid deployed bytecode info for force deployment");
             }
         }
 
-        let system_contract_proxy_admin_bytecode_info = verifiers.bytecode_verifier.file_to_zksync_os_bytecode_info("l1-contracts/SystemContractProxyAdmin").unwrap();
-        let system_contract_proxy_bytecode_info = verifiers.bytecode_verifier.file_to_zksync_os_bytecode_info("l1-contracts/SystemContractProxy").unwrap();
+        let system_contract_proxy_admin_bytecode_info = verifiers
+            .bytecode_verifier
+            .file_to_zksync_os_bytecode_info("l1-contracts/SystemContractProxyAdmin")
+            .unwrap();
+        let system_contract_proxy_bytecode_info = verifiers
+            .bytecode_verifier
+            .file_to_zksync_os_bytecode_info("l1-contracts/SystemContractProxy")
+            .unwrap();
         let complex_upgrader_upgrade_bytecode_info = generate_zksync_os_proxy_upgrade_bytecode_info(
             system_contract_proxy_bytecode_info.abi_encode().as_ref(),
-            verifiers.bytecode_verifier.file_to_zksync_os_bytecode_info("l1-contracts/L2ComplexUpgrader").unwrap().abi_encode().as_ref(),
+            verifiers
+                .bytecode_verifier
+                .file_to_zksync_os_bytecode_info("l1-contracts/L2ComplexUpgrader")
+                .unwrap()
+                .abi_encode()
+                .as_ref(),
         );
 
-        let Ok(upgrade_calldata) =
-            L2V30TestnetSystemProxiesUpgrade::upgradeCall::abi_decode(complex_upgrade_call._calldata.as_ref(), true)
-        else {
+        let Ok(upgrade_calldata) = L2V30TestnetSystemProxiesUpgrade::upgradeCall::abi_decode(
+            complex_upgrade_call._calldata.as_ref(),
+            true,
+        ) else {
             result.report_error("Failed to decode delegate upgrade calldata");
             return Ok(());
         };
 
-        if upgrade_calldata._systemContractProxyAdminBytecodeInfo.0 != system_contract_proxy_admin_bytecode_info.abi_encode() {
+        if upgrade_calldata._systemContractProxyAdminBytecodeInfo.0
+            != system_contract_proxy_admin_bytecode_info.abi_encode()
+        {
             result.report_error("Invalid system contract proxy admin bytecode info");
         }
 
-        if upgrade_calldata._complexUpgraderProxyBytecodeInfo != complex_upgrader_upgrade_bytecode_info {
-            result.report_error(format!("Invalid complex upgrader proxy bytecode info. Expected: {:?}, got: {:?}", hex::encode(complex_upgrader_upgrade_bytecode_info), hex::encode(upgrade_calldata._complexUpgraderProxyBytecodeInfo)).as_str());
+        if upgrade_calldata._complexUpgraderProxyBytecodeInfo
+            != complex_upgrader_upgrade_bytecode_info
+        {
+            result.report_error(
+                format!(
+                    "Invalid complex upgrader proxy bytecode info. Expected: {:?}, got: {:?}",
+                    hex::encode(complex_upgrader_upgrade_bytecode_info),
+                    hex::encode(upgrade_calldata._complexUpgraderProxyBytecodeInfo)
+                )
+                .as_str(),
+            );
         }
 
-        let fixed_force_deployments_data = <FixedForceDeploymentsData as SolType>::abi_decode(&upgrade_calldata._fixedForceDeploymentsData, true)?;
+        let fixed_force_deployments_data = <FixedForceDeploymentsData as SolType>::abi_decode(
+            &upgrade_calldata._fixedForceDeploymentsData,
+            true,
+        )?;
 
-        fixed_force_deployments_data.verify(verifiers, result).await?;
+        fixed_force_deployments_data
+            .verify(verifiers, result)
+            .await?;
 
         Ok(())
     }

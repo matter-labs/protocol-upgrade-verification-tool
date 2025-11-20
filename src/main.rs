@@ -57,7 +57,7 @@ struct Args {
     #[clap(long)]
     era_chain_id: u64,
 
-    // Optional sample chain id. This is used to obtain the address of the ChainTypeManager, etc. 
+    // Optional sample chain id. This is used to obtain the address of the ChainTypeManager, etc.
     // Typically used for zksync-os-specific upgrades.
     #[clap(long)]
     sample_chain_id: Option<u64>,
@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.sample_chain_id,
         config.gateway_chain_id,
         &config,
-        IS_ZKSYNC_OS
+        IS_ZKSYNC_OS,
     )
     .await;
 

@@ -267,7 +267,10 @@ impl NetworkVerifier {
 
     pub async fn get_bridgehub_info(&self, bridgehub_addr: Address) -> BridgehubInfo {
         // This is a hack, but we dont always have no sample chain id, so it is very temporary.
-        let l1_mainnet_zksync_os_ctm_address: Address = "0x1adF137F59949c9081157D5de1e002D1C992071F".parse().unwrap();
+        let l1_mainnet_zksync_os_ctm_address: Address =
+            "0x1adF137F59949c9081157D5de1e002D1C992071F"
+                .parse()
+                .unwrap();
 
         let l1_provider = &self.get_l1_provider();
         let l1_chain_id = self.get_l1_chain_id();
@@ -289,7 +292,10 @@ impl NetworkVerifier {
                 .unwrap()
                 ._0
         } else {
-            assert!(l1_chain_id == 1, "No sample chain id provided on non-mainnet L1");
+            assert!(
+                l1_chain_id == 1,
+                "No sample chain id provided on non-mainnet L1"
+            );
             l1_mainnet_zksync_os_ctm_address
         };
         let chain_type_manager_deployment_tracker =
@@ -302,12 +308,14 @@ impl NetworkVerifier {
             .unwrap()
             .chainAddress;
         let sample_chain_address = if let Some(sample_chain_id) = sample_chain_id {
-            Some(chain_type_manager
-                .getHyperchain(U256::from(sample_chain_id))
-                .call()
-                .await
-                .unwrap()
-                ._0)
+            Some(
+                chain_type_manager
+                    .getHyperchain(U256::from(sample_chain_id))
+                    .call()
+                    .await
+                    .unwrap()
+                    ._0,
+            )
         } else {
             None
         };

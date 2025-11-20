@@ -6,7 +6,8 @@ use std::{
 
 use alloy::{
     hex::{self, FromHex},
-    primitives::{Address, Bytes, FixedBytes, Keccak256, U160, keccak256}, sol_types::SolValue,
+    primitives::{keccak256, Address, Bytes, FixedBytes, Keccak256, U160},
+    sol_types::SolValue,
 };
 
 use crate::utils::bytecode_verifier::ZKSyncOSSystemProxyUpgradeBytecodeInfo;
@@ -130,11 +131,12 @@ pub fn generate_zksync_os_proxy_upgrade_bytecode_info(
     proxy_bytecode_info: &[u8],
     implementation_bytecode_info: &[u8],
 ) -> Vec<u8> {
-    // When encoding a Solidity struct, Solidity appends 0x20 to the beginning. 
+    // When encoding a Solidity struct, Solidity appends 0x20 to the beginning.
     // Since there is no nice way to encode just a tuple, this is what we do here.
-    ZKSyncOSSystemProxyUpgradeBytecodeInfo{
+    ZKSyncOSSystemProxyUpgradeBytecodeInfo {
         implementationBytecodeInfo: Bytes::from(implementation_bytecode_info.to_vec()),
         systemProxyBytecodeInfo: Bytes::from(proxy_bytecode_info.to_vec()),
-    }.abi_encode()[32..].to_vec()
+    }
+    .abi_encode()[32..]
+        .to_vec()
 }
-

@@ -956,15 +956,41 @@ impl DeployedAddresses {
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
     ) -> anyhow::Result<()> {
-        result.expect_create2_params(verifiers, &self.rollup_l1_da_validator_addr, vec![], "da-contracts/RollupL1DAValidator");
-        result.expect_create2_params(verifiers, &self.validium_l1_da_validator_addr, vec![], "l1-contracts/ValidiumL1DAValidator");
-        result.expect_create2_params(verifiers, &self.blobs_zksync_os_l1_da_validator_addr, vec![], "da-contracts/BlobsL1DAValidatorZKsyncOS");
-        result.expect_create2_params(verifiers, &self.l1_rollup_da_manager, vec![], "l1-contracts/RollupDAManager");
+        result.expect_create2_params(
+            verifiers,
+            &self.rollup_l1_da_validator_addr,
+            vec![],
+            "da-contracts/RollupL1DAValidator",
+        );
+        result.expect_create2_params(
+            verifiers,
+            &self.validium_l1_da_validator_addr,
+            vec![],
+            "l1-contracts/ValidiumL1DAValidator",
+        );
+        result.expect_create2_params(
+            verifiers,
+            &self.blobs_zksync_os_l1_da_validator_addr,
+            vec![],
+            "da-contracts/BlobsL1DAValidatorZKsyncOS",
+        );
+        result.expect_create2_params(
+            verifiers,
+            &self.l1_rollup_da_manager,
+            vec![],
+            "l1-contracts/RollupDAManager",
+        );
 
-        let rollup_da_manager = RollupDAManager::new(self.l1_rollup_da_manager, verifiers.network_verifier.get_l1_provider());  
+        let rollup_da_manager = RollupDAManager::new(
+            self.l1_rollup_da_manager,
+            verifiers.network_verifier.get_l1_provider(),
+        );
 
         let is_rollup_validator_allowed = rollup_da_manager
-            .isPairAllowed(self.rollup_l1_da_validator_addr, L2DACommitmentScheme::BLOBS_AND_PUBDATA_KECCAK256)
+            .isPairAllowed(
+                self.rollup_l1_da_validator_addr,
+                L2DACommitmentScheme::BLOBS_AND_PUBDATA_KECCAK256,
+            )
             .call()
             .await?
             ._0;
@@ -974,7 +1000,10 @@ impl DeployedAddresses {
         };
 
         let is_blobs_validator_allowed = rollup_da_manager
-            .isPairAllowed(self.blobs_zksync_os_l1_da_validator_addr, L2DACommitmentScheme::BLOBS_ZKSYNC_OS)
+            .isPairAllowed(
+                self.blobs_zksync_os_l1_da_validator_addr,
+                L2DACommitmentScheme::BLOBS_ZKSYNC_OS,
+            )
             .call()
             .await?
             ._0;
@@ -984,7 +1013,6 @@ impl DeployedAddresses {
         };
 
         Ok(())
-
     }
 
     pub async fn verify_verifier(
@@ -1010,7 +1038,7 @@ impl DeployedAddresses {
         let expected_constructor_params = ZKsyncOSDualVerifier::constructorCall::new((
             self.state_transition.verifier_fflonk_addr,
             self.state_transition.verifier_plonk_addr,
-            config.deployer_addr
+            config.deployer_addr,
         ))
         .abi_encode();
 
@@ -1025,23 +1053,25 @@ impl DeployedAddresses {
             },
         );
 
-        let dual_verifier = ZKsyncOSDualVerifier::new(self.state_transition.verifier_addr, verifiers.network_verifier.get_l1_provider());
+        let dual_verifier = ZKsyncOSDualVerifier::new(
+            self.state_transition.verifier_addr,
+            verifiers.network_verifier.get_l1_provider(),
+        );
 
-        let pending_owner = dual_verifier
-            .pendingOwner()
-            .call()
-            .await?
-            ._0;
+        let pending_owner = dual_verifier.pendingOwner().call().await?._0;
 
         if pending_owner != config.owner_address {
             result.report_error(&format!(
                 "ZKsyncOSDualVerifier pending owner mismatch: expected {:?}, got {:?}",
-                config.owner_address,
-                pending_owner
+                config.owner_address, pending_owner
             ));
         };
 
-        let current_flonk_verifier = dual_verifier.fflonkVerifiers(DEFAULT_ZKSYNC_OS_EXECUTION_VERSION).call().await?._0;
+        let current_flonk_verifier = dual_verifier
+            .fflonkVerifiers(DEFAULT_ZKSYNC_OS_EXECUTION_VERSION)
+            .call()
+            .await?
+            ._0;
         ensure!(
             current_flonk_verifier == self.state_transition.verifier_fflonk_addr,
             "DualVerifier fflonk verifier mismatch: expected {:?}, got {:?}",
@@ -1049,8 +1079,11 @@ impl DeployedAddresses {
             current_flonk_verifier
         );
 
-
-        let current_plonk_verifier = dual_verifier.plonkVerifiers(DEFAULT_ZKSYNC_OS_EXECUTION_VERSION).call().await?._0;
+        let current_plonk_verifier = dual_verifier
+            .plonkVerifiers(DEFAULT_ZKSYNC_OS_EXECUTION_VERSION)
+            .call()
+            .await?
+            ._0;
         ensure!(
             current_plonk_verifier == self.state_transition.verifier_plonk_addr,
             "DualVerifier plonk verifier mismatch: expected {:?}, got {:?}",
@@ -1060,7 +1093,6 @@ impl DeployedAddresses {
 
         Ok(())
     }
-
 
     pub async fn verify(
         &self,
@@ -1084,7 +1116,7 @@ impl DeployedAddresses {
         // Skipped as zksync os admin doesnt update it.
         // self.verify_ntv(config, verifiers, result, &bridgehub_info)
         //     .await?;
-        
+
         // We do not update validator timelock in this release
         result.expect_create2_params(
             verifiers,
@@ -1128,12 +1160,8 @@ impl DeployedAddresses {
         //     &bridgehub_info,
         // )
         // .await?;
-        
-        self.verify_verifier(
-            verifiers,
-            result,
-            config,
-        ).await?;
+
+        self.verify_verifier(verifiers, result, config).await?;
 
         result.expect_create2_params(
             verifiers,
@@ -1154,11 +1182,8 @@ impl DeployedAddresses {
             "l1-contracts/DiamondInit",
         );
 
-        self.verify_rollup_da_validators(
-            config,
-            verifiers,
-            result,
-        ).await?;
+        self.verify_rollup_da_validators(config, verifiers, result)
+            .await?;
 
         // zksync os admin doesnt update message root implementation
         // result.expect_create2_params(

@@ -217,15 +217,15 @@ impl UpgradeOutput {
     ) -> anyhow::Result<()> {
         result.print_info("== Config verification ==");
 
-        verifiers.bytecode_verifier.ensure_zksync_os_genesis_server_alignment(
-            verifiers, 
-            result
-        ).await?;
+        verifiers
+            .bytecode_verifier
+            .ensure_zksync_os_genesis_server_alignment(verifiers, result)
+            .await?;
 
-
-        verifiers.bytecode_verifier.ensure_zksync_os_factory_deps_alignment(
-            result
-        ).await?;
+        verifiers
+            .bytecode_verifier
+            .ensure_zksync_os_factory_deps_alignment(result)
+            .await?;
 
         let provider_era_chain_id = verifiers.network_verifier.get_era_chain_id();
         if provider_era_chain_id == self.era_chain_id {
@@ -321,7 +321,7 @@ impl UpgradeOutput {
                 //     .validator_timelock_addr,
             )
             .await
-            .map_err(|e| anyhow::anyhow!("stage1: {:#?}", e))?;  
+            .map_err(|e| anyhow::anyhow!("stage1: {:#?}", e))?;
 
         let stage2 = GovernanceStage2Calls {
             calls: CallList::parse(&self.governance_calls.stage2_calls),

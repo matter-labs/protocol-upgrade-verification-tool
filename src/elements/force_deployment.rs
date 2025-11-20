@@ -56,7 +56,7 @@ sol! {
             UniversalForceDeploymentInfo[] calldata _forceDeployments,
             address _delegateTo,
             bytes calldata _calldata
-        ) external payable; 
+        ) external payable;
     }
 
     interface L2TestnetSystemProxiesUpgrade {
