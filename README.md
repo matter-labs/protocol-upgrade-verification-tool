@@ -47,7 +47,7 @@ cargo run -- --ecosystem-yaml data/v28-ecosystem-testnet.yaml --l1-rpc https://1
 ### Mainnet verification
 
 ```
-cargo run -- --ecosystem-yaml data/v29.2-ecosystem.yaml --l1-rpc <l1-rpc>  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --gw-rpc https://rpc.era-gateway-mainnet.zksync.dev/
+cargo run -- --ecosystem-yaml data/v0.30.0-zksync-os-blobs/mainnet/v30.0-ecosystem.yaml --l1-rpc <l1-rpc-url>  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --gw-rpc https://rpc.era-gateway-mainnet.zksync.dev/
 ```
 
 #### Tally upgrade data

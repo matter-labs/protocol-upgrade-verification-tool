@@ -295,12 +295,12 @@ impl NetworkVerifier {
         let chain_type_manager_deployment_tracker =
             bridgehub.l1CtmDeployer().call().await.unwrap()._0;
         let chain_type_manager = ChainTypeManager::new(stm_address, l1_provider);
-        let era_address = chain_type_manager
-            .getHyperchain(U256::from(era_chain_id))
+        let era_address = bridgehub
+            .getZKChain(U256::from(era_chain_id))
             .call()
             .await
             .unwrap()
-            ._0;
+            .chainAddress;
         let sample_chain_address = if let Some(sample_chain_id) = sample_chain_id {
             Some(chain_type_manager
                 .getHyperchain(U256::from(sample_chain_id))
