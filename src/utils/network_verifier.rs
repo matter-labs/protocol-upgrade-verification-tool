@@ -340,12 +340,12 @@ impl NetworkVerifier {
 
         let l1_asset_router_proxy_addr = bridgehub.assetRouter().call().await.unwrap()._0;
 
-        let gateway_base_token_addr = bridgehub
-            .baseToken(U256::from(self.get_gateway_chain_id()))
-            .call()
-            .await
-            .unwrap()
-            ._0;
+        // let gateway_base_token_addr = bridgehub
+        //     .baseToken(U256::from(self.get_gateway_chain_id()))
+        //     .call()
+        //     .await
+        //     .unwrap()
+        //     ._0;
 
         BridgehubInfo {
             shared_bridge: shared_bridge_address,
@@ -361,7 +361,7 @@ impl NetworkVerifier {
             native_token_vault,
             l1_nullifier,
             l1_asset_router_proxy_addr,
-            gateway_base_token_addr,
+            gateway_base_token_addr: Default::default(),
             chain_type_manager_deployment_tracker,
         }
     }

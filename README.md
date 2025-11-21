@@ -40,7 +40,7 @@ cargo run -- --ecosystem-yaml data/v0.30.0-zksync-os-blobs/stage/v30.0-ecosystem
 ### Testnet verification
 
 ```
-cargo run -- --ecosystem-yaml data/v28-ecosystem-testnet.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 300 --testnet-contracts  --bridgehub-address 0x35A54c8C757806eB6820629bc82d90E056394C92
+cargo run -- --ecosystem-yaml data/v0.30.0-zksync-os-blobs/testnet/v30.0-ecosystem.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 300 --sample-chain-id 8022833 --bridgehub-address 0xc4fd2580c3487bba18d63f50301020132342fdbd --testnet-contracts --gw-rpc https://rpc.era-gateway-testnet.zksync.dev/
 ```
 
 

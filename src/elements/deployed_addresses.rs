@@ -351,6 +351,8 @@ pub struct StateTransition {
     pub verifier_addr: Address,
     pub verifier_fflonk_addr: Address,
     pub verifier_plonk_addr: Address,
+    pub constructor_verifier_fflonk_addr: Address,
+    pub constructor_verifier_plonk_addr: Address,
 }
 
 impl DeployedAddresses {
@@ -1036,8 +1038,8 @@ impl DeployedAddresses {
         );
 
         let expected_constructor_params = ZKsyncOSDualVerifier::constructorCall::new((
-            self.state_transition.verifier_fflonk_addr,
-            self.state_transition.verifier_plonk_addr,
+            self.state_transition.constructor_verifier_fflonk_addr,
+            self.state_transition.constructor_verifier_plonk_addr,
             config.deployer_addr,
         ))
         .abi_encode();
