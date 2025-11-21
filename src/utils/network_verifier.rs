@@ -84,6 +84,7 @@ pub struct BridgehubInfo {
     pub bridgehub_addr: Address,
     pub validator_timelock: Address,
     pub era_address: Address,
+    pub sample_chain_address: Option<Address>,
     pub native_token_vault: Address,
     pub l1_nullifier: Address,
     pub l1_asset_router_proxy_addr: Address,
@@ -94,6 +95,7 @@ pub struct BridgehubInfo {
 pub struct NetworkVerifier {
     pub l1_provider: RootProvider<Http<Client>>,
     pub l2_chain_id: u64,
+    pub sample_chain_id: Option<u64>,
     pub l1_chain_id: u64,
     pub gateway_chain_id: u64,
     pub gw_provider: RootProvider<Http<Client>>,
@@ -107,6 +109,7 @@ impl NetworkVerifier {
     pub async fn new(
         l1_rpc: String,
         l2_chain_id: u64,
+        sample_chain_id: Option<u64>,
         gateway_chain_id: u64,
         gateway_rpc: String,
         bytecode_verifier: &BytecodeVerifier,
@@ -180,6 +183,7 @@ impl NetworkVerifier {
             l1_chain_id: l1_provider.get_chain_id().await.unwrap(),
             l1_provider,
             l2_chain_id,
+            sample_chain_id,
             gateway_chain_id,
             gw_provider,
             create2_constructor_params,
@@ -189,6 +193,10 @@ impl NetworkVerifier {
 
     pub fn get_era_chain_id(&self) -> u64 {
         self.l2_chain_id
+    }
+
+    pub fn get_sample_chain_id(&self) -> Option<u64> {
+        self.sample_chain_id
     }
 
     pub fn get_l1_chain_id(&self) -> u64 {
@@ -258,7 +266,14 @@ impl NetworkVerifier {
     }
 
     pub async fn get_bridgehub_info(&self, bridgehub_addr: Address) -> BridgehubInfo {
+        // This is a hack, but we dont always have no sample chain id, so it is very temporary.
+        let l1_mainnet_zksync_os_ctm_address: Address =
+            "0x1adF137F59949c9081157D5de1e002D1C992071F"
+                .parse()
+                .unwrap();
+
         let l1_provider = &self.get_l1_provider();
+        let l1_chain_id = self.get_l1_chain_id();
 
         let bridgehub = Bridgehub::new(bridgehub_addr, l1_provider);
 
@@ -267,22 +282,43 @@ impl NetworkVerifier {
         let shared_bridge = L1AssetRouter::new(shared_bridge_address, l1_provider);
 
         let era_chain_id = self.get_era_chain_id();
+        let sample_chain_id = self.get_sample_chain_id();
 
-        let stm_address = bridgehub
-            .chainTypeManager(era_chain_id.try_into().unwrap())
-            .call()
-            .await
-            .unwrap()
-            ._0;
+        let stm_address = if let Some(sample_chain_id) = sample_chain_id {
+            bridgehub
+                .chainTypeManager(sample_chain_id.try_into().unwrap())
+                .call()
+                .await
+                .unwrap()
+                ._0
+        } else {
+            assert!(
+                l1_chain_id == 1,
+                "No sample chain id provided on non-mainnet L1"
+            );
+            l1_mainnet_zksync_os_ctm_address
+        };
         let chain_type_manager_deployment_tracker =
             bridgehub.l1CtmDeployer().call().await.unwrap()._0;
         let chain_type_manager = ChainTypeManager::new(stm_address, l1_provider);
-        let era_address = chain_type_manager
-            .getHyperchain(U256::from(era_chain_id))
+        let era_address = bridgehub
+            .getZKChain(U256::from(era_chain_id))
             .call()
             .await
             .unwrap()
-            ._0;
+            .chainAddress;
+        let sample_chain_address = if let Some(sample_chain_id) = sample_chain_id {
+            Some(
+                chain_type_manager
+                    .getHyperchain(U256::from(sample_chain_id))
+                    .call()
+                    .await
+                    .unwrap()
+                    ._0,
+            )
+        } else {
+            None
+        };
         let validator_timelock = chain_type_manager
             .validatorTimelock()
             .call()
@@ -292,7 +328,7 @@ impl NetworkVerifier {
 
         let ecosystem_admin = bridgehub.admin().call().await.unwrap().admin;
 
-        let transparent_proxy_admin = self.get_proxy_admin(bridgehub_addr).await;
+        let transparent_proxy_admin = self.get_proxy_admin(stm_address).await;
 
         let legacy_bridge = shared_bridge.legacyBridge().call().await.unwrap()._0;
 
@@ -304,12 +340,12 @@ impl NetworkVerifier {
 
         let l1_asset_router_proxy_addr = bridgehub.assetRouter().call().await.unwrap()._0;
 
-        let gateway_base_token_addr = bridgehub
-            .baseToken(U256::from(self.get_gateway_chain_id()))
-            .call()
-            .await
-            .unwrap()
-            ._0;
+        // let gateway_base_token_addr = bridgehub
+        //     .baseToken(U256::from(self.get_gateway_chain_id()))
+        //     .call()
+        //     .await
+        //     .unwrap()
+        //     ._0;
 
         BridgehubInfo {
             shared_bridge: shared_bridge_address,
@@ -321,10 +357,11 @@ impl NetworkVerifier {
             bridgehub_addr,
             validator_timelock,
             era_address,
+            sample_chain_address,
             native_token_vault,
             l1_nullifier,
             l1_asset_router_proxy_addr,
-            gateway_base_token_addr,
+            gateway_base_token_addr: Default::default(),
             chain_type_manager_deployment_tracker,
         }
     }

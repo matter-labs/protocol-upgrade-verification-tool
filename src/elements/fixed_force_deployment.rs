@@ -14,11 +14,12 @@ sol! {
         bytes32 l2TokenProxyBytecodeHash;
         address aliasedL1Governance;
         uint256 maxNumberOfZKChains;
-        bytes32 bridgehubBytecodeHash;
-        bytes32 l2AssetRouterBytecodeHash;
-        bytes32 l2NtvBytecodeHash;
-        bytes32 messageRootBytecodeHash;
-        bytes32 chainAssetHandlerBytecodeHash;
+        bytes bridgehubBytecodeInfo;
+        bytes l2AssetRouterBytecodeInfo;
+        bytes l2NtvBytecodeInfo;
+        bytes messageRootBytecodeInfo;
+        bytes chainAssetHandlerBytecodeInfo;
+        bytes beaconDeployerInfo;
         address l2SharedBridgeLegacyImpl;
         address l2BridgedStandardERC20Impl;
         // The forced beacon address. It is needed only for internal testing.
@@ -51,47 +52,50 @@ impl FixedForceDeploymentsData {
         }
 
         result.expect_address(verifiers, &self.l1AssetRouter, "l1_asset_router_proxy");
+        // Even though this is a ZK bytecode, we just dont use it in zksync os.
         result.expect_zk_bytecode(
             verifiers,
             &self.l2TokenProxyBytecodeHash,
             "l1-contracts/BeaconProxy",
         );
-        result.expect_address(
-            verifiers,
-            &self.aliasedL1Governance,
-            "aliased_protocol_upgrade_handler_proxy",
-        );
+        result.expect_address(verifiers, &self.aliasedL1Governance, "aliased_owner");
 
         if self.maxNumberOfZKChains != U256::from(MAX_NUMBER_OF_ZK_CHAINS) {
             result.report_error("maxNumberOfZKChains must be 100");
         }
 
-        result.expect_zk_bytecode(
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
             verifiers,
-            &self.bridgehubBytecodeHash,
-            "l1-contracts/Bridgehub",
+            &self.bridgehubBytecodeInfo,
+            "l1-contracts/L2Bridgehub",
         );
-        result.expect_zk_bytecode(
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
             verifiers,
-            &self.l2AssetRouterBytecodeHash,
+            &self.l2AssetRouterBytecodeInfo,
             "l1-contracts/L2AssetRouter",
         );
-        result.expect_zk_bytecode(
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
             verifiers,
-            &self.l2NtvBytecodeHash,
-            "l1-contracts/L2NativeTokenVault",
+            &self.l2NtvBytecodeInfo,
+            "l1-contracts/L2NativeTokenVaultZKOS",
         );
 
-        result.expect_zk_bytecode(
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
             verifiers,
-            &self.messageRootBytecodeHash,
-            "l1-contracts/MessageRoot",
+            &self.messageRootBytecodeInfo,
+            "l1-contracts/L2MessageRoot",
         );
 
-        result.expect_zk_bytecode(
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
             verifiers,
-            &self.chainAssetHandlerBytecodeHash,
-            "l1-contracts/ChainAssetHandler",
+            &self.chainAssetHandlerBytecodeInfo,
+            "l1-contracts/L2ChainAssetHandler",
+        );
+
+        result.expect_zksync_os_system_proxy_upgrade_bytecode_info(
+            verifiers,
+            &self.beaconDeployerInfo,
+            "l1-contracts/UpgradeableBeaconDeployer",
         );
 
         result.expect_address(verifiers, &self.l2SharedBridgeLegacyImpl, "zero");

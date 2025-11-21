@@ -37,6 +37,36 @@ sol! {
         address messageRoot;
     }
 
+    contract LegacyComplexUpgrader {
+        function forceDeployAndUpgrade(
+            ForceDeployment[] _forceDeployments,
+            address _delegateTo,
+            bytes _calldata
+        ) external payable;
+    }
+
+    interface IComplexUpgraderZKsyncOSV29 {
+        struct UniversalForceDeploymentInfo {
+            bool isZKsyncOS;
+            bytes deployedBytecodeInfo;
+            address newAddress;
+        }
+
+        function forceDeployAndUpgradeUniversal(
+            UniversalForceDeploymentInfo[] calldata _forceDeployments,
+            address _delegateTo,
+            bytes calldata _calldata
+        ) external payable;
+    }
+
+    interface L2TestnetSystemProxiesUpgrade {
+        function upgrade(
+            bytes calldata _fixedForceDeploymentsData,
+            bytes calldata _systemContractProxyAdminBytecodeInfo,
+            bytes calldata _complexUpgraderProxyBytecodeInfo
+        ) external;
+    }
+
     function forceDeployAndUpgrade(
         ForceDeployment[] _forceDeployments,
         address _delegateTo,

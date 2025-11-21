@@ -7,7 +7,10 @@ use std::{
 use alloy::{
     hex::{self, FromHex},
     primitives::{keccak256, Address, Bytes, FixedBytes, Keccak256, U160},
+    sol_types::SolValue,
 };
+
+use crate::utils::bytecode_verifier::ZKSyncOSSystemProxyUpgradeBytecodeInfo;
 
 pub mod address_verifier;
 pub mod bytecode_verifier;
@@ -113,4 +116,27 @@ pub fn compute_selector(method_name: &str) -> String {
 pub fn address_from_short_hex(hex: &str) -> Address {
     let padded_hex = format!("{:0>40}", hex);
     Address::from_hex(format!("0x{}", padded_hex)).expect("Invalid hex address provided")
+}
+
+pub fn generate_zksync_os_random_force_deploy_address(bytecode_info: &[u8]) -> Address {
+    let mut hasher = Keccak256::new();
+    hasher.update(&[0u8; 32]);
+    hasher.update(&bytecode_info);
+    let hash = hasher.finalize();
+
+    Address::from_slice(&hash[12..])
+}
+
+pub fn generate_zksync_os_proxy_upgrade_bytecode_info(
+    proxy_bytecode_info: &[u8],
+    implementation_bytecode_info: &[u8],
+) -> Vec<u8> {
+    // When encoding a Solidity struct, Solidity appends 0x20 to the beginning.
+    // Since there is no nice way to encode just a tuple, this is what we do here.
+    ZKSyncOSSystemProxyUpgradeBytecodeInfo {
+        implementationBytecodeInfo: Bytes::from(implementation_bytecode_info.to_vec()),
+        systemProxyBytecodeInfo: Bytes::from(proxy_bytecode_info.to_vec()),
+    }
+    .abi_encode()[32..]
+        .to_vec()
 }

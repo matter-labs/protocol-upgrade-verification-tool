@@ -62,13 +62,9 @@ impl InitializeDataNewChain {
             result.report_error("Verifier params must be empty.");
         }
 
-        result.expect_zk_bytecode(verifiers, &self.l2BootloaderBytecodeHash, "Bootloader");
-        result.expect_zk_bytecode(
-            verifiers,
-            &self.l2DefaultAccountBytecodeHash,
-            "system-contracts/DefaultAccount",
-        );
-        result.expect_zk_bytecode(verifiers, &self.l2EvmEmulatorBytecodeHash, "EvmEmulator");
+        result.expected_zk_bytecode_one(&self.l2BootloaderBytecodeHash);
+        result.expected_zk_bytecode_one(&self.l2DefaultAccountBytecodeHash);
+        result.expected_zk_bytecode_one(&self.l2EvmEmulatorBytecodeHash);
 
         if self.priorityTxMaxGasLimit != U256::from(MAX_PRIORITY_TX_GAS_LIMIT) {
             result.report_warn(&format!(

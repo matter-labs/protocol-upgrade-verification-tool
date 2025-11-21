@@ -9,13 +9,14 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of draft-v29 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "37b2351dfa20fc1b1c6c7dfca559ac27ec82f017";
+const DEFAULT_CONTRACTS_COMMIT: &str = "03604a666a3bf3355438326aea075ef759d69112";
 // Current commit on top of main
-const DEFAULT_ERA_COMMIT: &str = "fe0a73730853b291c3c1dd514a42a45625704b7b";
+const DEFAULT_SERVER_COMMIT: &str = "ea044637adb94336999d0e5031dd61c007defc11";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.2";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.28.1";
-pub(crate) const V28_PROTOCOL_VERSION_STR: &str = "0.28.0";
+const IS_ZKSYNC_OS: bool = true;
+
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.30.0";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.29.1";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
@@ -27,10 +28,6 @@ pub(crate) fn get_expected_old_protocol_version() -> ProtocolVersion {
     ProtocolVersion::from_str(EXPECTED_OLD_PROTOCOL_VERSION_STR).unwrap()
 }
 
-pub(crate) fn get_expected_v28_protocol_version() -> ProtocolVersion {
-    ProtocolVersion::from_str(V28_PROTOCOL_VERSION_STR).unwrap()
-}
-
 #[derive(Debug, Parser)]
 struct Args {
     // ecosystem_yaml file (gateway_ecosystem_upgrade_output.yaml - from zksync_era/configs)
@@ -38,7 +35,7 @@ struct Args {
     ecosystem_yaml: String,
 
     // Commit from zksync-era repository (used for genesis verification)
-    #[clap(long, default_value = DEFAULT_ERA_COMMIT)]
+    #[clap(long, default_value = DEFAULT_SERVER_COMMIT)]
     era_commit: String,
 
     // Commit from era-contracts - used for bytecode verification
@@ -59,6 +56,11 @@ struct Args {
     // If L2 RPC is not available, you can provide l2 chain id instead.
     #[clap(long)]
     era_chain_id: u64,
+
+    // Optional sample chain id. This is used to obtain the address of the ChainTypeManager, etc.
+    // Typically used for zksync-os-specific upgrades.
+    #[clap(long)]
+    sample_chain_id: Option<u64>,
 
     // If set - then will expect testnet contracts to be deployed (like TestnetVerifier).
     #[clap(long)]
@@ -89,8 +91,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.l1_rpc,
         args.gw_rpc,
         args.era_chain_id,
+        args.sample_chain_id,
         config.gateway_chain_id,
         &config,
+        IS_ZKSYNC_OS,
     )
     .await;
 

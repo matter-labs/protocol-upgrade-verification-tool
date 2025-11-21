@@ -34,20 +34,20 @@ cargo run -- --ecosystem-yaml data/gateway_ecosystem_upgrade_output.yaml --l1-rp
 ### Stage verification
 
 ```
-cargo run -- --ecosystem-yaml data/v28-ecosystem-stage.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 270 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE --testnet-contracts --gw-rpc https://rpc.era-gateway-stage.zksync.dev/
+cargo run -- --ecosystem-yaml data/v0.30.0-zksync-os-blobs/stage/v30.0-ecosystem.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 270 --sample-chain-id 2702 --bridgehub-address 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE --testnet-contracts --gw-rpc https://rpc.era-gateway-stage.zksync.dev/
 ```
 
 ### Testnet verification
 
 ```
-cargo run -- --ecosystem-yaml data/v28-ecosystem-testnet.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 300 --testnet-contracts  --bridgehub-address 0x35A54c8C757806eB6820629bc82d90E056394C92
+cargo run -- --ecosystem-yaml data/v0.30.0-zksync-os-blobs/testnet/v30.0-ecosystem.yaml --l1-rpc https://1rpc.io/sepolia  --era-chain-id 300 --sample-chain-id 8022833 --bridgehub-address 0xc4fd2580c3487bba18d63f50301020132342fdbd --testnet-contracts --gw-rpc https://rpc.era-gateway-testnet.zksync.dev/
 ```
 
 
 ### Mainnet verification
 
 ```
-cargo run -- --ecosystem-yaml data/v29.2-ecosystem.yaml --l1-rpc <l1-rpc>  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --gw-rpc https://rpc.era-gateway-mainnet.zksync.dev/
+cargo run -- --ecosystem-yaml data/v0.30.0-zksync-os-blobs/mainnet/v30.0-ecosystem.yaml --l1-rpc <l1-rpc-url>  --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --gw-rpc https://rpc.era-gateway-mainnet.zksync.dev/
 ```
 
 #### Tally upgrade data

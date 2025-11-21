@@ -28,10 +28,7 @@ impl AddressVerifier {
 
         result.add_address(Address::ZERO, "zero");
         result.add_address(config.owner_address, "owner");
-        result.add_address(
-            apply_l2_to_l1_alias(config.owner_address),
-            "aliased_protocol_upgrade_handler_proxy",
-        );
+        result.add_address(apply_l2_to_l1_alias(config.owner_address), "aliased_owner");
         result.add_address(
             bytecode_verifier
                 .compute_expected_address_for_file("l1-contracts/L2SharedBridgeLegacy"),
@@ -41,15 +38,6 @@ impl AddressVerifier {
             bytecode_verifier
                 .compute_expected_address_for_file("l1-contracts/BridgedStandardERC20"),
             "erc20_bridged_standard",
-        );
-        result.add_address(
-            bytecode_verifier.compute_expected_address_for_file("l2-contracts/RollupL2DAValidator"),
-            "rollup_l2_da_validator",
-        );
-        result.add_address(
-            bytecode_verifier
-                .compute_expected_address_for_file("l2-contracts/ValidiumL2DAValidator"),
-            "validium_l2_da_validator",
         );
 
         config.add_to_verifier(&mut result);
@@ -72,13 +60,24 @@ impl AddressVerifier {
         result.add_address(info.l1_nullifier, "l1_nullifier_proxy_addr");
         result.add_address(info.l1_asset_router_proxy_addr, "l1_asset_router_proxy");
 
-        result.add_address(info.gateway_base_token_addr, "gateway_base_token");
+        // result.add_address(info.gateway_base_token_addr, "gateway_base_token");
         result.add_address(
             info.chain_type_manager_deployment_tracker,
             "chain_type_manager_deployment_tracker",
         );
 
         result.add_address(address_from_short_hex("10002"), "l2_bridgehub");
+        result.add_address(address_from_short_hex("800f"), "l2_complex_upgrader");
+        result.add_address(address_from_short_hex("10001"), "l2_genesis_upgrade");
+        result.add_address(address_from_short_hex("10007"), "l2_weth_implementation");
+        result.add_address(
+            address_from_short_hex("1000c"),
+            "l2_system_contract_proxy_admin",
+        );
+        result.add_address(
+            "d704e29df32c189b8613f79fcc043b2dc01d5f53".parse().unwrap(),
+            "initial_complex_upgrader_impl",
+        );
 
         // Add gateway addresses
         result.add_address(
@@ -146,12 +145,12 @@ impl AddressVerifier {
                 .rollup_l2_da_validator,
             "gateway_rollup_l2_da_validator",
         );
-        result.add_address(
-            config
-                .deployed_addresses
-                .protocol_upgrade_handler_address_implementation,
-            "protocol_upgrade_handler_address_implementation",
-        );
+        // result.add_address(
+        //     config
+        //         .deployed_addresses
+        //         .protocol_upgrade_handler_address_implementation,
+        //     "protocol_upgrade_handler_address_implementation",
+        // );
 
         result
     }
