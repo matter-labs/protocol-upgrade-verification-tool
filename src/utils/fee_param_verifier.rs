@@ -66,7 +66,11 @@ impl FeeParamVerifier {
         let bridgehub = Bridgehub::new(*bridgehub_addr, network_verifier.get_l1_provider().clone());
 
         let diamond_proxy_address = &bridgehub
-            .getHyperchain(U256::from(network_verifier.sample_chain_id.unwrap_or(network_verifier.l2_chain_id)))
+            .getHyperchain(U256::from(
+                network_verifier
+                    .sample_chain_id
+                    .unwrap_or(network_verifier.l2_chain_id),
+            ))
             .call()
             .await
             .unwrap()
