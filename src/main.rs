@@ -9,7 +9,7 @@ use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
 // Current top of release-v28 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "9fcd28238cf749462b22e513a9f545008637f301";
+const DEFAULT_CONTRACTS_COMMIT: &str = "1f4e3995034881eb5909161b152154521af011da";
 
 pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.3";
 pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.29.2";
