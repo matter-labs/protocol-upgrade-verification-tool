@@ -1,3 +1,4 @@
+use alloy::hex::FromHex;
 use alloy::primitives::{Address, FixedBytes, U256};
 use anyhow::Context;
 use call_list::CallList;
@@ -226,6 +227,14 @@ impl ContractsConfig {
     }
 }
 
+/// Constants used for storedBatchZero calculation
+const EMPTY_STRING_KECCAK: FixedBytes<32> = FixedBytes::new([
+    0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d, 0xb2, 0xdc, 0xc7, 0x03, 0xc0,
+    0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82, 0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04, 0x5d, 0x85, 0xa4, 0x70,
+]); // keccak256("")
+
+const DEFAULT_L2_LOGS_TREE_ROOT_HASH: FixedBytes<32> = FixedBytes::ZERO;
+
 impl OldChainCreationParams {
     /// Computes the keccak256 hash of the diamond cut data
     pub fn compute_cut_hash(&self) -> FixedBytes<32> {
@@ -246,6 +255,44 @@ impl OldChainCreationParams {
         let encoded = data.abi_encode();
         keccak256(&encoded)
     }
+
+    /// Computes the storedBatchZero hash from genesis params
+    /// This is calculated as keccak256(abi.encode(StoredBatchInfo))
+    pub fn compute_stored_batch_zero(&self) -> FixedBytes<32> {
+        use alloy::primitives::keccak256;
+        use alloy::sol_types::SolValue;
+
+        // Parse genesis params from hex strings
+        let genesis_batch_hash = FixedBytes::<32>::from_hex(&self.genesis_batch_hash)
+            .expect("Invalid hex in genesis_batch_hash");
+        let genesis_batch_commitment = FixedBytes::<32>::from_hex(&self.genesis_batch_commitment)
+            .expect("Invalid hex in genesis_batch_commitment");
+
+        // StoredBatchInfo struct encoding:
+        // uint64 batchNumber = 0
+        // bytes32 batchHash = genesis_batch_hash
+        // uint64 indexRepeatedStorageChanges = genesis_index_repeated_storage_changes
+        // uint256 numberOfLayer1Txs = 0
+        // bytes32 priorityOperationsHash = EMPTY_STRING_KECCAK
+        // bytes32 dependencyRootsRollingHash = bytes32(0)
+        // bytes32 l2LogsTreeRoot = DEFAULT_L2_LOGS_TREE_ROOT_HASH
+        // uint256 timestamp = 0
+        // bytes32 commitment = genesis_batch_commitment
+        let stored_batch_info = (
+            0u64,                                             // batchNumber
+            genesis_batch_hash,                               // batchHash
+            self.genesis_index_repeated_storage_changes,      // indexRepeatedStorageChanges (u64)
+            U256::ZERO,                                       // numberOfLayer1Txs
+            EMPTY_STRING_KECCAK,                              // priorityOperationsHash
+            FixedBytes::<32>::ZERO,                           // dependencyRootsRollingHash
+            DEFAULT_L2_LOGS_TREE_ROOT_HASH,                   // l2LogsTreeRoot
+            U256::ZERO,                                       // timestamp
+            genesis_batch_commitment,                         // commitment
+        );
+
+        let encoded = stored_batch_info.abi_encode();
+        keccak256(&encoded)
+    }
 }
 
 impl UpgradeOutput {
@@ -262,13 +309,14 @@ impl UpgradeOutput {
         result.print_info("== Verifying old chain creation params match on-chain state ==");
 
         // Verify L1 old chain creation params
-        let (l1_onchain_cut_hash, l1_onchain_force_hash) = verifiers
+        let (l1_onchain_cut_hash, l1_onchain_force_hash, l1_onchain_stored_batch_zero) = verifiers
             .network_verifier
             .get_l1_ctm_chain_creation_hashes(verifiers.bridgehub_address)
             .await;
 
         let l1_computed_cut_hash = self.old_chain_creation_params.l1.compute_cut_hash();
         let l1_computed_force_hash = self.old_chain_creation_params.l1.compute_force_deployment_hash();
+        let l1_computed_stored_batch_zero = self.old_chain_creation_params.l1.compute_stored_batch_zero();
 
         if l1_onchain_cut_hash == l1_computed_cut_hash {
             result.report_ok("L1 old diamond cut hash matches on-chain");
@@ -288,15 +336,25 @@ impl UpgradeOutput {
             ));
         }
 
+        if l1_onchain_stored_batch_zero == l1_computed_stored_batch_zero {
+            result.report_ok("L1 old storedBatchZero matches on-chain");
+        } else {
+            result.report_error(&format!(
+                "L1 old storedBatchZero mismatch.\nOn-chain: {}\nComputed from YAML: {}",
+                l1_onchain_stored_batch_zero, l1_computed_stored_batch_zero
+            ));
+        }
+
         // Verify Gateway old chain creation params
         let gw_ctm_proxy = self.gateway.gateway_state_transition.chain_type_manager_proxy;
-        let (gw_onchain_cut_hash, gw_onchain_force_hash) = verifiers
+        let (gw_onchain_cut_hash, gw_onchain_force_hash, gw_onchain_stored_batch_zero) = verifiers
             .network_verifier
             .get_gw_ctm_chain_creation_hashes(gw_ctm_proxy)
             .await;
 
         let gw_computed_cut_hash = self.old_chain_creation_params.gateway.compute_cut_hash();
         let gw_computed_force_hash = self.old_chain_creation_params.gateway.compute_force_deployment_hash();
+        let gw_computed_stored_batch_zero = self.old_chain_creation_params.gateway.compute_stored_batch_zero();
 
         if gw_onchain_cut_hash == gw_computed_cut_hash {
             result.report_ok("GW old diamond cut hash matches on-chain");
@@ -313,6 +371,15 @@ impl UpgradeOutput {
             result.report_error(&format!(
                 "GW old force deployment hash mismatch.\nOn-chain: {}\nComputed from YAML: {}",
                 gw_onchain_force_hash, gw_computed_force_hash
+            ));
+        }
+
+        if gw_onchain_stored_batch_zero == gw_computed_stored_batch_zero {
+            result.report_ok("GW old storedBatchZero matches on-chain");
+        } else {
+            result.report_error(&format!(
+                "GW old storedBatchZero mismatch.\nOn-chain: {}\nComputed from YAML: {}",
+                gw_onchain_stored_batch_zero, gw_computed_stored_batch_zero
             ));
         }
 
@@ -357,20 +424,6 @@ impl UpgradeOutput {
             .await
             .context("checking deployed addresses (verifier-only)")?;
 
-        // For verifier-only upgrade, we get the existing facet cuts from the chain
-        // but we don't expect them to change
-        let (_, l1_facets_to_add) = self
-            .deployed_addresses
-            .get_expected_facet_cuts(verifiers, result, false)
-            .await
-            .context("checking facets")?;
-
-        let (_, gw_facets_to_add) = self
-            .deployed_addresses
-            .get_expected_facet_cuts(verifiers, result, true)
-            .await
-            .context("checking gw facets")?;
-
         result
             .expect_deployed_bytecode(verifiers, &self.create2_factory_addr, "Create2Factory")
             .await;
@@ -409,8 +462,6 @@ impl UpgradeOutput {
                 result,
                 self.gateway_chain_id,
                 self.priority_txs_l2_gas_limit,
-                l1_facets_to_add.clone(),
-                gw_facets_to_add.clone(),
                 &self.deployed_addresses,
                 &self.chain_upgrade_diamond_cut,
                 &self.gateway.upgrade_cut_data,

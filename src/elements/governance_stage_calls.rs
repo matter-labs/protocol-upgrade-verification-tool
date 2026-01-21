@@ -123,8 +123,6 @@ impl GovernanceStage1Calls {
         result: &mut crate::verifiers::VerificationResult,
         gateway_chain_id: u64,
         _priority_txs_l2_gas_limit: u64,
-        l1_expected_chain_creation_facets: FacetCutSet,
-        gw_expected_chain_creation_facets: FacetCutSet,
         _deployed_addresses: &DeployedAddresses,
         l1_expected_chain_upgrade_diamond_cut: &str,
         gw_expected_chain_upgrade_diamond_cut: &str,
@@ -191,7 +189,6 @@ impl GovernanceStage1Calls {
                 .verify_verifier_only(
                     verifiers,
                     result,
-                    l1_expected_chain_creation_facets.clone(),
                     false,
                     l1_old_chain_creation_params,
                 )
@@ -292,7 +289,6 @@ impl GovernanceStage1Calls {
                         .verify_verifier_only(
                             verifiers,
                             result,
-                            gw_expected_chain_creation_facets,
                             true,
                             gw_old_chain_creation_params,
                         )
@@ -432,7 +428,6 @@ impl ChainCreationParams {
         &self,
         verifiers: &crate::verifiers::Verifiers,
         result: &mut crate::verifiers::VerificationResult,
-        expected_chain_creation_facets: FacetCutSet,
         is_gateway: bool,
         old_chain_creation_params: &OldChainCreationParams,
     ) -> anyhow::Result<()> {
@@ -488,7 +483,6 @@ impl ChainCreationParams {
         // For verifier-only upgrade, we skip verify_chain_creation_diamond_cut since facets don't change
         // and the addresses may not be registered in address_verifier.
         // We do verify facet cuts match the old values below.
-        let _ = expected_chain_creation_facets; // Mark as intentionally unused
 
         // Verify force deployments data is unchanged from old
         let old_force_deployments = &old_chain_creation_params.force_deployments_data;
@@ -566,10 +560,6 @@ impl ChainCreationParams {
                 }
                 if old_init.feeParams != new_init.feeParams {
                     result.report_error(&format!("{} feeParams changed!", prefix));
-                    fields_unchanged = false;
-                }
-                if old_init.blobVersionedHashRetriever != new_init.blobVersionedHashRetriever {
-                    result.report_error(&format!("{} blobVersionedHashRetriever changed!", prefix));
                     fields_unchanged = false;
                 }
 

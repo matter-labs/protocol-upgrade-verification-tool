@@ -61,6 +61,8 @@ sol! {
         bytes32 public initialCutHash;
         /// @notice The hash of the initial force deployments data
         bytes32 public initialForceDeploymentHash;
+        /// @notice The batch zero hash, calculated at initialization
+        bytes32 public storedBatchZero;
     }
 
     function create2AndTransferParams(bytes memory bytecode, bytes32 salt, address owner);
@@ -258,11 +260,11 @@ impl NetworkVerifier {
         Address::from_slice(&addr_as_bytes[12..])
     }
 
-    /// Gets the initial cut hash and force deployment hash from the L1 CTM
+    /// Gets the initial cut hash, force deployment hash, and stored batch zero from the L1 CTM
     pub async fn get_l1_ctm_chain_creation_hashes(
         &self,
         bridgehub_addr: Address,
-    ) -> (FixedBytes<32>, FixedBytes<32>) {
+    ) -> (FixedBytes<32>, FixedBytes<32>, FixedBytes<32>) {
         let bridgehub = Bridgehub::new(bridgehub_addr, &self.l1_provider);
         let era_chain_id = self.get_era_chain_id();
 
@@ -282,15 +284,16 @@ impl NetworkVerifier {
             .await
             .unwrap()
             .initialForceDeploymentHash;
+        let stored_batch_zero = ctm.storedBatchZero().call().await.unwrap().storedBatchZero;
 
-        (initial_cut_hash, initial_force_deployment_hash)
+        (initial_cut_hash, initial_force_deployment_hash, stored_batch_zero)
     }
 
-    /// Gets the initial cut hash and force deployment hash from the Gateway CTM
+    /// Gets the initial cut hash, force deployment hash, and stored batch zero from the Gateway CTM
     pub async fn get_gw_ctm_chain_creation_hashes(
         &self,
         gw_ctm_proxy_addr: Address,
-    ) -> (FixedBytes<32>, FixedBytes<32>) {
+    ) -> (FixedBytes<32>, FixedBytes<32>, FixedBytes<32>) {
         let ctm = ChainTypeManager::new(gw_ctm_proxy_addr, &self.gw_provider);
 
         let initial_cut_hash = ctm.initialCutHash().call().await.unwrap().initialCutHash;
@@ -300,8 +303,9 @@ impl NetworkVerifier {
             .await
             .unwrap()
             .initialForceDeploymentHash;
+        let stored_batch_zero = ctm.storedBatchZero().call().await.unwrap().storedBatchZero;
 
-        (initial_cut_hash, initial_force_deployment_hash)
+        (initial_cut_hash, initial_force_deployment_hash, stored_batch_zero)
     }
 
     pub async fn get_bridgehub_info(&self, bridgehub_addr: Address) -> BridgehubInfo {
