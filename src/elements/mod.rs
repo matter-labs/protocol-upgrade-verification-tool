@@ -309,7 +309,7 @@ impl UpgradeOutput {
         result.print_info("== Verifying old chain creation params match on-chain state ==");
 
         // Verify L1 old chain creation params
-        let (l1_onchain_cut_hash, l1_onchain_force_hash, l1_onchain_stored_batch_zero) = verifiers
+        let (l1_onchain_cut_hash, l1_onchain_force_hash, l1_onchain_stored_batch_zero, l1_onchain_genesis_upgrade) = verifiers
             .network_verifier
             .get_l1_ctm_chain_creation_hashes(verifiers.bridgehub_address)
             .await;
@@ -345,9 +345,18 @@ impl UpgradeOutput {
             ));
         }
 
+        if l1_onchain_genesis_upgrade == self.old_chain_creation_params.l1.genesis_upgrade {
+            result.report_ok("L1 genesisUpgrade matches on-chain");
+        } else {
+            result.report_error(&format!(
+                "L1 genesisUpgrade mismatch.\nOn-chain: {}\nFrom YAML: {}",
+                l1_onchain_genesis_upgrade, self.old_chain_creation_params.l1.genesis_upgrade
+            ));
+        }
+
         // Verify Gateway old chain creation params
         let gw_ctm_proxy = self.gateway.gateway_state_transition.chain_type_manager_proxy;
-        let (gw_onchain_cut_hash, gw_onchain_force_hash, gw_onchain_stored_batch_zero) = verifiers
+        let (gw_onchain_cut_hash, gw_onchain_force_hash, gw_onchain_stored_batch_zero, gw_onchain_genesis_upgrade) = verifiers
             .network_verifier
             .get_gw_ctm_chain_creation_hashes(gw_ctm_proxy)
             .await;
@@ -380,6 +389,15 @@ impl UpgradeOutput {
             result.report_error(&format!(
                 "GW old storedBatchZero mismatch.\nOn-chain: {}\nComputed from YAML: {}",
                 gw_onchain_stored_batch_zero, gw_computed_stored_batch_zero
+            ));
+        }
+
+        if gw_onchain_genesis_upgrade == self.old_chain_creation_params.gateway.genesis_upgrade {
+            result.report_ok("GW genesisUpgrade matches on-chain");
+        } else {
+            result.report_error(&format!(
+                "GW genesisUpgrade mismatch.\nOn-chain: {}\nFrom YAML: {}",
+                gw_onchain_genesis_upgrade, self.old_chain_creation_params.gateway.genesis_upgrade
             ));
         }
 
