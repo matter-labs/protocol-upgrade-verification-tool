@@ -258,7 +258,10 @@ impl OldChainCreationParams {
 
     /// Computes the storedBatchZero hash from genesis params
     /// This is calculated as keccak256(abi.encode(StoredBatchInfo))
-    pub fn compute_stored_batch_zero(&self) -> FixedBytes<32> {
+    ///
+    /// # Arguments
+    /// * `pre_v29_version` - Set to true for mainnet Gateway (L1 chain ID = 1) to use pre-v29 encoding
+    pub fn compute_stored_batch_zero(&self, pre_v29_version: bool) -> FixedBytes<32> {
         use alloy::primitives::keccak256;
         use alloy::sol_types::SolValue;
 
@@ -274,24 +277,39 @@ impl OldChainCreationParams {
         // uint64 indexRepeatedStorageChanges = genesis_index_repeated_storage_changes
         // uint256 numberOfLayer1Txs = 0
         // bytes32 priorityOperationsHash = EMPTY_STRING_KECCAK
-        // bytes32 dependencyRootsRollingHash = bytes32(0)
+        // bytes32 dependencyRootsRollingHash = bytes32(0) [only in post-v29]
         // bytes32 l2LogsTreeRoot = DEFAULT_L2_LOGS_TREE_ROOT_HASH
         // uint256 timestamp = 0
         // bytes32 commitment = genesis_batch_commitment
-        let stored_batch_info = (
-            0u64,                                             // batchNumber
-            genesis_batch_hash,                               // batchHash
-            self.genesis_index_repeated_storage_changes,      // indexRepeatedStorageChanges (u64)
-            U256::ZERO,                                       // numberOfLayer1Txs
-            EMPTY_STRING_KECCAK,                              // priorityOperationsHash
-            FixedBytes::<32>::ZERO,                           // dependencyRootsRollingHash
-            DEFAULT_L2_LOGS_TREE_ROOT_HASH,                   // l2LogsTreeRoot
-            U256::ZERO,                                       // timestamp
-            genesis_batch_commitment,                         // commitment
-        );
-
-        let encoded = stored_batch_info.abi_encode();
-        keccak256(&encoded)
+        if pre_v29_version {
+            // Pre-v29 StoredBatchInfo did not have dependencyRootsRollingHash field
+            let stored_batch_info = (
+                0u64,                                             // batchNumber
+                genesis_batch_hash,                               // batchHash
+                self.genesis_index_repeated_storage_changes,      // indexRepeatedStorageChanges (u64)
+                U256::ZERO,                                       // numberOfLayer1Txs
+                EMPTY_STRING_KECCAK,                              // priorityOperationsHash
+                DEFAULT_L2_LOGS_TREE_ROOT_HASH,                   // l2LogsTreeRoot
+                U256::ZERO,                                       // timestamp
+                genesis_batch_commitment,                         // commitment
+            );
+            let encoded = stored_batch_info.abi_encode();
+            keccak256(&encoded)
+        } else {
+            let stored_batch_info = (
+                0u64,                                             // batchNumber
+                genesis_batch_hash,                               // batchHash
+                self.genesis_index_repeated_storage_changes,      // indexRepeatedStorageChanges (u64)
+                U256::ZERO,                                       // numberOfLayer1Txs
+                EMPTY_STRING_KECCAK,                              // priorityOperationsHash
+                FixedBytes::<32>::ZERO,                           // dependencyRootsRollingHash
+                DEFAULT_L2_LOGS_TREE_ROOT_HASH,                   // l2LogsTreeRoot
+                U256::ZERO,                                       // timestamp
+                genesis_batch_commitment,                         // commitment
+            );
+            let encoded = stored_batch_info.abi_encode();
+            keccak256(&encoded)
+        }
     }
 }
 
@@ -316,7 +334,7 @@ impl UpgradeOutput {
 
         let l1_computed_cut_hash = self.old_chain_creation_params.l1.compute_cut_hash();
         let l1_computed_force_hash = self.old_chain_creation_params.l1.compute_force_deployment_hash();
-        let l1_computed_stored_batch_zero = self.old_chain_creation_params.l1.compute_stored_batch_zero();
+        let l1_computed_stored_batch_zero = self.old_chain_creation_params.l1.compute_stored_batch_zero(false);
 
         if l1_onchain_cut_hash == l1_computed_cut_hash {
             result.report_ok("L1 old diamond cut hash matches on-chain");
@@ -363,7 +381,9 @@ impl UpgradeOutput {
 
         let gw_computed_cut_hash = self.old_chain_creation_params.gateway.compute_cut_hash();
         let gw_computed_force_hash = self.old_chain_creation_params.gateway.compute_force_deployment_hash();
-        let gw_computed_stored_batch_zero = self.old_chain_creation_params.gateway.compute_stored_batch_zero();
+        // Use pre-v29 encoding for mainnet Gateway (L1 chain ID = 1) due to a historical issue
+        let is_mainnet = verifiers.network_verifier.get_l1_chain_id() == 1;
+        let gw_computed_stored_batch_zero = self.old_chain_creation_params.gateway.compute_stored_batch_zero(is_mainnet);
 
         if gw_onchain_cut_hash == gw_computed_cut_hash {
             result.report_ok("GW old diamond cut hash matches on-chain");
