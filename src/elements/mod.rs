@@ -37,9 +37,9 @@ pub struct UpgradeOutput {
 
     pub(crate) gateway_chain_id: u64,
 
-    pub(crate) protocol_upgrade_handler_proxy_address: Address,
+    #[serde(default)]
+    pub(crate) protocol_upgrade_handler_proxy_address: Option<Address>,
 
-    #[serde(rename = "contracts_newConfig")]
     pub(crate) contracts_config: ContractsConfig,
     pub(crate) deployed_addresses: DeployedAddresses,
 
@@ -50,13 +50,43 @@ pub struct UpgradeOutput {
     #[allow(dead_code)]
     pub(crate) max_expected_l1_gas_price: u64,
     pub(crate) priority_txs_l2_gas_limit: u64,
+
+    /// Old chain creation params for L1 and Gateway (used to verify only verifier changed)
+    pub(crate) old_chain_creation_params: OldChainCreationParamsWrapper,
+}
+
+/// Wrapper for old chain creation params containing both L1 and Gateway params.
+#[derive(Debug, Deserialize, Clone)]
+pub struct OldChainCreationParamsWrapper {
+    /// Old chain creation params for L1
+    pub l1: OldChainCreationParams,
+    /// Old chain creation params for Gateway
+    pub gateway: OldChainCreationParams,
+}
+
+/// Represents the old chain creation params that are currently on-chain.
+/// These are used to verify that only the verifier address changes in a verifier-only upgrade.
+#[derive(Debug, Deserialize, Clone)]
+pub struct OldChainCreationParams {
+    /// The ABI-encoded DiamondCutData (hex string with 0x prefix)
+    pub diamond_cut_data: String,
+    /// The force deployments data (hex string with 0x prefix)
+    pub force_deployments_data: String,
+    /// Genesis batch commitment (hex string with 0x prefix)
+    pub genesis_batch_commitment: String,
+    /// Genesis batch hash (hex string with 0x prefix)
+    pub genesis_batch_hash: String,
+    /// Genesis index for repeated storage changes
+    pub genesis_index_repeated_storage_changes: u64,
+    /// Genesis upgrade address (hex string with 0x prefix)
+    pub genesis_upgrade: Address,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct GovernanceCalls {
-    pub(crate) governance_stage0_calls: String,
-    pub(crate) governance_stage1_calls: String,
-    pub(crate) governance_stage2_calls: String,
+    pub(crate) stage0_calls: String,
+    pub(crate) stage1_calls: String,
+    pub(crate) stage2_calls: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -196,9 +226,97 @@ impl ContractsConfig {
     }
 }
 
+impl OldChainCreationParams {
+    /// Computes the keccak256 hash of the diamond cut data
+    pub fn compute_cut_hash(&self) -> FixedBytes<32> {
+        use alloy::primitives::keccak256;
+        let data = alloy::hex::decode(&self.diamond_cut_data[2..])
+            .expect("Invalid hex in diamond_cut_data");
+        keccak256(&data)
+    }
+
+    /// Computes the keccak256 hash of the force deployments data (ABI-encoded as bytes)
+    pub fn compute_force_deployment_hash(&self) -> FixedBytes<32> {
+        use alloy::primitives::keccak256;
+        use alloy::sol_types::SolValue;
+
+        let data = alloy::hex::decode(&self.force_deployments_data[2..])
+            .expect("Invalid hex in force_deployments_data");
+        // The hash is computed as keccak256(abi.encode(forceDeploymentsData))
+        let encoded = data.abi_encode();
+        keccak256(&encoded)
+    }
+}
+
 impl UpgradeOutput {
     pub fn add_to_verifier(&self, address_verifier: &mut AddressVerifier) {
         self.deployed_addresses.add_to_verifier(address_verifier);
+    }
+
+    /// Verifies that the old chain creation params from YAML match the on-chain state
+    async fn verify_old_chain_creation_params_match_onchain(
+        &self,
+        verifiers: &Verifiers,
+        result: &mut VerificationResult,
+    ) -> anyhow::Result<()> {
+        result.print_info("== Verifying old chain creation params match on-chain state ==");
+
+        // Verify L1 old chain creation params
+        let (l1_onchain_cut_hash, l1_onchain_force_hash) = verifiers
+            .network_verifier
+            .get_l1_ctm_chain_creation_hashes(verifiers.bridgehub_address)
+            .await;
+
+        let l1_computed_cut_hash = self.old_chain_creation_params.l1.compute_cut_hash();
+        let l1_computed_force_hash = self.old_chain_creation_params.l1.compute_force_deployment_hash();
+
+        if l1_onchain_cut_hash == l1_computed_cut_hash {
+            result.report_ok("L1 old diamond cut hash matches on-chain");
+        } else {
+            result.report_error(&format!(
+                "L1 old diamond cut hash mismatch.\nOn-chain: {}\nComputed from YAML: {}",
+                l1_onchain_cut_hash, l1_computed_cut_hash
+            ));
+        }
+
+        if l1_onchain_force_hash == l1_computed_force_hash {
+            result.report_ok("L1 old force deployment hash matches on-chain");
+        } else {
+            result.report_error(&format!(
+                "L1 old force deployment hash mismatch.\nOn-chain: {}\nComputed from YAML: {}",
+                l1_onchain_force_hash, l1_computed_force_hash
+            ));
+        }
+
+        // Verify Gateway old chain creation params
+        let gw_ctm_proxy = self.gateway.gateway_state_transition.chain_type_manager_proxy;
+        let (gw_onchain_cut_hash, gw_onchain_force_hash) = verifiers
+            .network_verifier
+            .get_gw_ctm_chain_creation_hashes(gw_ctm_proxy)
+            .await;
+
+        let gw_computed_cut_hash = self.old_chain_creation_params.gateway.compute_cut_hash();
+        let gw_computed_force_hash = self.old_chain_creation_params.gateway.compute_force_deployment_hash();
+
+        if gw_onchain_cut_hash == gw_computed_cut_hash {
+            result.report_ok("GW old diamond cut hash matches on-chain");
+        } else {
+            result.report_error(&format!(
+                "GW old diamond cut hash mismatch.\nOn-chain: {}\nComputed from YAML: {}",
+                gw_onchain_cut_hash, gw_computed_cut_hash
+            ));
+        }
+
+        if gw_onchain_force_hash == gw_computed_force_hash {
+            result.report_ok("GW old force deployment hash matches on-chain");
+        } else {
+            result.report_error(&format!(
+                "GW old force deployment hash mismatch.\nOn-chain: {}\nComputed from YAML: {}",
+                gw_onchain_force_hash, gw_computed_force_hash
+            ));
+        }
+
+        Ok(())
     }
 
     pub async fn verify(
@@ -206,7 +324,7 @@ impl UpgradeOutput {
         verifiers: &Verifiers,
         result: &mut VerificationResult,
     ) -> anyhow::Result<()> {
-        result.print_info("== Config verification ==");
+        result.print_info("== Config verification (Verifier-Only Upgrade) ==");
 
         let provider_chain_id = verifiers.network_verifier.get_era_chain_id();
         if provider_chain_id == self.era_chain_id {
@@ -228,18 +346,26 @@ impl UpgradeOutput {
             ));
         }
 
-        // Check that addresses actually contain correct bytecodes.
-        self.deployed_addresses
-            .verify(self, verifiers, result)
+        // Verify old chain creation params from YAML match on-chain state
+        self.verify_old_chain_creation_params_match_onchain(verifiers, result)
             .await
-            .context("checking deployed addresses")?;
-        let (l1_facets_to_remove, l1_facets_to_add) = self
+            .context("verifying old chain creation params")?;
+
+        // For verifier-only upgrade, we only verify the verifier-related deployed addresses
+        self.deployed_addresses
+            .verify_verifier_only(self, verifiers, result)
+            .await
+            .context("checking deployed addresses (verifier-only)")?;
+
+        // For verifier-only upgrade, we get the existing facet cuts from the chain
+        // but we don't expect them to change
+        let (_, l1_facets_to_add) = self
             .deployed_addresses
             .get_expected_facet_cuts(verifiers, result, false)
             .await
             .context("checking facets")?;
 
-        let (gw_facets_to_remove, gw_facets_to_add) = self
+        let (_, gw_facets_to_add) = self
             .deployed_addresses
             .get_expected_facet_cuts(verifiers, result, true)
             .await
@@ -250,7 +376,7 @@ impl UpgradeOutput {
             .await;
 
         let stage0 = GovernanceStage0Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage0_calls),
+            calls: CallList::parse(&self.governance_calls.stage0_calls),
         };
 
         stage0
@@ -264,15 +390,14 @@ impl UpgradeOutput {
             .context("stage0")?;
 
         let stage1 = GovernanceStage1Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage1_calls),
+            calls: CallList::parse(&self.governance_calls.stage1_calls),
         };
 
-        let l1_expected_upgrade_facets =
-            l1_facets_to_remove.merge(l1_facets_to_add.clone()).clone();
-
-        let gw_expected_upgrade_facets =
-            gw_facets_to_remove.merge(gw_facets_to_add.clone()).clone();
-
+        // For verifier-only upgrade, Stage 1 is simplified:
+        // - No proxy upgrades
+        // - No DA pair updates
+        // - No Gateway CTM upgrade
+        // - Only verifier address changes in chain creation params and version upgrade
         let (
             l1_expected_chain_creation_data,
             l1_expected_force_deployments,
@@ -287,16 +412,16 @@ impl UpgradeOutput {
                 l1_facets_to_add.clone(),
                 gw_facets_to_add.clone(),
                 &self.deployed_addresses,
-                l1_expected_upgrade_facets.clone(),
                 &self.chain_upgrade_diamond_cut,
-                gw_expected_upgrade_facets.clone(),
                 &self.gateway.upgrade_cut_data,
+                &self.old_chain_creation_params.l1,
+                &self.old_chain_creation_params.gateway,
             )
             .await
             .context("stage1")?;
 
         let stage2 = GovernanceStage2Calls {
-            calls: CallList::parse(&self.governance_calls.governance_stage2_calls),
+            calls: CallList::parse(&self.governance_calls.stage2_calls),
         };
 
         stage2

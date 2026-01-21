@@ -57,6 +57,10 @@ sol! {
     contract ChainTypeManager {
         function getHyperchain(uint256 _chainId) public view returns (address);
         address public validatorTimelock;
+        /// @notice The hash of the initial diamond cut for chain creation
+        bytes32 public initialCutHash;
+        /// @notice The hash of the initial force deployments data
+        bytes32 public initialForceDeploymentHash;
     }
 
     function create2AndTransferParams(bytes memory bytecode, bytes32 salt, address owner);
@@ -252,6 +256,52 @@ impl NetworkVerifier {
             )
             .await;
         Address::from_slice(&addr_as_bytes[12..])
+    }
+
+    /// Gets the initial cut hash and force deployment hash from the L1 CTM
+    pub async fn get_l1_ctm_chain_creation_hashes(
+        &self,
+        bridgehub_addr: Address,
+    ) -> (FixedBytes<32>, FixedBytes<32>) {
+        let bridgehub = Bridgehub::new(bridgehub_addr, &self.l1_provider);
+        let era_chain_id = self.get_era_chain_id();
+
+        let stm_address = bridgehub
+            .chainTypeManager(era_chain_id.try_into().unwrap())
+            .call()
+            .await
+            .unwrap()
+            ._0;
+
+        let ctm = ChainTypeManager::new(stm_address, &self.l1_provider);
+
+        let initial_cut_hash = ctm.initialCutHash().call().await.unwrap().initialCutHash;
+        let initial_force_deployment_hash = ctm
+            .initialForceDeploymentHash()
+            .call()
+            .await
+            .unwrap()
+            .initialForceDeploymentHash;
+
+        (initial_cut_hash, initial_force_deployment_hash)
+    }
+
+    /// Gets the initial cut hash and force deployment hash from the Gateway CTM
+    pub async fn get_gw_ctm_chain_creation_hashes(
+        &self,
+        gw_ctm_proxy_addr: Address,
+    ) -> (FixedBytes<32>, FixedBytes<32>) {
+        let ctm = ChainTypeManager::new(gw_ctm_proxy_addr, &self.gw_provider);
+
+        let initial_cut_hash = ctm.initialCutHash().call().await.unwrap().initialCutHash;
+        let initial_force_deployment_hash = ctm
+            .initialForceDeploymentHash()
+            .call()
+            .await
+            .unwrap()
+            .initialForceDeploymentHash;
+
+        (initial_cut_hash, initial_force_deployment_hash)
     }
 
     pub async fn get_bridgehub_info(&self, bridgehub_addr: Address) -> BridgehubInfo {

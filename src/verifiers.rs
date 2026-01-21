@@ -5,7 +5,6 @@ use alloy::{
     sol_types::SolCall,
 };
 use colored::Colorize;
-use serde::Deserialize;
 use std::fmt::{self, Display};
 use std::panic::Location;
 
@@ -13,7 +12,7 @@ use crate::{
     utils::{
         address_from_short_hex, address_verifier::AddressVerifier,
         bytecode_verifier::BytecodeVerifier, fee_param_verifier::FeeParamVerifier,
-        get_contents_from_github, network_verifier::NetworkVerifier,
+        network_verifier::NetworkVerifier,
     },
     UpgradeOutput,
 };
@@ -29,7 +28,6 @@ pub struct Verifiers {
     pub address_verifier: AddressVerifier,
     pub bytecode_verifier: BytecodeVerifier,
     pub network_verifier: NetworkVerifier,
-    pub genesis_config: GenesisConfig,
     pub fee_param_verifier: FeeParamVerifier,
     pub gateway_bridgehub_address: Address,
 }
@@ -39,7 +37,6 @@ impl Verifiers {
     pub async fn new(
         testnet_contracts: bool,
         bridgehub_address: impl AsRef<str>,
-        era_commit: &str,
         contracts_commit: &str,
         l1_rpc: String,
         gw_rpc: String,
@@ -77,15 +74,13 @@ impl Verifiers {
         let fee_param_verifier =
             FeeParamVerifier::safe_init(&bridgehub_address, &network_verifier, contracts_commit)
                 .await;
+
         Self {
             testnet_contracts,
             bridgehub_address,
             address_verifier,
             bytecode_verifier,
             network_verifier,
-            genesis_config: GenesisConfig::init_from_github(era_commit)
-                .await
-                .expect("Failed to init"),
             fee_param_verifier,
             gateway_bridgehub_address: address_from_short_hex("10002"),
         }
@@ -109,28 +104,6 @@ impl Verifiers {
         self.address_verifier
             .add_address(info.legacy_bridge, "legacy_erc20_bridge_proxy");
         Ok(())
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GenesisConfig {
-    pub genesis_root: String,
-    pub genesis_rollup_leaf_index: u64,
-    pub genesis_batch_commitment: String,
-}
-
-impl GenesisConfig {
-    /// Initializes the genesis configuration from a file on GitHub.
-    pub async fn init_from_github(commit: &str) -> anyhow::Result<Self> {
-        println!("init from github {}", commit);
-        let data = get_contents_from_github(
-            commit,
-            "matter-labs/zksync-era",
-            "etc/env/file_based/genesis.yaml",
-        )
-        .await;
-        serde_yaml::from_str(&data)
-            .map_err(|e| anyhow::anyhow!("Failed to parse genesis.yaml: {}", e))
     }
 }
 
