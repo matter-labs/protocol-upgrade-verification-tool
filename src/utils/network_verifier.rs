@@ -57,6 +57,14 @@ sol! {
     contract ChainTypeManager {
         function getHyperchain(uint256 _chainId) public view returns (address);
         address public validatorTimelock;
+        /// @notice The hash of the initial diamond cut for chain creation
+        bytes32 public initialCutHash;
+        /// @notice The hash of the initial force deployments data
+        bytes32 public initialForceDeploymentHash;
+        /// @notice The batch zero hash, calculated at initialization
+        bytes32 public storedBatchZero;
+        /// @notice The genesis upgrade contract address
+        address public l1GenesisUpgrade;
     }
 
     function create2AndTransferParams(bytes memory bytecode, bytes32 salt, address owner);
@@ -105,7 +113,7 @@ impl NetworkVerifier {
         l1_rpc: String,
         l2_chain_id: u64,
         gateway_chain_id: u64,
-        gateway_rpc: String,
+        gateway_rpc: Option<String>,
         bytecode_verifier: &BytecodeVerifier,
         config: &UpgradeOutput,
         bridgehub_address: &Address,
@@ -113,9 +121,17 @@ impl NetworkVerifier {
         let mut create2_constructor_params = HashMap::new();
         let mut create2_known_bytecodes = HashMap::new();
         let l1_provider = ProviderBuilder::new().on_http(l1_rpc.parse().unwrap());
-        let gw_provider = ProviderBuilder::new().on_http(gateway_rpc.parse().unwrap());
+        // When the upgrade has no Gateway leg (gateway_chain_id == 0), no GW RPC is
+        // needed — the L1 URL is used as an inert placeholder and never queried.
+        let gw_provider = ProviderBuilder::new().on_http(
+            gateway_rpc
+                .as_deref()
+                .unwrap_or(&l1_rpc)
+                .parse()
+                .unwrap(),
+        );
 
-        if gw_provider.get_chain_id().await.unwrap() != gateway_chain_id {
+        if gateway_chain_id != 0 && gw_provider.get_chain_id().await.unwrap() != gateway_chain_id {
             panic!("Incorrect gateway provider")
         }
 
@@ -254,6 +270,56 @@ impl NetworkVerifier {
         Address::from_slice(&addr_as_bytes[12..])
     }
 
+    /// Gets the initial cut hash, force deployment hash, stored batch zero, and genesis upgrade from the L1 CTM
+    pub async fn get_l1_ctm_chain_creation_hashes(
+        &self,
+        bridgehub_addr: Address,
+    ) -> (FixedBytes<32>, FixedBytes<32>, FixedBytes<32>, Address) {
+        let bridgehub = Bridgehub::new(bridgehub_addr, &self.l1_provider);
+        let era_chain_id = self.get_era_chain_id();
+
+        let stm_address = bridgehub
+            .chainTypeManager(era_chain_id.try_into().unwrap())
+            .call()
+            .await
+            .unwrap()
+            ._0;
+
+        let ctm = ChainTypeManager::new(stm_address, &self.l1_provider);
+
+        let initial_cut_hash = ctm.initialCutHash().call().await.unwrap().initialCutHash;
+        let initial_force_deployment_hash = ctm
+            .initialForceDeploymentHash()
+            .call()
+            .await
+            .unwrap()
+            .initialForceDeploymentHash;
+        let stored_batch_zero = ctm.storedBatchZero().call().await.unwrap().storedBatchZero;
+        let genesis_upgrade = ctm.l1GenesisUpgrade().call().await.unwrap().l1GenesisUpgrade;
+
+        (initial_cut_hash, initial_force_deployment_hash, stored_batch_zero, genesis_upgrade)
+    }
+
+    /// Gets the initial cut hash, force deployment hash, stored batch zero, and genesis upgrade from the Gateway CTM
+    pub async fn get_gw_ctm_chain_creation_hashes(
+        &self,
+        gw_ctm_proxy_addr: Address,
+    ) -> (FixedBytes<32>, FixedBytes<32>, FixedBytes<32>, Address) {
+        let ctm = ChainTypeManager::new(gw_ctm_proxy_addr, &self.gw_provider);
+
+        let initial_cut_hash = ctm.initialCutHash().call().await.unwrap().initialCutHash;
+        let initial_force_deployment_hash = ctm
+            .initialForceDeploymentHash()
+            .call()
+            .await
+            .unwrap()
+            .initialForceDeploymentHash;
+        let stored_batch_zero = ctm.storedBatchZero().call().await.unwrap().storedBatchZero;
+        let genesis_upgrade = ctm.l1GenesisUpgrade().call().await.unwrap().l1GenesisUpgrade;
+
+        (initial_cut_hash, initial_force_deployment_hash, stored_batch_zero, genesis_upgrade)
+    }
+
     pub async fn get_bridgehub_info(&self, bridgehub_addr: Address) -> BridgehubInfo {
         let l1_provider = &self.get_l1_provider();
 
@@ -299,12 +365,18 @@ impl NetworkVerifier {
 
         let l1_asset_router_proxy_addr = bridgehub.assetRouter().call().await.unwrap()._0;
 
-        let gateway_base_token_addr = bridgehub
-            .baseToken(U256::from(self.get_gateway_chain_id()))
-            .call()
-            .await
-            .unwrap()
-            ._0;
+        // With no Gateway leg (gateway_chain_id == 0) `baseToken(0)` reverts —
+        // and the base token is never needed, so use the zero address.
+        let gateway_base_token_addr = if self.get_gateway_chain_id() != 0 {
+            bridgehub
+                .baseToken(U256::from(self.get_gateway_chain_id()))
+                .call()
+                .await
+                .unwrap()
+                ._0
+        } else {
+            Address::ZERO
+        };
 
         BridgehubInfo {
             shared_bridge: shared_bridge_address,

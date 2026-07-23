@@ -27,14 +27,16 @@ impl AddressVerifier {
         // Firstly, we initialize some constant addresses from the config.
 
         result.add_address(Address::ZERO, "zero");
-        result.add_address(
-            config.protocol_upgrade_handler_proxy_address,
-            "protocol_upgrade_handler_proxy",
-        );
-        result.add_address(
-            apply_l2_to_l1_alias(config.protocol_upgrade_handler_proxy_address),
-            "aliased_protocol_upgrade_handler_proxy",
-        );
+        if let Some(addr) = config.protocol_upgrade_handler_proxy_address {
+            result.add_address(
+                addr,
+                "protocol_upgrade_handler_proxy",
+            );
+            result.add_address(
+                apply_l2_to_l1_alias(addr),
+                "aliased_protocol_upgrade_handler_proxy",
+            );
+        }
         result.add_address(
             bytecode_verifier
                 .compute_expected_address_for_file("l1-contracts/L2SharedBridgeLegacy"),
@@ -56,12 +58,14 @@ impl AddressVerifier {
         );
 
         config.add_to_verifier(&mut result);
-        result.add_address(
-            network_verifier
-                .get_proxy_admin(config.protocol_upgrade_handler_proxy_address)
-                .await,
-            "protocol_upgrade_handler_transparent_proxy_admin",
-        );
+        if let Some(addr) = config.protocol_upgrade_handler_proxy_address {
+            result.add_address(
+                network_verifier
+                    .get_proxy_admin(addr)
+                    .await,
+                "protocol_upgrade_handler_transparent_proxy_admin",
+            );
+        }
 
         // Now, we append the bridgehub info
         let info = network_verifier.get_bridgehub_info(bridgehub_addr).await;

@@ -37,6 +37,17 @@ Chain-level execution for Era (`upgradeChainFromVersion` on
 `0x32400084C286CF3E17e7B677ea9583e60a000324` from chain admin
 `0x2cf3bD6a9056b39999F3883955E183F655345063`) is in the `chain_upgrade` section.
 
+## How to verify
+
+From the repo root (branch `vb-v0.29.5`):
+
+```
+cargo run -- --ecosystem-yaml data/v29.5-verifier-upgrade/mainnet/v29.5-ecosystem.yaml --l1-rpc "$MAINNET_RPC" --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --contracts-commit fd129fe7f7a476cbf76d64a675d0c3361479f646
+```
+
+Expected output: all `[OK]` and a final `OK - result:` line (no errors/warnings).
+No `--gw-rpc` is needed — this upgrade has no Gateway leg.
+
 ## Checks already performed on this data
 
 - `governance_calls.stage{0,1,2}_calls` and `chain_upgrade.execute_upgrade_calls`

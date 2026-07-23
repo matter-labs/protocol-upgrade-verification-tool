@@ -159,6 +159,161 @@ const EXPECTED_BYTECODES: [&str; 44] = [
 ];
 
 impl ProposedUpgrade {
+    /// Verifies a verifier-only upgrade's ProposedUpgrade structure.
+    ///
+    /// In a verifier-only upgrade:
+    /// - bootloaderHash should be zero (not updated)
+    /// - defaultAccountHash should be zero (not updated)
+    /// - evmEmulatorHash should be zero (not updated)
+    /// - verifier should be set to the new verifier address
+    /// - verifierParams should be zero
+    /// - l1ContractsUpgradeCalldata should be empty
+    /// - postUpgradeCalldata should be empty
+    /// - The L2 protocol upgrade transaction should have no factory deps and empty calldata
+    pub async fn verify_verifier_only(
+        &self,
+        verifiers: &crate::verifiers::Verifiers,
+        result: &mut crate::verifiers::VerificationResult,
+        is_gateway: bool,
+    ) -> anyhow::Result<()> {
+        result.print_info("== checking verifier-only upgrade ProposedUpgrade ===");
+
+        let expected_version = get_expected_new_protocol_version();
+        let initial_error_count = result.errors;
+
+        // Verify the L2 protocol upgrade transaction for verifier-only
+        let tx = &self.l2ProtocolUpgradeTx;
+
+        // For verifier-only upgrade, the transaction should be no-op, i.e. 0.
+        if tx.txType != U256::ZERO {
+            result.report_warn(&format!(
+                "txType is {} (expected 254 for PRIORITY_OP_TX_TYPE) - may be expected for verifier-only",
+                tx.txType
+            ));
+        }
+        // Nonce should match minor version, but this may differ for verifier-only upgrades
+        if tx.nonce != U256::ZERO {
+            result.report_warn(&format!(
+                "Minor protocol version in tx.nonce mismatch: {} vs {} - may be expected for verifier-only",
+                tx.nonce, expected_version.minor
+            ));
+        }
+        if tx.value != U256::ZERO {
+            result.report_error("Invalid value");
+        }
+        if tx.reserved != [U256::ZERO; 4] {
+            result.report_error("Invalid reserved");
+        }
+        if !tx.signature.is_empty() {
+            result.report_error("Invalid signature");
+        }
+        if !tx.paymasterInput.is_empty() {
+            result.report_error("Invalid paymasterInput");
+        }
+        if !tx.reservedDynamic.is_empty() {
+            result.report_error("Invalid reservedDynamic");
+        }
+
+        // For verifier-only upgrade, there should be no factory deps
+        if !tx.factoryDeps.is_empty() {
+            result.report_error(&format!(
+                "Verifier-only upgrade should have no factory deps, but found {}",
+                tx.factoryDeps.len()
+            ));
+        } else {
+            result.report_ok("No factory deps (verifier-only)");
+        }
+
+        // Verify bytecode hashes are zero (not updating system contracts)
+        let zero_hash: FixedBytes<32> = FixedBytes::ZERO;
+        if self.bootloaderHash != zero_hash {
+            result.report_error("bootloaderHash should be zero for verifier-only upgrade");
+        } else {
+            result.report_ok("bootloaderHash is zero (verifier-only)");
+        }
+
+        if self.defaultAccountHash != zero_hash {
+            result.report_error("defaultAccountHash should be zero for verifier-only upgrade");
+        } else {
+            result.report_ok("defaultAccountHash is zero (verifier-only)");
+        }
+
+        if self.evmEmulatorHash != zero_hash {
+            result.report_error("evmEmulatorHash should be zero for verifier-only upgrade");
+        } else {
+            result.report_ok("evmEmulatorHash is zero (verifier-only)");
+        }
+
+        // Verify verifier address
+        let verifier_name = verifiers
+            .address_verifier
+            .address_to_name
+            .get(&self.verifier)
+            .cloned()
+            .unwrap_or_else(|| format!("Unknown: {}", self.verifier));
+
+        let expected_name = if is_gateway {
+            "gateway_verifier_addr"
+        } else {
+            "verifier"
+        };
+
+        if verifier_name != expected_name {
+            result.report_error(&format!(
+                "Invalid verifier: {} (expected {})",
+                verifier_name, expected_name
+            ));
+        } else {
+            result.report_ok(&format!("Verifier address is correct: {}", expected_name));
+        }
+
+        // Verifier params should be zero
+        if self.verifierParams.recursionNodeLevelVkHash != [0u8; 32]
+            || self.verifierParams.recursionLeafLevelVkHash != [0u8; 32]
+            || self.verifierParams.recursionCircuitsSetVksHash != [0u8; 32]
+        {
+            result.report_error("Verifier params must be zero for verifier-only upgrade");
+        } else {
+            result.report_ok("Verifier params are zero");
+        }
+
+        // l1ContractsUpgradeCalldata should be empty
+        if !self.l1ContractsUpgradeCalldata.is_empty() {
+            result.report_error("l1ContractsUpgradeCalldata should be empty for verifier-only upgrade");
+        } else {
+            result.report_ok("l1ContractsUpgradeCalldata is empty");
+        }
+
+        // postUpgradeCalldata should be empty
+        if !self.postUpgradeCalldata.is_empty() {
+            result.report_error("postUpgradeCalldata should be empty for verifier-only upgrade");
+        } else {
+            result.report_ok("postUpgradeCalldata is empty");
+        }
+
+        // upgradeTimestamp should be zero
+        if self.upgradeTimestamp != U256::default() {
+            result.report_error("upgradeTimestamp must be zero");
+        }
+
+        // Verify protocol version
+        let protocol_version = ProtocolVersion::from(self.newProtocolVersion);
+        if protocol_version != expected_version {
+            result.report_error(&format!(
+                "Invalid protocol version: {}. Expected: {}",
+                protocol_version, expected_version
+            ));
+        } else {
+            result.report_ok(&format!("Protocol version is correct: {}", expected_version));
+        }
+
+        if initial_error_count == result.errors {
+            result.report_ok("Verifier-only ProposedUpgrade is correct");
+        }
+
+        Ok(())
+    }
+
     pub async fn verify_transaction(
         &self,
         verifiers: &crate::verifiers::Verifiers,
@@ -276,6 +431,7 @@ impl ProposedUpgrade {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn verify(
         &self,
         verifiers: &crate::verifiers::Verifiers,

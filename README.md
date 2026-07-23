@@ -1,8 +1,8 @@
-# Protocol Upgrade Verification Tool v27
+# Protocol Upgrade Verification Tool — v29.5 verifier upgrade
 
 Tool to analyze the zkSync upgrades.
 
-**This is a version for $${\color{red} v27}$$ upgrade.**
+**This branch is the version for the $${\color{red} v29.5}$$ verifier-only upgrade (mainnet, protocol version 0.29.4 → 0.29.5).**
 
 **IMPORTANT**
 
@@ -11,6 +11,35 @@ So make sure that you pick the correct branch, as new versions of the tool will 
 
 **For earlier version - please pick the proper github tag.**
 
+## v29.5 verifier upgrade — mainnet verification
+
+The verification data lives in `data/v29.5-verifier-upgrade/mainnet/v29.5-ecosystem.yaml`
+(see `data/v29.5-verifier-upgrade/README.md` for the deployed contracts and provenance).
+
+```
+cargo run -- --ecosystem-yaml data/v29.5-verifier-upgrade/mainnet/v29.5-ecosystem.yaml --l1-rpc "$MAINNET_RPC" --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --contracts-commit fd129fe7f7a476cbf76d64a675d0c3361479f646
+```
+
+No `--gw-rpc` is needed: this upgrade has no Gateway leg (`gateway_chain_id: 0`).
+`--contracts-commit` is era-contracts `main` used for the build; the two
+verifier-key contracts (`L1VerifierFflonk`/`L1VerifierPlonk`) carry regenerated
+verification keys that exist in no public commit in the pre-v31 layout — their
+init-code hashes are pinned in `src/utils/bytecode_verifier.rs` (see the comment
+there for provenance; both are source-verified on Etherscan).
+
+The tool checks that:
+- the old (current on-chain) chain creation params in the yaml match the CTM state;
+- the deployed verifier contracts (`DualVerifier`, `L1VerifierFflonk`, `L1VerifierPlonk`)
+  were deployed via the deterministic CREATE2 factory with the expected bytecode
+  and constructor params (from the `transactions` list in the yaml);
+- stage0/1/2 governance calls have exactly the expected shape, and the new chain
+  creation params / `setNewVersionUpgrade` diamond cut differ from the old state
+  **only** in the verifier address (protocol version 0.29.4 → 0.29.5, no facet
+  cuts, empty upgrade tx).
+
+---
+
+Older (full ecosystem upgrade) usage below.
 
 First, you need to get the gateway_ecosystem_upgrade_output.yaml file.
 (you can find it in contracts/l1-contracts/upgrade-envs/outputs )

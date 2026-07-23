@@ -8,13 +8,14 @@ mod verifiers;
 use clap::Parser;
 use elements::{protocol_version::ProtocolVersion, UpgradeOutput};
 
-// Current top of release-v28 branch
-const DEFAULT_CONTRACTS_COMMIT: &str = "9fcd28238cf749462b22e513a9f545008637f301";
-// Current commit on top of main
-const DEFAULT_ERA_COMMIT: &str = "b7aeab64ce5c915233a773542ef64e79bf3893ee";
+// era-contracts `main` used to build the v29.5 mainnet verifier upgrade.
+// Note: the deployed L1VerifierFflonk/L1VerifierPlonk carry regenerated
+// verification keys that are not part of this commit — their init-code hashes
+// are registered explicitly in `BytecodeVerifier::init_from_github`.
+const DEFAULT_CONTRACTS_COMMIT: &str = "fd129fe7f7a476cbf76d64a675d0c3361479f646";
 
-pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.28.0";
-pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.27.0";
+pub(crate) const EXPECTED_NEW_PROTOCOL_VERSION_STR: &str = "0.29.5";
+pub(crate) const EXPECTED_OLD_PROTOCOL_VERSION_STR: &str = "0.29.4";
 pub(crate) const MAX_NUMBER_OF_ZK_CHAINS: u32 = 100;
 pub(crate) const MAX_PRIORITY_TX_GAS_LIMIT: u32 = 72_000_000;
 
@@ -32,10 +33,6 @@ struct Args {
     #[clap(short, long)]
     ecosystem_yaml: String,
 
-    // Commit from zksync-era repository (used for genesis verification)
-    #[clap(long, default_value = DEFAULT_ERA_COMMIT)]
-    era_commit: String,
-
     // Commit from era-contracts - used for bytecode verification
     #[clap(long, default_value = DEFAULT_CONTRACTS_COMMIT)]
     contracts_commit: String,
@@ -47,9 +44,9 @@ struct Args {
     #[clap(long)]
     l1_rpc: String,
 
-    // GW RPC
+    // GW RPC. Only needed when the upgrade has a Gateway leg (gateway_chain_id != 0).
     #[clap(long)]
-    gw_rpc: String,
+    gw_rpc: Option<String>,
 
     // If L2 RPC is not available, you can provide l2 chain id instead.
     #[clap(long)]
@@ -79,7 +76,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let verifiers = Verifiers::new(
         args.testnet_contracts,
         args.bridgehub_address.clone(),
-        &args.era_commit,
         &args.contracts_commit,
         args.l1_rpc,
         args.gw_rpc,
@@ -99,16 +95,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.display_upgrade_data.unwrap_or_default() {
         println!(
             "Stage0 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage0_calls)
+            encode_upgrade_data(&config.governance_calls.stage0_calls)
         );
 
         println!(
             "Stage1 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage1_calls)
+            encode_upgrade_data(&config.governance_calls.stage1_calls)
         );
         println!(
             "Stage2 encoded upgrade data = {}",
-            encode_upgrade_data(&config.governance_calls.governance_stage2_calls)
+            encode_upgrade_data(&config.governance_calls.stage2_calls)
         );
     }
 

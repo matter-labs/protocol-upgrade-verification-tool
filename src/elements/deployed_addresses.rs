@@ -222,12 +222,18 @@ const EXPECTED_GATEWAY_FACETS: [BasicFacetInfo; 4] = [
 
 #[derive(Debug, Deserialize)]
 pub struct DeployedAddresses {
+    #[allow(dead_code)]
     pub(crate) native_token_vault_implementation_addr: Address,
 
+    #[allow(dead_code)]
     pub(crate) validator_timelock_addr: Address,
+    #[allow(dead_code)]
     pub(crate) l1_bytecodes_supplier_addr: Address,
+    #[allow(dead_code)]
     pub(crate) l1_transitionary_owner: Address,
+    #[allow(dead_code)]
     pub(crate) l1_rollup_da_manager: Address,
+    #[allow(dead_code)]
     pub(crate) rollup_l1_da_validator_addr: Address,
     #[allow(dead_code)]
     pub(crate) validium_l1_da_validator_addr: Address,
@@ -483,11 +489,13 @@ impl DeployedAddresses {
         let l1_asset_router =
             L1AssetRouter::new(bridgehub_info.l1_asset_router_proxy_addr, provider);
         let current_owner = l1_asset_router.owner().call().await?.owner;
-        if current_owner != config.protocol_upgrade_handler_proxy_address {
-            result.report_error(&format!(
-                "L1AssetRouter owner mismatch: {} vs {}",
-                current_owner, config.protocol_upgrade_handler_proxy_address
-            ));
+        if let Some(expected_owner) = config.protocol_upgrade_handler_proxy_address {
+            if current_owner != expected_owner {
+                result.report_error(&format!(
+                    "L1AssetRouter owner mismatch: {} vs {}",
+                    current_owner, expected_owner
+                ));
+            }
         }
 
         let legacy_bridge = l1_asset_router.legacyBridge().call().await?.legacyBridge;
@@ -542,17 +550,19 @@ impl DeployedAddresses {
         result: &mut crate::verifiers::VerificationResult,
     ) -> Result<()> {
         const MAX_NUMBER_OF_CHAINS: usize = 100;
-        result.expect_create2_params(
-            verifiers,
-            &self.bridgehub.bridgehub_implementation_addr,
-            BridgehubImpl::constructorCall::new((
-                U256::from(config.l1_chain_id),
-                config.protocol_upgrade_handler_proxy_address,
-                U256::from(MAX_NUMBER_OF_CHAINS),
-            ))
-            .abi_encode(),
-            "l1-contracts/Bridgehub",
-        );
+        if let Some(upgrade_handler_addr) = config.protocol_upgrade_handler_proxy_address {
+            result.expect_create2_params(
+                verifiers,
+                &self.bridgehub.bridgehub_implementation_addr,
+                BridgehubImpl::constructorCall::new((
+                    U256::from(config.l1_chain_id),
+                    upgrade_handler_addr,
+                    U256::from(MAX_NUMBER_OF_CHAINS),
+                ))
+                .abi_encode(),
+                "l1-contracts/Bridgehub",
+            );
+        }
         Ok(())
     }
 
@@ -767,6 +777,92 @@ impl DeployedAddresses {
         Ok((facets_to_remove, facets_to_add))
     }
 
+    /// Verifies only the verifier-related deployed addresses for a verifier-only upgrade.
+    ///
+    /// In a verifier-only upgrade, we only deploy and verify:
+    /// - L1 Verifier contracts (plonk, fflonk, dual verifier)
+    /// - Gateway Verifier contracts (plonk, fflonk, dual verifier)
+    pub async fn verify_verifier_only(
+        &self,
+        config: &UpgradeOutput,
+        verifiers: &crate::verifiers::Verifiers,
+        result: &mut crate::verifiers::VerificationResult,
+    ) -> anyhow::Result<()> {
+        result.print_info("== Verifying deployed addresses (Verifier-Only) ==");
+
+        // Verify L1 verifier contracts
+        result.expect_create2_params(
+            verifiers,
+            &self.state_transition.verifier_plonk_addr,
+            Vec::new(),
+            "l1-contracts/L1VerifierPlonk",
+        );
+
+        result.expect_create2_params(
+            verifiers,
+            &self.state_transition.verifier_fflonk_addr,
+            Vec::new(),
+            "l1-contracts/L1VerifierFflonk",
+        );
+
+        let expected_constructor_params = DualVerifier::constructorCall::new((
+            self.state_transition.verifier_fflonk_addr,
+            self.state_transition.verifier_plonk_addr,
+        ))
+        .abi_encode();
+
+        result.expect_create2_params(
+            verifiers,
+            &self.state_transition.verifier_addr,
+            expected_constructor_params,
+            if verifiers.testnet_contracts {
+                "l1-contracts/TestnetVerifier"
+            } else {
+                "l1-contracts/DualVerifier"
+            },
+        );
+
+        // Verify Gateway verifier contracts (only when the upgrade has a Gateway leg)
+        if config.gateway.gateway_state_transition.verifier_addr != Address::ZERO {
+            result.expect_create2_params(
+                verifiers,
+                &config.gateway.gateway_state_transition.verifier_plonk_addr,
+                Vec::new(),
+                "l1-contracts/L1VerifierPlonk",
+            );
+
+            result.expect_create2_params(
+                verifiers,
+                &config.gateway.gateway_state_transition.verifier_fflonk_addr,
+                Vec::new(),
+                "l1-contracts/L1VerifierFflonk",
+            );
+
+            let expected_gw_constructor_params = DualVerifier::constructorCall::new((
+                config.gateway.gateway_state_transition.verifier_fflonk_addr,
+                config.gateway.gateway_state_transition.verifier_plonk_addr,
+            ))
+            .abi_encode();
+
+            result.expect_create2_params(
+                verifiers,
+                &config.gateway.gateway_state_transition.verifier_addr,
+                expected_gw_constructor_params,
+                if verifiers.testnet_contracts {
+                    "l1-contracts/TestnetVerifier"
+                } else {
+                    "l1-contracts/DualVerifier"
+                },
+            );
+        } else {
+            result.print_info("No Gateway leg in this upgrade — skipping GW verifier checks");
+        }
+
+        result.report_ok("Verifier-only deployed addresses verified");
+        Ok(())
+    }
+
+    #[allow(dead_code)]
     pub async fn verify(
         &self,
         config: &UpgradeOutput,

@@ -208,6 +208,32 @@ impl BytecodeVerifier {
             "TransparentProxyAdmin".to_string(),
         );
 
+        // v29.5 verifier contracts with the regenerated verification keys.
+        //
+        // The deployed L1VerifierFflonk/L1VerifierPlonk are built from era-contracts
+        // `main` @ fd129fe7 with the VK constants transplanted from the public commit
+        // ddfe9329d0002ea08c89b109e6787851589ca595 (which carries the same keys in the
+        // v31 layout as EraVerifierFflonk/EraVerifierPlonk). No public commit contains
+        // them in the pre-v31 layout, so AllContractsHashes.json can't resolve them and
+        // we register their init-code hashes explicitly. Both contracts are verified on
+        // Etherscan:
+        // https://etherscan.io/address/0x9f5C39a2790f38542065E7854b90407371923375#code
+        init_bytecode_file_by_hash.insert(
+            FixedBytes::<32>::from_hex(
+                "0xe8c6e3cc1cd7a1edb130fa24fbc13e65a5c86ae3e8797a7defa4e33818948dff",
+            )
+            .unwrap(),
+            "l1-contracts/L1VerifierFflonk".to_string(),
+        );
+        // https://etherscan.io/address/0xd22cA89e8991FCE568456914c616d303e3142395#code
+        init_bytecode_file_by_hash.insert(
+            FixedBytes::<32>::from_hex(
+                "0xef89c68d16c850ea4efb124afe0855fc54987a12d34fd84ceb03f924f6eacf5b",
+            )
+            .unwrap(),
+            "l1-contracts/L1VerifierPlonk".to_string(),
+        );
+
         Self {
             init_bytecode_file_by_hash,
             deployed_bytecode_file_by_hash,
