@@ -5,8 +5,11 @@ protocol version `0.29.4` (`124554051588`) → `0.29.5` (`124554051589`).
 The upgrade replaces only the FFLONK/PLONK verifiers (new verification keys); facets,
 genesis parameters and force deployments are unchanged.
 
-- **Contracts source:** era-contracts `main` @ `fd129fe7` + new v29.5 verification keys
-  (build commit `669b9c93`)
+- **Contracts source:** era-contracts branch `vb-v29.5-verifier-keys`
+  ([PR #2337](https://github.com/matter-labs/era-contracts/pull/2337)) = `main` @ `fd129fe7`
+  + new v29.5 verification keys in the pre-v31 layout (build commit `669b9c93`,
+  keys from [PR #2321](https://github.com/matter-labs/era-contracts/pull/2321));
+  hashes commit `71cd02a9` is CI-authored
 - **Deployer:** `0x0ECbc04414B2890695BcD5864e3b23303D9f85ec` via the deterministic
   CREATE2 factory `0x4e59b44847b379578588920cA78FbF26c0B4956C` (all 6 deployment
   transactions landed in block `25590598`, see `transactions` in the yaml)
@@ -42,7 +45,7 @@ Chain-level execution for Era (`upgradeChainFromVersion` on
 From the repo root (branch `vb-v0.29.5`):
 
 ```
-cargo run -- --ecosystem-yaml data/v29.5-verifier-upgrade/mainnet/v29.5-ecosystem.yaml --l1-rpc "$MAINNET_RPC" --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --contracts-commit fd129fe7f7a476cbf76d64a675d0c3361479f646
+cargo run -- --ecosystem-yaml data/v29.5-verifier-upgrade/mainnet/v29.5-ecosystem.yaml --l1-rpc "$MAINNET_RPC" --era-chain-id 324 --bridgehub-address 0x303a465B659cBB0ab36eE643eA362c509EEb5213 --contracts-commit 71cd02a96bd7f0ca12ec70aed601ed2d643ccc92
 ```
 
 Expected output: all `[OK]` and a final `OK - result:` line (no errors/warnings).
